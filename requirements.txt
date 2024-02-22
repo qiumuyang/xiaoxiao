@@ -1,0 +1,6 @@
+numpy
+opencv-python>=4.5.4.58
+Pillow==9.5.0
+pymixbox==2.0.0
+pyphen>=0.13.2
+typing_extensions
