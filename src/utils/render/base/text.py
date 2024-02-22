@@ -96,6 +96,8 @@ class RenderText(Cacheable):
                                   mode="RGBA",
                                   stroke_width=self.stroke_width,
                                   anchor="ls")
+        # ascent: distance from the top to the baseline
+        # descent: distance from the baseline to the bottom
         ascent, descent = font.getmetrics()
         width = r - l
         height = ascent + descent + self.stroke_width * 2

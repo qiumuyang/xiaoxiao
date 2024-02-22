@@ -154,5 +154,4 @@ class RectCrop(Crop):
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
-        cv2.imwrite('mask.png', mask)
         return mask

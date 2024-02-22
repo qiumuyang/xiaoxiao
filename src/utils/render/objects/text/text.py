@@ -259,3 +259,46 @@ class Text(RenderObject):
             alignment=self.alignment,
             spacing=self.line_spacing,
         )
+
+
+class FontSizeAdaptableText(Text):
+    """Text with font size adaptable to the specified size.
+
+    Choose the maximum font size that fits.
+    """
+
+    @classmethod
+    def of(cls,
+           text: str,
+           font: PathLike,
+           font_range: tuple[int, int],
+           max_size: tuple[int, int] | None = None,
+           alignment: Alignment = Alignment.START,
+           color: Color | None = None,
+           stroke_width: int = 0,
+           stroke_color: Color | None = None,
+           line_spacing: int = 0,
+           hyphenation: bool = True,
+           text_decoration: TextDecoration = TextDecoration.NONE,
+           text_decoration_thickness: int = -1,
+           shading: Color = Palette.TRANSPARENT,
+           **kwargs: Unpack[BaseStyle]) -> Text:
+        s_font, e_font = font_range
+        if s_font > e_font:
+            s_font, e_font = e_font, s_font
+        if not max_size:
+            return Text.of(text, font, s_font, None, alignment, color,
+                           stroke_width, stroke_color, line_spacing,
+                           hyphenation, text_decoration,
+                           text_decoration_thickness, shading, **kwargs)
+
+        max_width, max_height = max_size
+        for size in range(e_font, s_font, -1):
+            temp = Text.of(text, font, size, max_width, alignment, color,
+                           stroke_width, stroke_color, line_spacing,
+                           hyphenation, text_decoration,
+                           text_decoration_thickness, shading, **kwargs)
+            if temp.height <= max_height:
+                return temp
+        raise ValueError(
+            "Unable to find a font size that fits the given size.")

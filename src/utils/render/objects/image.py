@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Generator
 
+from PIL import Image as PILImage
 from typing_extensions import Self, Unpack, override
 
 from ..base import BaseStyle, Color, RenderImage, RenderObject, volatile
@@ -69,12 +70,15 @@ class Image(RenderObject):
         return Image(im, **kwargs)
 
     @classmethod
-    def from_image(cls, im: RenderImage, **kwargs: Unpack[BaseStyle]) -> Self:
+    def from_image(cls, im: RenderImage | PILImage.Image,
+                   **kwargs: Unpack[BaseStyle]) -> Self:
         """Create a new Image from an existing RenderImage.
 
         Note:
             Copy is used to cut off the reference to the original RenderImage.
         """
+        if isinstance(im, PILImage.Image):
+            return Image(RenderImage.from_pil(im), **kwargs)
         return Image(im.copy(), **kwargs)
 
     @classmethod

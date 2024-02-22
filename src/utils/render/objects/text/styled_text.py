@@ -85,7 +85,8 @@ class StyledText(RenderObject):
     def render_content(self) -> RenderImage:
         rendered_lines: list[RenderImage] = []
         for line in self.cut():
-            rendered_lines.append(self.text_concat(line))
+            if line:
+                rendered_lines.append(self.text_concat(line))
         return RenderImage.concat_vertical(
             rendered_lines,
             alignment=self.alignment,
@@ -159,9 +160,12 @@ class StyledText(RenderObject):
         line_buffer: list[RenderText] = []
         for block, style in blocks:
             # load style properties
-            font_path = Undefined.default(str(style.font), "")
-            font_size = Undefined.default(style.size, 0)
-            font = ImageFont.truetype(font_path, font_size)
+            if style.font is undefined:
+                font = ImageFont.load_default()
+            else:
+                font_path = Undefined.default(str(style.font), "")
+                font_size = Undefined.default(style.size, 0)
+                font = ImageFont.truetype(font_path, font_size)
             color = Undefined.default(style.color, None)
             stroke_width = Undefined.default(style.stroke_width, 0)
             stroke_color = Undefined.default(style.stroke_color, None)

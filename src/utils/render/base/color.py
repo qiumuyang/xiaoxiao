@@ -8,10 +8,15 @@ except ImportError as e:
          "using linear blend as fallback.")
     lerp = None
 
+import colorsys
 from random import randint
-from typing import Generator, NamedTuple
+from typing import TYPE_CHECKING, Generator, NamedTuple
 
+from PIL import Image
 from typing_extensions import Self
+
+if TYPE_CHECKING:
+    from .image import RenderImage
 
 
 class Color(NamedTuple):
@@ -240,3 +245,48 @@ class Palette:
         for _, color in cls.named_colors():
             if isinstance(color, Color):
                 yield color
+
+    @classmethod
+    def dominant(cls,
+                 image: RenderImage | Image.Image,
+                 sample: int = 128) -> Color:
+        if isinstance(image, Image.Image):
+            im = image
+        else:
+            im = image.to_pil()
+        im = im.convert("RGB").resize((sample, sample))
+
+        max_score = None
+        dominant_color = None
+
+        for count, (r, g, b) in im.getcolors(sample * sample):  # type: ignore
+            # Get color saturation, 0-1
+            saturation = colorsys.rgb_to_hsv(r / 255.0, g / 255.0,
+                                             b / 255.0)[1]
+
+            # Calculate luminance - integer YUV conversion from
+            # http://en.wikipedia.org/wiki/YUV
+            y = min(
+                abs(r * 2104 + g * 4130 + b * 802 + 4096 + 131072) >> 13, 235)
+
+            # Rescale luminance from 16-235 to 0-1
+            y = (y - 16.0) / (235 - 16)
+
+            # Ignore the brightest colors
+            if y > 0.9:
+                continue
+
+            # Calculate the score, preferring highly saturated colors.
+            # Add 0.1 to the saturation, so we don't completely ignore grayscale
+            # colors by multiplying the count by zero, but still give them a low
+            # weight.
+            score = (saturation + 0.1) * count
+
+            if not max_score or score > max_score:
+                max_score = score
+                dominant_color = r, g, b
+
+        if dominant_color is None:
+            dominant_color = 255, 255, 255
+
+        return Color.of(*dominant_color)
