@@ -28,10 +28,12 @@ def get_seed(user_id: int, date: str) -> int:
 
 
 def get_fortune(
-        user_id: int,
-        user_name: str,
-        date: datetime = datetime.now(),
+    user_id: int,
+    user_name: str,
+    date: datetime | None = None,
 ) -> Fortune:
+    if date is None:
+        date = datetime.now()
     date_str = date.strftime("%Y-%m-%d")
     rng = np.random.default_rng(seed=get_seed(user_id, date_str))
 
