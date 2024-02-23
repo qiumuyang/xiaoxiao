@@ -249,7 +249,14 @@ class Palette:
     @classmethod
     def dominant(cls,
                  image: RenderImage | Image.Image,
+                 y_thresh: float = 0.95,
                  sample: int = 128) -> Color:
+        """Find the dominant color in an image.
+
+        Args:
+            y_thresh: luminance threshold to ignore the brightest colors.
+            sample: resize the image to this size before processing.
+        """
         if isinstance(image, Image.Image):
             im = image
         else:
@@ -273,7 +280,7 @@ class Palette:
             y = (y - 16.0) / (235 - 16)
 
             # Ignore the brightest colors
-            if y > 0.9:
+            if y > y_thresh:
                 continue
 
             # Calculate the score, preferring highly saturated colors.
