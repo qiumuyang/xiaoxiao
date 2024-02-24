@@ -8,7 +8,7 @@ from PIL import Image
 
 from src.ext import logger_wrapper
 
-log = logger_wrapper("Avatar")
+logger = logger_wrapper(__name__)
 
 
 class Avatar:
@@ -54,7 +54,7 @@ class Avatar:
                                             timeout=cls.TIMEOUT)
         except Exception as e:
             type_ = "User" if not is_group else "Group"
-            log.error(f"{type_} {id} avatar fetch failed", e)
+            logger.error(f"{type_} {id} avatar fetch failed", e)
             avatar = None
         return avatar if avatar else default or Image.new(
             "RGB", cls.DEFAULT_SIZE, cls.DEFAULT_COLOR)

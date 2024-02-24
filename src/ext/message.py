@@ -1,12 +1,12 @@
 from io import BytesIO
 from pathlib import Path
 
-import nonebot.adapters.onebot.v11 as v11
+from nonebot.adapters.onebot.v11 import MessageSegment as _MessageSegment
 from PIL import Image
 from typing_extensions import override
 
 
-class MessageSegment(v11.MessageSegment):
+class MessageSegment(_MessageSegment):
 
     @classmethod
     @override
@@ -17,7 +17,7 @@ class MessageSegment(v11.MessageSegment):
         cache: bool = True,
         proxy: bool = True,
         timeout: int | None = None,
-    ) -> v11.MessageSegment:
+    ) -> _MessageSegment:
         if isinstance(image, Image.Image):
             io = BytesIO()
             image.save(io, format="PNG")
@@ -25,4 +25,4 @@ class MessageSegment(v11.MessageSegment):
             file = io
         else:
             file = image
-        return v11.MessageSegment.image(file, type_, cache, proxy, timeout)
+        return _MessageSegment.image(file, type_, cache, proxy, timeout)
