@@ -20,5 +20,5 @@ async def _(bot: Bot, event: MessageEvent):
     else:
         user_name = event.sender.card or event.sender.nickname or str(user_id)
     fortune = get_fortune(user_id, user_name)
-    image = FortuneRender.render(fortune)
+    image = await FortuneRender.render(fortune)
     await matcher.finish(MessageSegment.image(image))

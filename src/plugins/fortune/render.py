@@ -104,8 +104,8 @@ class FortuneRender:
                                           spacing=space))
 
     @classmethod
-    def render(cls, fortune: Fortune) -> PILImage:
-        raw_avatar = Avatar.user(fortune["user_id"])
+    async def render(cls, fortune: Fortune) -> PILImage:
+        raw_avatar = await Avatar.user(fortune["user_id"])
         raw_avatar = raw_avatar.resize((cls.SZ, cls.SZ))
 
         theme = Palette.dominant(raw_avatar)

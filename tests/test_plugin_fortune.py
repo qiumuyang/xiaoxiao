@@ -1,6 +1,9 @@
+import asyncio
 import random
 import string
 from datetime import datetime
+
+import pytest
 
 from src.plugins.fortune.fortune import EVENT, get_fortune, get_seed
 from src.plugins.fortune.render import FortuneRender
@@ -30,8 +33,10 @@ def test_fortune():
         assert len(set(f2["event_good"] + f2["event_bad"])) == 6
 
 
-def test_fortune_render_fuzzy():
+@pytest.mark.asyncio
+async def test_fortune_render_fuzzy():
     max_len = 50
+    coros = []
     for l in range(1, min(max_len, len(string.printable)), 2):
         name = string.printable[:l]
         uid = random.randint(1000000000, 10000000000)
@@ -40,7 +45,7 @@ def test_fortune_render_fuzzy():
                         day=random.randint(1, 28)).strftime("%Y-%m-%d")
         good: list[str] = random.sample(EVENT, 3)
         bad: list[str] = random.sample(EVENT, 3)
-        FortuneRender.render({
+        coro = FortuneRender.render({
             "user_id": uid,
             "user_name": name,
             "date": date,
@@ -49,3 +54,6 @@ def test_fortune_render_fuzzy():
             "fortune": "大吉",
             "lucky_color": (255, 255, 255),
         })
+        coros.append(coro)
+
+    await asyncio.gather(*coros)
