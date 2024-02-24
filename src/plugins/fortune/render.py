@@ -17,7 +17,7 @@ class FortuneRender:
 
     SZ = 120
     AVATAR_RADIUS_D = 8
-    AVATAR_BORDER_D = 48
+    AVATAR_BORDER_D = 40
     AVATAR_SPACE_D = 8
     FORTUNE_RATIO = 0.75
     FORTUNE_ASPECT = 0.45
@@ -113,13 +113,16 @@ class FortuneRender:
         theme_dark = Palette.blend(theme, Palette.BLACK, 0.2)
 
         # upper part: avatar, name, date, lucky color
+        border = cls.SZ // cls.AVATAR_BORDER_D
+        # contour is a layer decoration
+        # margin is added to expand the canvas to contain the contour
         avatar = Image.from_image(
             raw_avatar,
+            margin=Space.all(border),
             decorations=Decorations.of(*[
                 RectCrop.of_square(border_radius=cls.SZ //
                                    cls.AVATAR_RADIUS_D),
-                Contour.of(color=theme_dark,
-                           thickness=cls.SZ // cls.AVATAR_BORDER_D)
+                Contour.of(color=theme_dark, thickness=border, dilation=1)
             ]))
 
         max_name_width = cls.SZ * 2

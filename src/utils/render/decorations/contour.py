@@ -59,7 +59,8 @@ class Contour(LayerDecoration):
     def render_layer(self, im: RenderImage, obj: RenderObject) -> RenderImage:
         base_a = cast[npt.NDArray[np.uint8]](im.base_im[:, :, 3])
         threshed = base_a > self.threshold
-        foreground = threshed.astype(np.uint8) * 255
+        # keep original alpha channel during dilation
+        foreground = np.where(threshed, base_a, 0).astype(np.uint8)
         if self.dilation > 0:
             foreground = cv2.dilate(
                 foreground, np.ones((self.dilation, self.dilation), np.uint8))
@@ -78,4 +79,6 @@ class Contour(LayerDecoration):
             self.thickness,
             cv2.LINE_AA,
         )
+        # add foreground alpha channel to layer
+        layer.base_im[:, :, 3] = 255 - foreground
         return layer
