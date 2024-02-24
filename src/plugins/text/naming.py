@@ -41,7 +41,7 @@ class SubcultureNamingMachine:
             random.choice(part) for part in SubcultureNamingMachine.PART)
 
 
-naming = on_command("取名")
+naming = on_command("取名", block=True)
 
 
 @naming.handle()
