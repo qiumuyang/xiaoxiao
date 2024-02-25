@@ -1,6 +1,6 @@
 import textwrap
 
-from PIL.Image import Image as PILImage
+from PIL import Image as PILImage
 
 from src.utils.image.avatar import Avatar
 from src.utils.render import *
@@ -104,9 +104,14 @@ class FortuneRender:
                                           spacing=space))
 
     @classmethod
-    async def render(cls, fortune: Fortune) -> PILImage:
+    async def render(cls, fortune: Fortune) -> PILImage.Image:
         raw_avatar = await Avatar.user(fortune["user_id"])
-        raw_avatar = raw_avatar.resize((cls.SZ, cls.SZ))
+        if raw_avatar is None:
+            # failed to get avatar
+            raw_avatar = PILImage.new("RGB", (cls.SZ, cls.SZ),
+                                      Palette.WHITE.to_rgb())
+        else:
+            raw_avatar = raw_avatar.resize((cls.SZ, cls.SZ))
 
         theme = Palette.dominant(raw_avatar)
         theme_light = Palette.blend(theme, Palette.WHITE, 0.3)
