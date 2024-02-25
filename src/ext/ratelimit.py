@@ -1,15 +1,17 @@
 import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TypeVar
-
-T = TypeVar("T")
+from enum import Enum
 
 
-class RateLimit(ABC):
+class RateLimiter(ABC):
 
     def __init__(self) -> None:
         self._wait_queue = asyncio.Queue()
+
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}"
+                f"(waiting={self._wait_queue.qsize()})")
 
     @abstractmethod
     def try_acquire(self) -> bool:
@@ -26,7 +28,7 @@ class RateLimit(ABC):
             pass
 
 
-class TokenBucketRateLimit(RateLimit):
+class TokenBucketRateLimiter(RateLimiter):
 
     __slots__ = ("capacity", "tokens", "refill_rate", "last_update")
 
@@ -51,3 +53,27 @@ class TokenBucketRateLimit(RateLimit):
         refill_count = time_elapsed.total_seconds() * self.refill_rate
         self.tokens = min(self.capacity, self.tokens + refill_count)
         self.last_update = now
+
+
+class RateLimitManager:
+
+    rate_limiters: dict[str, RateLimiter] = {}
+
+    @classmethod
+    def create_or_get(cls, key: str, rate_limit: type[RateLimiter], *args,
+                      **kwargs) -> RateLimiter:
+        if key not in cls.rate_limiters:
+            cls.rate_limiters[key] = rate_limit(*args, **kwargs)
+        return cls.rate_limiters[key]
+
+
+class RateLimitType(Enum):
+    """Rate limit type.
+
+    GROUP: 每个群内的所有用户使用同一个速率限制。
+    USER: 每个用户（无论在何处）使用同一个速率限制。
+    SESSION: 每个用户在不同群内使用独立的速率限制。
+    """
+    GROUP = "group"
+    USER = "user"
+    SESSION = "session"

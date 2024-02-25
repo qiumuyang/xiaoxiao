@@ -1,5 +1,4 @@
 from contextlib import AsyncExitStack
-from enum import Enum
 from typing import Literal, Union
 
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
@@ -8,31 +7,64 @@ from nonebot.internal.adapter import Bot, Event
 from nonebot.rule import Rule
 from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
 
-from .ratelimit import RateLimit, TokenBucketRateLimit
+from .ratelimit import RateLimitManager, RateLimitType, TokenBucketRateLimiter
 
 
-class RateLimitManager:
+class PostRule(Rule):
+    """适用于 `nonebot.matcher.Matcher` 的后置规则类。
 
-    rate_limiters: dict[str, RateLimit] = {}
+    当事件传递时，在 `nonebot.matcher.Matcher` 运行前，其余 `nonebot.rule.Rule` 通过后进行检查。
 
-    @classmethod
-    def create_or_get(cls, key: str, rate_limit: type[RateLimit], *args,
-                      **kwargs) -> RateLimit:
-        if key not in cls.rate_limiters:
-            cls.rate_limiters[key] = rate_limit(*args, **kwargs)
-        return cls.rate_limiters[key]
+    参数:
+        final_checker: 最终RuleChecker
+        checkers: 常规RuleChecker
 
-
-class RateLimitType(Enum):
-    """Rate limit type.
-
-    GROUP: 每个群内的所有用户使用同一个速率限制。
-    USER: 每个用户（无论在何处）使用同一个速率限制。
-    SESSION: 每个用户在不同群内使用独立的速率限制。
+    HACK: FIXME:
+    由于 `Rule` 的 `__call__` 方法利用 `asyncio.gather` 同时验证所有规则，`on_command` 等辅助函数通过
+    构造规则判断是否为对应事件处理器，如果要实现与具体事件处理器相关联的规则类，且包含对特定事件处理器产
+    生副作用的内容，则该规则必须在判断关联之后进行验证，因此需要在 `Rule` 的基础上实现后置规则。
     """
-    GROUP = "group"
-    USER = "user"
-    SESSION = "session"
+
+    __slots__ = ("checkers", "post_checker")
+
+    def __init__(
+        self,
+        post_checker: T_RuleChecker | Dependent[bool],
+        *checkers: T_RuleChecker | Dependent[bool],
+    ):
+        Rule.__init__(self, *checkers)
+        self.post_checker: Dependent[bool] = (post_checker if isinstance(
+            post_checker, Dependent) else Dependent[bool].parse(
+                call=post_checker, allow_types=self.HANDLER_PARAM_TYPES))
+
+    def __and__(self, other: Union[Rule, "PostRule", None]) -> "PostRule":
+        if other is None:
+            return self
+        return PostRule(self.post_checker, *self.checkers, *other.checkers)
+
+    def __rand__(self, other: Union[Rule, "PostRule", None]) -> "PostRule":
+        if other is None:
+            return self
+        return PostRule(self.post_checker, *other.checkers, *self.checkers)
+
+    async def __call__(
+        self,
+        bot: Bot,
+        event: Event,
+        state: T_State,
+        stack: AsyncExitStack | None = None,
+        dependency_cache: T_DependencyCache | None = None,
+    ) -> bool:
+        """先检查常规规则，再短路检查后置规则。"""
+        precondition = await Rule.__call__(self, bot, event, state, stack,
+                                           dependency_cache)
+        return precondition and await self.post_checker(
+            bot=bot,
+            event=event,
+            state=state,
+            stack=stack,
+            dependency_cache=dependency_cache,
+        )
 
 
 class RateLimitRule:
@@ -65,81 +97,41 @@ class RateLimitRule:
     def __hash__(self) -> int:
         return hash((self.key, self.type, self.block))
 
+    @classmethod
+    def get_message_event_id(
+        cls,
+        event: MessageEvent,
+        type: RateLimitType,
+    ) -> str | None:
+        match type:
+            case RateLimitType.GROUP:
+                return f"group_{event.group_id}" if isinstance(
+                    event, GroupMessageEvent) else None
+            case RateLimitType.USER:
+                return f"user_{event.user_id}"
+            case RateLimitType.SESSION:
+                return event.get_session_id()
+            case _:
+                raise NotImplementedError
+
     async def __call__(self, event: MessageEvent) -> bool:
-        if self.type == RateLimitType.GROUP:
-            if not isinstance(event, GroupMessageEvent):
-                return False
-            id = str(event.group_id)
-        elif self.type == RateLimitType.USER:
-            id = str(event.user_id)
-        else:
-            id = event.get_session_id()
+        """此处调用流量控制器，返回是否通过流量控制。
+
+        若不使用后置规则，则任意消息事件都会尝试 `acquire`，
+        成为对于全局消息的流量控制。
+        """
+        id = self.get_message_event_id(event, self.type)
+        if id is None:
+            return False
         rate_limiter = RateLimitManager.create_or_get(
             key=self.key + id,
-            rate_limit=TokenBucketRateLimit,
+            rate_limit=TokenBucketRateLimiter,
             capacity=self.concurrency,
             refill_rate=self.concurrency / self.seconds)
         if self.block:
             await rate_limiter.acquire()
             return True
-        ret = rate_limiter.try_acquire()
-        return ret
-
-
-class PostRule(Rule):
-    """适用于 `nonebot.matcher.Matcher` 的后置规则类。
-
-    当事件传递时，在 `nonebot.matcher.Matcher` 运行前，其余 `nonebot.rule.Rule` 通过后进行检查。
-
-    参数:
-        final_checker: 最终RuleChecker
-        checkers: 常规RuleChecker
-
-    HACK: FIXME: 由于 `Rule` 的 `__call__` 方法利用 `asyncio.gather` 同时验证所有规则，
-    `on_command` 等辅助函数通过构造规则判断是否为对应指令。流量控制规则对于每个事件响应器是独立的，
-    需要在常规规则验证完毕当前事件响应器属于对应流量控制规则后，进行流量检测 `try_acquire` 或 `acquire`；
-    否则，任意事件都会提前触发流量检测，导致流量控制异常。
-    """
-
-    __slots__ = ("checkers", "post_checker")
-
-    def __init__(
-        self,
-        post_checker: T_RuleChecker | Dependent[bool],
-        *checkers: T_RuleChecker | Dependent[bool],
-    ):
-        Rule.__init__(self, *checkers)
-        self.post_checker: Dependent[bool] = (post_checker if isinstance(
-            post_checker, Dependent) else Dependent[bool].parse(
-                call=post_checker, allow_types=self.HANDLER_PARAM_TYPES))
-
-    def __and__(self, other: Union[Rule, "PostRule", None]) -> "PostRule":
-        if other is None:
-            return self
-        return PostRule(self.post_checker, *self.checkers, *other.checkers)
-
-    def __rand__(self, other: Union[Rule, "PostRule", None]) -> "PostRule":
-        if other is None:
-            return self
-        return PostRule(self.post_checker, *other.checkers, *self.checkers)
-
-    async def __call__(
-            self,
-            bot: Bot,
-            event: Event,
-            state: T_State,
-            stack: AsyncExitStack | None = None,
-            dependency_cache: T_DependencyCache | None = None) -> bool:
-        """先检查常规规则，再短路检查后置规则。"""
-        precondition = await Rule.__call__(self, bot, event, state, stack,
-                                           dependency_cache)
-        return precondition and await self.post_checker(
-            bot=bot,
-            event=event,
-            state=state,
-            stack=stack,
-            dependency_cache=dependency_cache,
-        )
+        return rate_limiter.try_acquire()
 
 
 def ratelimit(
