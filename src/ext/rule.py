@@ -143,3 +143,32 @@ def ratelimit(
 ) -> PostRule:
     return PostRule(
         RateLimitRule(key, RateLimitType(type), seconds, concurrency, block))
+
+
+class RateLimit:
+    """适用于 `nonebot.params.Depends` 的流量控制子依赖。
+
+    `ratelimit` 规则用于事件响应器前的流量控制，将流量检测行为封装在规则内部。
+    然而，有时我们需要显式在事件响应器内部进行流量控制，此时可以使用`RateLimit`子依赖，
+    通过 `typing.Annotated[RateLimiter, Depends(RateLimit(...))]` 完成依赖注入获取流量控制器。
+    """
+
+    def __init__(
+        self,
+        key: str,
+        type: RateLimitType | Literal["group", "user", "session"],
+        seconds: float,
+        concurrency: int = 1,
+    ):
+        self.key = key
+        self.type = RateLimitType(type)
+        self.seconds = seconds
+        self.concurrency = concurrency
+
+    def __call__(self, event: MessageEvent) -> RateLimiter | None:
+        id = RateLimitRule.get_message_event_id(event, self.type)
+        return RateLimitManager.create_or_get(
+            key=self.key + id,
+            rate_limit=TokenBucketRateLimiter,
+            capacity=self.concurrency,
+            refill_rate=self.concurrency / self.seconds) if id else None
