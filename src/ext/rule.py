@@ -7,7 +7,8 @@ from nonebot.internal.adapter import Bot, Event
 from nonebot.rule import Rule
 from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
 
-from .ratelimit import RateLimitManager, RateLimitType, TokenBucketRateLimiter
+from .ratelimit import (RateLimiter, RateLimitManager, RateLimitType,
+                        TokenBucketRateLimiter)
 
 
 class PostRule(Rule):
