@@ -1,6 +1,6 @@
 from .style import TextStyle
 from .styled_text import StyledText
-from .text import Text, FontSizeAdaptableText
+from .text import FontSizeAdaptableText, Text
 
 __all__ = [
     "FontSizeAdaptableText",

@@ -15,7 +15,7 @@ class Spacer(RenderObject):
     @classmethod
     def of(cls, width: int = 0, height: int = 0) -> Self:
         """Create a spacer with given width or height."""
-        return Spacer(width, height)
+        return cls(width, height)
 
     @property
     @override
