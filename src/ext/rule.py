@@ -4,8 +4,9 @@ from typing import Literal, Union
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.dependencies import Dependent
 from nonebot.internal.adapter import Bot, Event
-from nonebot.rule import Rule
+from nonebot.rule import Rule, StartswithRule
 from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
+from typing_extensions import override
 
 from .ratelimit import (RateLimiter, RateLimitManager, RateLimitType,
                         TokenBucketRateLimiter)
@@ -38,16 +39,25 @@ class PostRule(Rule):
             post_checker, Dependent) else Dependent[bool].parse(
                 call=post_checker, allow_types=self.HANDLER_PARAM_TYPES))
 
-    def __and__(self, other: Union[Rule, "PostRule", None]) -> "PostRule":
+    @override
+    def __and__(  # type: ignore
+        self,
+        other: Union[Rule, "PostRule", None],
+    ) -> "PostRule":
         if other is None:
             return self
         return PostRule(self.post_checker, *self.checkers, *other.checkers)
 
-    def __rand__(self, other: Union[Rule, "PostRule", None]) -> "PostRule":
+    @override
+    def __rand__(  # type: ignore
+        self,
+        other: Union[Rule, "PostRule", None],
+    ) -> "PostRule":
         if other is None:
             return self
         return PostRule(self.post_checker, *other.checkers, *self.checkers)
 
+    @override
     async def __call__(
         self,
         bot: Bot,
@@ -173,3 +183,25 @@ class RateLimit:
             rate_limit=TokenBucketRateLimiter,
             capacity=self.concurrency,
             refill_rate=self.concurrency / self.seconds) if id else None
+
+
+class ReplyRule:
+
+    __slots__ = ("startswith")
+
+    def __init__(self, *startswith: str):
+        self.startswith = startswith
+
+    async def __call__(self, event: MessageEvent, state: T_State) -> bool:
+        if not event.reply:
+            return False
+        if self.startswith:
+            rule = StartswithRule(self.startswith)
+            if not await rule(event, state):
+                return False
+        state["reply"] = event.reply.model_copy()
+        return True
+
+
+def reply(*startswith: str) -> Rule:
+    return Rule(ReplyRule(*startswith))
