@@ -10,7 +10,7 @@ class MessageSegment(_MessageSegment):
 
     @classmethod
     @override
-    def image(
+    def image(  # type: ignore
         cls,
         image: str | bytes | BytesIO | Path | Image.Image,
         type_: str | None = None,
