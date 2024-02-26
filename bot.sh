@@ -22,11 +22,10 @@ create_tmux_session() {
 }
 
 bot_session="bot"
+start_bot="source .venv/bin/activate && nb run"
+start_lagrange="cd ~/Lagrange.Core/ && dotnet run --project Lagrange.OneBot --framework net8.0"
 
 start() {
-    local start_bot="source .venv/bin/activate && nb run"
-    local start_lagrange="cd ~/Lagrange.Core/ && dotnet run --project Lagrange.OneBot --framework net8.0"
-
     create_tmux_session "$bot_session" "$start_bot" "$start_lagrange"
 }
 
@@ -38,6 +37,20 @@ stop() {
     fi
 }
 
+restart() {
+    # only restart the bot, not the lagrange
+    tmux has-session -t "$bot_session" 2>/dev/null
+    if [ $? != 0 ]; then
+        echo "Bot is not running"
+        exit 1
+    fi
+
+    tmux send-keys -t "$bot_session:0.0" C-c
+    tmux send-keys -t "$bot_session:0.0" "$start_bot" C-m
+
+    tmux attach-session -t "$bot_session"
+}
+
 case "$1" in
 start)
     start
@@ -46,8 +59,7 @@ stop)
     stop
     ;;
 restart)
-    stop
-    start
+    restart
     ;;
 *)
     echo "Usage: $0 {start|stop}"

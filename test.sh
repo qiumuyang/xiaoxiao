@@ -4,4 +4,9 @@ source .venv/bin/activate
 
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 
-pytest -q --cov=src tests/
+# remove unused imports first
+isort -sl .
+autoflake --remove-all-unused-imports -i -r .
+isort .
+
+pytest -q --cov=src tests/ $@
