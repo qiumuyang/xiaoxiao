@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta
 from typing import TypedDict
 
+from nonebot.adapters.onebot.v11 import Message
+
 
 class MessageData(TypedDict):
     time: datetime
     recalled: bool
+    content: Message
 
 
 class SentMessageTracker:
@@ -26,12 +29,13 @@ class SentMessageTracker:
             }
 
     @classmethod
-    def add(cls, key: str, message_id: int) -> None:
+    def add(cls, key: str, message_id: int, content: Message) -> None:
         """Add a message to the sent message list."""
         cls._maintain(key)
         cls.sent.setdefault(key, {})[message_id] = {
             "time": datetime.now(),
             "recalled": False,
+            "content": content.copy(),
         }
 
     @classmethod
@@ -72,3 +76,26 @@ class SentMessageTracker:
                 removed_id = cls.remove(key, message_id)
                 if removed_id:
                     return removed_id
+
+    @classmethod
+    def contains(
+        cls,
+        message: str,
+        prefix: str = "",
+        exact: bool = True,
+        recent: timedelta | None = None,
+    ) -> bool:
+        """Check if the message is in the sent message list.
+
+        If prefix is specified, only check the messages with the prefix.
+        """
+        fn = lambda x, y: x == y if exact else x in y
+        now = datetime.now()
+        for key in cls.sent:
+            if key.startswith(prefix):
+                if any(
+                        fn(message, data["content"].extract_plain_text())
+                        for data in cls.sent[key].values()
+                        if recent is None or now - data["time"] < recent):
+                    return True
+        return False
