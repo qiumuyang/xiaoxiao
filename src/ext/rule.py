@@ -134,7 +134,7 @@ class RateLimitRule:
         id = self.get_message_event_id(event, self.type)
         if id is None:
             return False
-        rate_limiter = RateLimitManager.create_or_get(
+        rate_limiter = await RateLimitManager.create_or_get(
             key=self.key + id,
             rate_limit=TokenBucketRateLimiter,
             capacity=self.concurrency,
@@ -176,9 +176,9 @@ class RateLimit:
         self.seconds = seconds
         self.concurrency = concurrency
 
-    def __call__(self, event: MessageEvent) -> RateLimiter | None:
+    async def __call__(self, event: MessageEvent) -> RateLimiter | None:
         id = RateLimitRule.get_message_event_id(event, self.type)
-        return RateLimitManager.create_or_get(
+        return await RateLimitManager.create_or_get(
             key=self.key + id,
             rate_limit=TokenBucketRateLimiter,
             capacity=self.concurrency,
