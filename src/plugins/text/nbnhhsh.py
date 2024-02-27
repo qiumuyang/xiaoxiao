@@ -59,7 +59,10 @@ class AbbreviationTranslate:
 rate = ratelimit("abbr_trans", type="group", seconds=2)
 
 # lower priority than commands
-nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN, priority=2, rule=rate)
+nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN,
+                       priority=2,
+                       rule=rate,
+                       block=True)
 nbnhhsh_cmd = on_command("翻译缩写",
                          aliases={"nbnhhsh"},
                          rule=rate,
