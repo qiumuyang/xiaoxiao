@@ -1,13 +1,29 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import TypedDict
+from typing import Any, Awaitable, Callable
 
+import pymongo
 from nonebot.adapters.onebot.v11 import Message
 
+from src.ext import MessageSegment as ExtMessageSegment
+from src.ext import logger_wrapper
 
-class MessageData(TypedDict):
+from ..persistence import Collection, Mongo
+
+logger = logger_wrapper(__name__)
+
+
+@dataclass
+class MessageData:
+    session_id: str
+    message_id: int
     time: datetime
     recalled: bool
     content: Message
+
+
+ObjectId = str
+Sink = Callable[[ObjectId, MessageData], Awaitable[Any]]
 
 
 class SentMessageTracker:
@@ -15,87 +31,138 @@ class SentMessageTracker:
 
     TTL = timedelta(days=1)
 
-    sent: dict[str, dict[int, MessageData]] = {}
+    KEY = "sent_messages"
+
+    sent: Collection[dict, MessageData] = Mongo.collection(KEY)
+
+    sinks: list[Sink] = []
 
     @classmethod
-    def _maintain(cls, key: str) -> None:
+    def on_send(cls, sink: Sink) -> None:
+        logger.info(f"Registering {sink} to receive sent messages")
+        cls.sinks.append(sink)
+
+    @classmethod
+    async def _maintain(cls, session_id: str) -> None:
         """Maintain the sent message list by removing outdated messages."""
         now = datetime.now()
-        if key in cls.sent:
-            cls.sent[key] = {
-                id: message
-                for id, message in cls.sent[key].items()
-                if now - message["time"] < cls.TTL
+        expire = now - cls.TTL
+        await cls.sent.delete_many({
+            "session_id": session_id,
+            "time": {
+                "$lt": expire
             }
+        })
 
     @classmethod
-    def add(cls, key: str, message_id: int, content: Message) -> None:
+    async def add(
+        cls,
+        session_id: str,
+        message_id: int,
+        content: Message,
+    ) -> None:
         """Add a message to the sent message list."""
-        cls._maintain(key)
-        cls.sent.setdefault(key, {})[message_id] = {
-            "time": datetime.now(),
-            "recalled": False,
-            "content": content.copy(),
-        }
+        await cls._maintain(session_id)
+        data = MessageData(
+            session_id=session_id,
+            message_id=message_id,
+            time=datetime.now(),
+            recalled=False,
+            content=content.copy(),
+        )
+        result = await cls.sent.insert_one(data)
+        for sink in cls.sinks:
+            await sink(result.inserted_id, data)
 
     @classmethod
-    def remove(cls, key: str, message_id: int | None = None) -> int | None:
+    async def remove(cls,
+                     session_id: str,
+                     message_id: int | None = None) -> int | None:
         """Remove a message from the sent message list.
 
         If message_id is None, remove the last message.
 
         Returns the removed message_id if successful, otherwise None.
         """
-        cls._maintain(key)
-        recallable = {
-            message_id: data
-            for message_id, data in cls.sent[key].items()
-            if not data["recalled"]
-        }
-        if not recallable:
-            return
+        await cls._maintain(session_id)
         if message_id is None:
-            message_id, data = max(recallable.items(),
-                                   key=lambda x: x[1]["time"])
-        elif message_id not in cls.sent[key]:
-            return
+            cursor = cls.sent.find({
+                "session_id": session_id,
+                "recalled": False
+            }).sort("time", pymongo.DESCENDING).limit(1)
+            if doc := await cursor.to_list(1):
+                message_id = doc[0]["message_id"]
+                await cls.sent.update_one(
+                    filter={
+                        "session_id": session_id,
+                        "message_id": message_id,
+                    },
+                    update={"$set": {
+                        "recalled": True
+                    }},
+                )
+                return message_id
         else:
-            data = cls.sent[key][message_id]
-        if not data["recalled"]:
-            data["recalled"] = True
-            return message_id
+            update = await cls.sent.update_one(
+                filter={
+                    "session_id": session_id,
+                    "message_id": message_id,
+                },
+                update={"$set": {
+                    "recalled": True
+                }},
+            )
+            if update.matched_count:
+                return message_id
 
     @classmethod
-    def remove_prefix(cls, prefix: str, message_id: int) -> int | None:
+    async def remove_prefix(cls, prefix: str, message_id: int) -> int | None:
         """Remove a message from the sent message list by prefix.
 
         Returns the removed message_id if successful, otherwise None.
         """
-        for key in cls.sent:
-            if key.startswith(prefix):
-                removed_id = cls.remove(key, message_id)
-                if removed_id:
-                    return removed_id
+        update = await cls.sent.update_one(
+            filter={
+                "session_id": {
+                    "$regex": f"^{prefix}"
+                },
+                "message_id": message_id,
+            },
+            update={"$set": {
+                "recalled": True
+            }},
+        )
+        if update.matched_count:
+            return message_id
 
-    @classmethod
-    def contains(
-        cls,
-        message: str,
-        prefix: str = "",
-        exact: bool = True,
-        recent: timedelta | None = None,
-    ) -> bool:
-        """Check if the message is in the sent message list.
 
-        If prefix is specified, only check the messages with the prefix.
-        """
-        fn = lambda x, y: x == y if exact else x in y
-        now = datetime.now()
-        for key in cls.sent:
-            if key.startswith(prefix):
-                if any(
-                        fn(message, data["content"].extract_plain_text())
-                        for data in cls.sent[key].values()
-                        if recent is None or now - data["time"] < recent):
-                    return True
-        return False
+@SentMessageTracker.sent.serialize()
+def serialize(data: MessageData) -> dict:
+    segments = ExtMessageSegment.serialize(data.content)
+    return {
+        "session_id": data.session_id,
+        "message_id": data.message_id,
+        "time": data.time,
+        "recalled": data.recalled,
+        "content": segments,
+    }
+
+
+@SentMessageTracker.sent.deserialize(drop_id=True)
+def deserialize(data: dict) -> MessageData:
+    message = ExtMessageSegment.deserialize(data["content"])
+    return MessageData(
+        session_id=data["session_id"],
+        message_id=data["message_id"],
+        time=data["time"],
+        recalled=data["recalled"],
+        content=message,
+    )
+
+
+@SentMessageTracker.sent.filter()
+def _(data: MessageData) -> dict:
+    return {
+        "session_id": data.session_id,
+        "message_id": data.message_id,
+    }

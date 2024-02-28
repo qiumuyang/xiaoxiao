@@ -22,7 +22,7 @@ record_message = on_message(priority=0, block=False)
 record_unhandled_message = on_message(priority=255, block=True)
 
 recall_message = on_command("撤回", aliases={"快撤回"}, rule=to_me(), block=True)
-answer_ask = on_message(priority=2, block=True)
+answer_ask = on_command("问", force_whitespace=False, priority=2, block=True)
 
 check_reply = reply()
 
@@ -47,8 +47,8 @@ async def handle_api_result(bot: Bot, exception: Exception | None, api: str,
                 session_id = SESSION_GROUP.format(**data)
             else:
                 session_id = SESSION_USER.format(**data)
-            SentMessageTracker.add(session_id, result["message_id"],
-                                   data["message"])
+            await SentMessageTracker.add(session_id, result["message_id"],
+                                         data["message"])
 
 
 @recall_message.handle()
@@ -57,7 +57,7 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
 
     # directly called without reply specified
     if not await check_reply(bot, event, state):
-        message_id = SentMessageTracker.remove(session_id)
+        message_id = await SentMessageTracker.remove(session_id)
         if message_id is not None:
             await bot.delete_msg(message_id=message_id)
         await recall_message.finish()
@@ -68,14 +68,14 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
         await recall_message.finish()
     session_id, group_prefix = get_session_id(event)
     # user exact match
-    message_id = SentMessageTracker.remove(session_id, reply.message_id)
+    message_id = await SentMessageTracker.remove(session_id, reply.message_id)
     if message_id is not None:
         await bot.delete_msg(message_id=message_id)
         await recall_message.finish()
     perm = SUPERUSER | ADMIN
     if await perm(bot, event):
-        message_id = SentMessageTracker.remove_prefix(group_prefix,
-                                                      reply.message_id)
+        message_id = await SentMessageTracker.remove_prefix(
+            group_prefix, reply.message_id)
         if message_id is not None:
             await bot.delete_msg(message_id=message_id)
             await recall_message.finish()
@@ -87,11 +87,11 @@ async def _(event: GroupMessageEvent):
 
     Suppose the message will be handled by other handlers.
     """
-    ReceivedMessageTracker.add(event.group_id,
-                               event.message_id,
-                               event.message,
-                               handled=True)
-    await record_message.finish()
+    await ReceivedMessageTracker.add(event.group_id,
+                                     event.message_id,
+                                     event.message,
+                                     handled=True)
+    # should not finish here
 
 
 @record_unhandled_message.handle()
@@ -100,10 +100,10 @@ async def _(event: GroupMessageEvent):
 
     If the message goes through all handlers here, it is unhandled.
     """
-    ReceivedMessageTracker.add(event.group_id,
-                               event.message_id,
-                               event.message,
-                               handled=False)
+    await ReceivedMessageTracker.add(event.group_id,
+                                     event.message_id,
+                                     event.message,
+                                     handled=False)
     await record_unhandled_message.finish()
 
 
