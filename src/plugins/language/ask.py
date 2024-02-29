@@ -79,35 +79,56 @@ class Ask:
         self,
         length: int | None = None,
         startswith: str = "",
-    ) -> Entry:
+        all: bool = False,
+        sample: int = 5,
+    ) -> Entry | list[Entry]:
         cursor = Corpus.find(group_id=self.group_id,
                              length=length or (self.MIN_WHAT, self.MAX_WHAT),
-                             sample=5,
+                             sample=sample,
                              filter={"text": {
                                  "$regex": f"^{startswith}"
                              }} if startswith else None)
-        result = await cursor.to_list(length=5)
+        result = await cursor.to_list(length=sample)
         entries = [deserialize(doc) for doc in result]
         if entries:
-            return random.choice(entries)
+            return random.choice(entries) if not all else entries
         raise ValueError
 
     async def random_what(self, **kwargs) -> str:
-        entry = await self.random_what_entry(**kwargs)
-        await Corpus.use(entry)
-        return entry.text
+        try:
+            entry = await self.random_what_entry(**kwargs)
+            assert isinstance(entry, Entry)
+            await Corpus.use(entry)
+            return entry.text
+        except ValueError as e:
+            if kwargs.get("length") is None or kwargs["length"] > 2:
+                raise e
+            entries = await self.random_what_entry(all=True)
+            assert isinstance(entries, list)
+            if kwargs["length"] == 1:
+                return random.choice(entries[0].text)
+            if kwargs["length"] == 2:
+                words = [
+                    word for ent in entries for word, _ in ent.posseg
+                    if len(word) == kwargs["length"]
+                ]
+                if not words:
+                    raise e
+                return random.choice(words)
+        raise ValueError
 
     async def random_reason_entry(self, length: int | None = None) -> Entry:
         coroutines = [
-            self.random_what_entry(startswith="因为", length=length),
+            self.random_what_entry(startswith="因为",
+                                   length=length + 2 if length else None),
             self.random_what_entry(length=length),
         ]
         if random.random() < 0.5:
             coroutines.reverse()
         try:
-            return await coroutines[0]
+            return await coroutines[0]  # type: ignore
         except ValueError:
-            return await coroutines[1]
+            return await coroutines[1]  # type: ignore
 
     async def random_reason(self, **kwargs) -> str:
         entry = await self.random_reason_entry(**kwargs)
@@ -177,7 +198,6 @@ class Ask:
                         "，所以" if next_remain else "",
                     ]
                     generated = "".join(tokens)
-                logger.info(f"{word}: {is_why} {generated}")
                 yield generated
             elif word == "谁":
                 self.replacement = True
