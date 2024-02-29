@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 from typing import Any, Awaitable, Callable
 
 import pymongo
-from nonebot.adapters.onebot.v11 import Message
+from nonebot.adapters.onebot.v11 import (GroupMessageEvent, Message,
+                                         MessageEvent)
 
 from src.ext import MessageSegment as ExtMessageSegment
 from src.ext import logger_wrapper
@@ -28,6 +29,10 @@ Sink = Callable[[ObjectId, MessageData], Awaitable[Any]]
 
 class SentMessageTracker:
     """Tracks bot sent messages for recall and deletion."""
+
+    SESSION_GROUP = "group_{group_id}_{user_id}"
+    SESSION_GROUP_PREFIX = "group_{group_id}_"
+    SESSION_USER = "{user_id}"
 
     TTL = timedelta(days=1)
 
@@ -134,6 +139,22 @@ class SentMessageTracker:
         )
         if update.matched_count:
             return message_id
+
+    @classmethod
+    def get_session_id_or_prefix(cls, event: MessageEvent) -> tuple[str, str]:
+        if isinstance(event, GroupMessageEvent):
+            return (cls.SESSION_GROUP.format(group_id=event.group_id,
+                                             user_id=event.user_id),
+                    cls.SESSION_GROUP_PREFIX.format(group_id=event.group_id))
+        return cls.SESSION_USER.format(user_id=event.user_id), ""
+
+    @classmethod
+    def get_session_id(cls, data: dict[str, Any]) -> str:
+        user_id = data.get("user_id")
+        group_id = data.get("group_id")
+        if group_id is not None:
+            return cls.SESSION_GROUP.format(group_id=group_id, user_id=user_id)
+        return cls.SESSION_USER.format(user_id=user_id)
 
 
 @SentMessageTracker.sent.serialize()

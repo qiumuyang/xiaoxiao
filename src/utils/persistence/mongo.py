@@ -1,6 +1,7 @@
 from typing import Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar
 
-from motor.core import AgnosticCollection, AgnosticCursor
+from motor.core import (AgnosticCollection, AgnosticCommandCursor,
+                        AgnosticCursor)
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.results import (DeleteResult, InsertManyResult, InsertOneResult,
                              UpdateResult)
@@ -124,6 +125,14 @@ class Collection(Generic[D, T]):
     ) -> AgnosticCursor:
         return self.collection.find(filter, *args, **kwargs)
 
+    def aggregate(
+        self,
+        pipeline: list[dict[str, Any]],
+        *args,
+        **kwargs,
+    ) -> AgnosticCommandCursor:
+        return self.collection.aggregate(pipeline, *args, **kwargs)
+
     async def find_all(
         self,
         filter: dict[str, Any],
@@ -151,7 +160,6 @@ class Collection(Generic[D, T]):
         self,
         filter: dict[str, Any] | T,
         update: dict[str, Any] | T,
-        set: bool = True,
         *args,
         **kwargs,
     ) -> UpdateResult:

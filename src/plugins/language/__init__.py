@@ -14,10 +14,6 @@ from src.utils.message import ReceivedMessageTracker, SentMessageTracker
 
 from .ask import Ask
 
-SESSION_GROUP = "group_{group_id}_{user_id}"
-SESSION_GROUP_PREFIX = "group_{group_id}_"
-SESSION_USER = "{user_id}"
-
 record_message = on_message(priority=0, block=False)
 record_unhandled_message = on_message(priority=255, block=True)
 
@@ -25,14 +21,6 @@ recall_message = on_command("撤回", aliases={"快撤回"}, rule=to_me(), block
 answer_ask = on_command("问", force_whitespace=False, priority=2, block=True)
 
 check_reply = reply()
-
-
-def get_session_id(event: MessageEvent) -> tuple[str, str]:
-    if isinstance(event, GroupMessageEvent):
-        return (SESSION_GROUP.format(group_id=event.group_id,
-                                     user_id=event.user_id),
-                SESSION_GROUP_PREFIX.format(group_id=event.group_id))
-    return SESSION_USER.format(user_id=event.user_id), ""
 
 
 @Bot.on_called_api
@@ -43,17 +31,15 @@ async def handle_api_result(bot: Bot, exception: Exception | None, api: str,
 
     match api:
         case "send_msg":
-            if "group_id" in data:
-                session_id = SESSION_GROUP.format(**data)
-            else:
-                session_id = SESSION_USER.format(**data)
+            session_id = SentMessageTracker.get_session_id(data)
             await SentMessageTracker.add(session_id, result["message_id"],
                                          data["message"])
 
 
 @recall_message.handle()
 async def _(bot: Bot, event: MessageEvent, state: T_State):
-    session_id, group_prefix = get_session_id(event)
+    session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
+        event)
 
     # directly called without reply specified
     if not await check_reply(bot, event, state):
@@ -66,7 +52,9 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     reply: Reply = state["reply"]
     if str(reply.sender.user_id) != bot.self_id:  # bot.self_id is a string
         await recall_message.finish()
-    session_id, group_prefix = get_session_id(event)
+    session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
+        event)
+
     # user exact match
     message_id = await SentMessageTracker.remove(session_id, reply.message_id)
     if message_id is not None:
