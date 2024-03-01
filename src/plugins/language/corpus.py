@@ -47,6 +47,8 @@ class Entry:
 
 class Corpus:
 
+    SHARED_GROUP_ID = 1
+
     KEY = "corpus"
     corpus: Collection[dict, Entry] = Mongo.collection(KEY)
 
@@ -128,13 +130,9 @@ class Corpus:
                 }
             }]
         }
-        from_group = {
-            "group_id": {
-                "$in": group_id
-            }
-        } if isinstance(group_id, list) else {
-            "group_id": group_id
-        }
+        group_id = [group_id, cls.SHARED_GROUP_ID] if isinstance(
+            group_id, int) else group_id + [cls.SHARED_GROUP_ID]
+        from_group = {"group_id": {"$in": group_id}}
         if length is not None:
             text_length = {
                 "$expr": {

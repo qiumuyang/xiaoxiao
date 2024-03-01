@@ -15,13 +15,13 @@ logger = logger_wrapper(__name__)
 @dataclass
 class MessageData:
     time: datetime
+    user_id: int
     group_id: int
     message_id: int
     content: Message
     handled: bool
 
 
-MessageFilter = Callable[[MessageData], bool]
 MessageCollection = Collection[dict, MessageData]
 ObjectId = str
 Sink = Callable[[ObjectId | None, MessageData], Awaitable[Any]]
@@ -45,6 +45,7 @@ class ReceivedMessageTracker:
     @classmethod
     async def add(
         cls,
+        user_id: int,
         group_id: int,
         message_id: int,
         content: Message,
@@ -53,6 +54,7 @@ class ReceivedMessageTracker:
         """Add a message to the received message tracker."""
         data = MessageData(
             time=datetime.now(),
+            user_id=user_id,
             group_id=group_id,
             message_id=message_id,
             content=content,
@@ -72,12 +74,34 @@ class ReceivedMessageTracker:
         for sink in cls.sinks:
             await sink(result.inserted_id if result else None, data)
 
+    @classmethod
+    async def find(
+        cls,
+        group_id: int | list[int] = [],
+        user_id: int | list[int] = [],
+        since: datetime | None = None,
+    ) -> list[MessageData]:
+        """Find messages by group_id and user_id."""
+        filter = {}
+        if isinstance(group_id, int):
+            filter["group_id"] = group_id
+        elif group_id:
+            filter["group_id"] = {"$in": group_id}
+        if isinstance(user_id, int):
+            filter["user_id"] = user_id
+        elif user_id:
+            filter["user_id"] = {"$in": user_id}
+        if since:
+            filter["time"] = {"$gte": since}
+        return [data async for data in cls.received.find_all(filter=filter)]
+
 
 @ReceivedMessageTracker.received.serialize()
 def serialize(data: MessageData) -> dict:
     segments = ExtMessageSegment.serialize(data.content)
     return {
         "time": data.time,
+        "user_id": data.user_id,
         "group_id": data.group_id,
         "message_id": data.message_id,
         "content": segments,
@@ -90,6 +114,7 @@ def _(data: dict) -> MessageData:
     message = ExtMessageSegment.deserialize(data["content"])
     return MessageData(
         time=data["time"],
+        user_id=data["user_id"],
         group_id=data["group_id"],
         message_id=data["message_id"],
         content=message,

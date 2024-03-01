@@ -1,3 +1,6 @@
+import asyncio
+from collections import defaultdict
+from datetime import datetime
 from typing import Any
 
 from nonebot import on_command, on_message
@@ -9,7 +12,7 @@ from nonebot.rule import to_me
 from nonebot.typing import T_State
 
 from src.ext.permission import ADMIN, SUPERUSER
-from src.ext.rule import reply
+from src.ext.rule import ratelimit, reply
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
 
 from .ask import Ask
@@ -18,7 +21,15 @@ record_message = on_message(priority=0, block=False)
 record_unhandled_message = on_message(priority=255, block=True)
 
 recall_message = on_command("撤回", aliases={"快撤回"}, rule=to_me(), block=True)
-answer_ask = on_command("问", force_whitespace=False, priority=2, block=True)
+answer_ask = on_command("问",
+                        force_whitespace=False,
+                        priority=2,
+                        block=True,
+                        rule=ratelimit("问", type="user", seconds=2))
+message_rank = on_command("发言排行",
+                          force_whitespace=True,
+                          block=True,
+                          rule=ratelimit("发言排行", type="group", seconds=5))
 
 check_reply = reply()
 
@@ -75,7 +86,8 @@ async def _(event: GroupMessageEvent):
 
     Suppose the message will be handled by other handlers.
     """
-    await ReceivedMessageTracker.add(event.group_id,
+    await ReceivedMessageTracker.add(event.user_id,
+                                     event.group_id,
                                      event.message_id,
                                      event.message,
                                      handled=True)
@@ -88,7 +100,8 @@ async def _(event: GroupMessageEvent):
 
     If the message goes through all handlers here, it is unhandled.
     """
-    await ReceivedMessageTracker.add(event.group_id,
+    await ReceivedMessageTracker.add(event.user_id,
+                                     event.group_id,
                                      event.message_id,
                                      event.message,
                                      handled=False)
@@ -101,3 +114,35 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
                        event.message.extract_plain_text()).answer()
     if result:
         await answer_ask.finish(result)
+
+
+@message_rank.handle()
+async def _(bot: OnebotBot, event: GroupMessageEvent):
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    messages = await ReceivedMessageTracker.find(group_id=event.group_id,
+                                                 since=today)
+    user_messages = defaultdict(int)
+    for message in messages:
+        user_messages[message.user_id] += 1
+    user_messages = sorted(user_messages.items(), key=lambda x: -x[1])
+
+    group_info = await bot.get_group_info(group_id=event.group_id,
+                                          no_cache=True)
+    group_name = group_info["group_name"]
+    date = today.strftime("%m-%d")
+    result = f"{group_name} {date} 发言排行\n"
+    if not user_messages:
+        await message_rank.finish("今天还没有人发言哦")
+    # top = min(10, group_info["member_count"] // 2)
+    # member_count seems problematic for now
+    top = 10
+    top_uid, top_messages = zip(*user_messages[:top])
+    tasks = [
+        bot.get_group_member_info(group_id=event.group_id, user_id=user_id)
+        for user_id in top_uid
+    ]
+    members = await asyncio.gather(*tasks)
+    ranking = "\n".join(
+        f"{i}. {member['card'] or member['nickname']} {count}"
+        for i, (member, count) in enumerate(zip(members, top_messages), 1))
+    await message_rank.finish(result + ranking)
