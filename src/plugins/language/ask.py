@@ -35,6 +35,9 @@ class Ask:
     PATTERN_ONE_DIGIT = re.compile(r"^\d")
 
     BAD_DE = "觉舍记认懂晓识值显贪懒博"
+    BAD_ASK = [
+        "问问", "问下", "问一下", "问题", "问询", "问候", "问鼎", "问起", "问世", "问路", "问及"
+    ]
 
     MIN_WHAT, MAX_WHAT = 2, 10
 
@@ -43,7 +46,7 @@ class Ask:
         if not s.startswith("问"):
             return False
         for word, _ in pseg.cut(s, use_paddle=True):
-            return word == "问"
+            return not any(word.startswith(bad) for bad in cls.BAD_ASK)
         return False
 
     def __init__(self, bot: Bot, group_id: int, question: str) -> None:
@@ -75,36 +78,42 @@ class Ask:
         if self.replacement:
             return result
 
-    async def random_what_entry(
+    async def random_corpus_entry(
         self,
-        length: int | None = None,
+        length: int | tuple[int, int] | None = (MIN_WHAT, MAX_WHAT),
         startswith: str = "",
-        all: bool = False,
-        sample: int = 5,
-    ) -> Entry | list[Entry]:
+        sample: int = 10,
+    ) -> list[Entry]:
         cursor = Corpus.find(group_id=self.group_id,
-                             length=length or (self.MIN_WHAT, self.MAX_WHAT),
+                             length=length,
                              sample=sample,
                              filter={"text": {
                                  "$regex": f"^{startswith}"
                              }} if startswith else None)
         result = await cursor.to_list(length=sample)
         entries = [deserialize(doc) for doc in result]
+        if length is not None:
+            # post length check
+            # I don't know why filter sometimes doesn't work
+            min_l, max_l = length if isinstance(length, tuple) else (length,
+                                                                     length)
+            entries = [e for e in entries if min_l <= len(e.text) <= max_l]
         if entries:
-            return random.choice(entries) if not all else entries
+            return entries
         raise ValueError
+
+    async def random_what_entry(self, **kwargs) -> Entry:
+        return random.choice(await self.random_corpus_entry(**kwargs))
 
     async def random_what(self, **kwargs) -> str:
         try:
             entry = await self.random_what_entry(**kwargs)
-            assert isinstance(entry, Entry)
             await Corpus.use(entry)
             return entry.text
         except ValueError as e:
             if kwargs.get("length") is None or kwargs["length"] > 2:
                 raise e
-            entries = await self.random_what_entry(all=True)
-            assert isinstance(entries, list)
+            entries = await self.random_corpus_entry(sample=10)
             if kwargs["length"] == 1:
                 return random.choice(entries[0].text)
             if kwargs["length"] == 2:
@@ -115,6 +124,32 @@ class Ask:
                 if not words:
                     raise e
                 return random.choice(words)
+        raise ValueError
+
+    async def random_what_to_do(self, length: int | None = None):
+        entries = await self.random_corpus_entry(length=(length
+                                                         or self.MIN_WHAT,
+                                                         100),
+                                                 sample=30)
+        candidates: list[tuple[str, Entry]] = []
+        for entry in entries:
+            for word_pos in entry.cut_pos(start="v", end=["x", "y"]):
+                words, _ = zip(*word_pos)
+                if length is None or len("".join(words)) == length:
+                    candidates.append(("".join(words), entry))
+        if candidates:
+            if length is None:
+                length_distribution = list(set(len(t) for t, _ in candidates))
+                # the following line prefers frequent length
+                # length = random.choice([len(t) for t, _ in candidates])
+                # prefer longer text
+                length = random.choices(length_distribution,
+                                        k=1,
+                                        weights=length_distribution)[0]
+            text, entry = random.choice(
+                [c for c in candidates if len(c[0]) == length])
+            await Corpus.use(entry)
+            return text
         raise ValueError
 
     async def random_reason_entry(self, length: int | None = None) -> Entry:
@@ -173,7 +208,7 @@ class Ask:
                 next_remain = generated + next_remain
             elif word in self.PERSON:
                 yield output(self.PERSON[word])
-            elif word in ["什么", "为什么"]:
+            elif word in ["什么", "为什么", "干什么"]:
                 self.replacement = True
                 # check followed by one digit
                 length_limit = None
@@ -185,6 +220,8 @@ class Ask:
                     fn = self.random_reason
                 elif word == "为什么":
                     fn = self.random_reason
+                elif word == "干什么":
+                    fn = self.random_what_to_do
                 else:
                     fn = self.random_what
                 is_why = fn == self.random_reason
@@ -227,7 +264,13 @@ class Ask:
                     num = str(random.randint(1, days))
                 else:
                     num = str(random.randint(0, 10))
-                yield output(num + word[1:])
+                if word[1:].startswith("几"):
+                    # only consume one character
+                    # leave the rest to next iteration
+                    yield output(num)
+                    next_remain = word[1:] + next_remain
+                else:
+                    yield output(num + word[1:])
             else:
                 yield output(word)
             remain = next_remain

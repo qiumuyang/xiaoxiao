@@ -31,12 +31,18 @@ class Entry:
             return []
         return [t for t in tag if self.posseg[0][1].startswith(t)]
 
-    def cut_pos(self, start: str, end: str) -> Iterable[list[tuple[str, str]]]:
+    def cut_pos(
+        self,
+        start: str,
+        end: str | list[str],
+        keepend: bool = False,
+    ) -> Iterable[list[tuple[str, str]]]:
+        ends = tuple(end) if isinstance(end, list) else (end, )
         for i, (_, start_tag) in enumerate(self.posseg):
             if start_tag.startswith(start):
                 for j, (_, end_tag) in enumerate(self.posseg[i:], start=i):
-                    if end_tag.startswith(end):
-                        yield self.posseg[i:j + 1]
+                    if end_tag.startswith(ends):
+                        yield self.posseg[i:j + int(keepend)]
 
 
 class Corpus:
