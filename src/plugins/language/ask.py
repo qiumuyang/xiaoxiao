@@ -39,6 +39,7 @@ class Ask:
         "问问", "问下", "问一下", "问题", "问询", "问候", "问鼎", "问起", "问世", "问路", "问及"
     ]
 
+    LENGTH_CHECK_ATTEMP = 5
     MIN_WHAT, MAX_WHAT = 2, 10
 
     @classmethod
@@ -177,21 +178,35 @@ class Ask:
         s: str,
         members: list[str],
     ) -> AsyncIterable[str]:
-        remain = s
-        recent = ""
+        """Process a question and yield answer tokens.
 
-        def output(word: str):
-            nonlocal recent
-            recent = word
-            return word
+        Special tokens:
+        - "\\\\": the next character after this token is yielded as is
+        - "/": discarded immediately (for sentence segmentation)
+        """
+
+        remain = s
+        prev_out = ""
+        prev_in = ""
+        prev_in_pos = ""
+
+        def output(out: str):
+            nonlocal prev_out
+            prev_out = out
+            return out
 
         while remain:
             word, pos = next(pseg.cut(remain, use_paddle=True))
             next_remain = remain[len(word):]
             if word == "\\":
-                # escape character
+                # special symbol "\" indicates the next character should be responded
                 yield output(word if not next_remain else next_remain[0])
                 remain = next_remain[1:]
+                prev_in, prev_in_pos = word, pos
+                continue
+            if word == "/":
+                remain = next_remain
+                prev_in, prev_in_pos = word, pos
                 continue
             if match := self.PATTERN_YES_NO.match(remain):
                 self.replacement = True
@@ -203,6 +218,7 @@ class Ask:
                     if obj:
                         generated = action + random.choice("得不") + obj
                         remain = generated + next_remain[2:]
+                        prev_in, prev_in_pos = "", ""
                         continue
                 generated = random.choice(["", neg]) + action
                 next_remain = generated + next_remain
@@ -216,7 +232,7 @@ class Ask:
                     if length_limit := int(next_remain[0]):
                         next_remain = next_remain[1:]
                 # check is reason
-                if recent == "因为" and word == "什么":
+                if prev_out == "因为" and word == "什么":
                     fn = self.random_reason
                 elif word == "为什么":
                     fn = self.random_reason
@@ -225,12 +241,25 @@ class Ask:
                 else:
                     fn = self.random_what
                 is_why = fn == self.random_reason
-                generated = await fn(length=length_limit)
+                attemp = self.LENGTH_CHECK_ATTEMP
+                while attemp := attemp - 1:
+                    generated = await fn(length=length_limit)
+                    # check if previous token is nr or r (somebody)
+                    # if so, remove the nr/r prefix of the generated text
+                    if prev_in_pos in ["nr", "r"]:
+                        start, start_pos = next(
+                            pseg.cut(generated, use_paddle=True))
+                        if start_pos in ["nr", "r"] and start != generated:
+                            generated = generated[len(start):]
+                    if not length_limit or len(generated) == length_limit:
+                        break
+                else:
+                    raise ValueError(f"Failed: length={length_limit}")
                 if is_why:
                     # decoration
                     reason = generated
                     tokens = [
-                        "因为" if recent != "因为" else "",
+                        "因为" if prev_out != "因为" else "",
                         reason,
                         "，所以" if next_remain else "",
                     ]
@@ -250,16 +279,16 @@ class Ask:
                 elif word in ["几点", "几时"] and next_remain.startswith(
                     ("几分", "几刻", "几秒")):
                     num = str(random.randint(1, 12))
-                elif word == "几分" and re.fullmatch(r"\d+[点时]", recent):
+                elif word == "几分" and re.fullmatch(r"\d+[点时]", prev_out):
                     num = str(random.randint(1, 59))
-                elif word == "几秒" and re.fullmatch(r"\d+[点时分]", recent):
+                elif word == "几秒" and re.fullmatch(r"\d+[点时分]", prev_out):
                     num = str(random.randint(1, 59))
                 elif word == "几刻":
                     num = str(random.randint(1, 3))
                 elif word == "几月":
                     num = str(random.randint(1, 12))
-                elif word == "几号" and re.fullmatch(r"\d+月", recent):
-                    month = int(recent[:-1])
+                elif word == "几号" and re.fullmatch(r"\d+月", prev_out):
+                    month = int(prev_out[:-1])
                     days = {2: 29, 4: 30, 6: 30, 9: 30, 11: 30}.get(month, 31)
                     num = str(random.randint(1, days))
                 else:
@@ -274,3 +303,4 @@ class Ask:
             else:
                 yield output(word)
             remain = next_remain
+            prev_in, prev_in_pos = word, pos
