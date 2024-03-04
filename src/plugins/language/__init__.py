@@ -32,7 +32,7 @@ answer_ask = on_command("问",
 message_rank = on_command("发言排行",
                           force_whitespace=True,
                           block=True,
-                          rule=ratelimit("发言排行", type="group", seconds=5))
+                          rule=ratelimit("发言排行", type="group", seconds=15))
 
 check_reply = reply()
 
@@ -162,11 +162,9 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
 @interact_with.handle()
 async def _(
     event: GroupMessageEvent,
-    ratelimit: Annotated[
-        RateLimiter,
-        Depends(RateLimit("关键词回复", type="group", seconds=10))],
+    ratelimit: Annotated[RateLimiter,
+                         Depends(RateLimit("随机回复", type="group", seconds=10))],
 ):
-    if message := event.message.extract_plain_text().strip():
-        resp = await Interact.response(event.group_id, message)
-        if resp and ratelimit.try_acquire():
-            await interact_with.send(resp)
+    resp = await Interact.response(event.group_id, event.message)
+    if resp and ratelimit.try_acquire():
+        await interact_with.send(resp)

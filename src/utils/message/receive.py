@@ -78,6 +78,7 @@ class ReceivedMessageTracker:
     async def find(
         cls,
         group_id: int | list[int] = [],
+        *,
         user_id: int | list[int] = [],
         since: datetime | None = None,
         handled: bool | None = None,

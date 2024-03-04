@@ -131,7 +131,7 @@ class Ask:
         entries = await self.random_corpus_entry(length=(length
                                                          or self.MIN_WHAT,
                                                          100),
-                                                 sample=30)
+                                                 sample=64)
         candidates: list[tuple[str, Entry]] = []
         for entry in entries:
             for word_pos in entry.cut_pos(start="v", end=["x", "y"]):

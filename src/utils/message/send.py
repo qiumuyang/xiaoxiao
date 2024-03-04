@@ -149,12 +149,42 @@ class SentMessageTracker:
         return cls.SESSION_USER.format(user_id=event.user_id), ""
 
     @classmethod
+    def get_prefix(cls, group_id: int) -> str:
+        return cls.SESSION_GROUP_PREFIX.format(group_id=group_id)
+
+    @classmethod
     def get_session_id(cls, data: dict[str, Any]) -> str:
         user_id = data.get("user_id")
         group_id = data.get("group_id")
         if group_id is not None:
             return cls.SESSION_GROUP.format(group_id=group_id, user_id=user_id)
         return cls.SESSION_USER.format(user_id=user_id)
+
+    @classmethod
+    async def find(
+        cls,
+        *,
+        group_id: int | None = None,
+        user_id: int | None = None,
+        recalled: bool | None = None,
+        since: datetime | None = None,
+    ) -> list[MessageData]:
+        filter = {}
+        if group_id is not None and user_id is not None:
+            filter["session_id"] = cls.SESSION_GROUP.format(group_id=group_id,
+                                                            user_id=user_id)
+        elif group_id is not None:
+            filter["session_id"] = {
+                "$regex":
+                f"^{cls.SESSION_GROUP_PREFIX.format(group_id=group_id)}"
+            }
+        elif user_id is not None:
+            filter["session_id"] = cls.SESSION_USER.format(user_id=user_id)
+        if since:
+            filter["time"] = {"$gte": since}
+        if recalled is not None:
+            filter["recalled"] = recalled
+        return [data async for data in cls.sent.find_all(filter=filter)]
 
 
 @SentMessageTracker.sent.serialize()
