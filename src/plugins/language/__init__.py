@@ -1,24 +1,27 @@
 import asyncio
 from collections import defaultdict
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from nonebot import on_command, on_message
 from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
+from nonebot.params import Depends
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 
 from src.ext.permission import ADMIN, SUPERUSER
-from src.ext.rule import ratelimit, reply
+from src.ext.rule import RateLimit, RateLimiter, ratelimit, reply
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
 
 from .ask import Ask
+from .interact import Interact
 
 record_message = on_message(priority=0, block=False)
 record_unhandled_message = on_message(priority=255, block=True)
+interact_with = on_message(priority=10, block=False)
 
 recall_message = on_command("撤回", aliases={"快撤回"}, rule=to_me(), block=True)
 answer_ask = on_command("问",
@@ -142,7 +145,28 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
         for user_id in top_uid
     ]
     members = await asyncio.gather(*tasks)
+    # temporary fix for the member name problem
+    prefix = "\x08%ĀĀ\x07Ñ\n\x08\x12\x06"
+    suffix = "\x10\x00"
+
+    def make_name(member: dict):
+        name = member["card"] or member["nickname"]
+        return name.strip().removeprefix(prefix).removesuffix(suffix)
+
     ranking = "\n".join(
-        f"{i}. {member['card'] or member['nickname']} {count}"
+        f"{i}. {make_name(member)} {count}"
         for i, (member, count) in enumerate(zip(members, top_messages), 1))
     await message_rank.finish(result + ranking)
+
+
+@interact_with.handle()
+async def _(
+    event: GroupMessageEvent,
+    ratelimit: Annotated[
+        RateLimiter,
+        Depends(RateLimit("关键词回复", type="group", seconds=10))],
+):
+    if message := event.message.extract_plain_text().strip():
+        resp = await Interact.response(event.group_id, message)
+        if resp and ratelimit.try_acquire():
+            await interact_with.send(resp)

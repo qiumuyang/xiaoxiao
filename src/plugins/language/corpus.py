@@ -133,6 +133,7 @@ class Corpus:
         group_id = [group_id, cls.SHARED_GROUP_ID] if isinstance(
             group_id, int) else group_id + [cls.SHARED_GROUP_ID]
         from_group = {"group_id": {"$in": group_id}}
+        conditions = [not_recent_sent, not_recent_added, from_group]
         if length is not None:
             text_length = {
                 "$expr": {
@@ -151,12 +152,11 @@ class Corpus:
                     }, length]
                 }
             }
-            filter.update(text_length)
+            conditions.append(text_length)
 
         match_filter: dict[str, Any] = {
             "$match": {
-                "$and":
-                [filter, not_recent_sent, not_recent_added, from_group]
+                "$and": conditions + [filter]
             }
         }
         pipeline = [match_filter]
@@ -200,7 +200,10 @@ async def add_to_corpus(object_id: str | None, data: RMD) -> None:
     1. Non-command (i.e. handled=False)
     2. Plain text
     """
-    if data.handled or any(seg.type != "text" for seg in data.content):
+    if data.handled:
+        return
+    allow_type = ("at", "face", "reply", "text")
+    if any(seg.type not in allow_type for seg in data.content):
         return
     text = data.content.extract_plain_text()
     if text.strip():

@@ -80,6 +80,7 @@ class ReceivedMessageTracker:
         group_id: int | list[int] = [],
         user_id: int | list[int] = [],
         since: datetime | None = None,
+        handled: bool | None = None,
     ) -> list[MessageData]:
         """Find messages by group_id and user_id."""
         filter = {}
@@ -93,6 +94,8 @@ class ReceivedMessageTracker:
             filter["user_id"] = {"$in": user_id}
         if since:
             filter["time"] = {"$gte": since}
+        if handled is not None:
+            filter["handled"] = handled
         return [data async for data in cls.received.find_all(filter=filter)]
 
 
