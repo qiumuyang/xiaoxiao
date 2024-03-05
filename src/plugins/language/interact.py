@@ -50,11 +50,11 @@ class Interact:
         sent_messages = await SMT.find(group_id=group_id,
                                        recalled=False,
                                        since=since)
-        is_recv = [True] * len(received_messages) + [False
-                                                     ] * len(sent_messages)
+        is_recv = ([True] * len(received_messages) +
+                   [False] * len(sent_messages))
         messages = sorted(zip(received_messages + sent_messages, is_recv),
                           key=lambda x: x[0].time)
-        messages = [(m.content, r) for m, r in messages]
+        messages = [(m.content, r) for m, r in messages] + [(message, True)]
         responser = [
             cls.repeat_response,
             cls.keyword_response,
