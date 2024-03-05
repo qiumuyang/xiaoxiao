@@ -4,19 +4,21 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from nonebot import on_command, on_message
-from nonebot.adapters import Bot
+from nonebot.adapters import Bot, Message
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
-from nonebot.params import Depends
+from nonebot.params import CommandArg, Depends
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 
+from src.ext.message import MessageSegment
 from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import RateLimit, RateLimiter, ratelimit, reply
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
 
 from .ask import Ask
+from .history import History
 from .interact import Interact
 
 record_message = on_message(priority=0, block=False)
@@ -33,6 +35,10 @@ message_rank = on_command("发言排行",
                           force_whitespace=True,
                           block=True,
                           rule=ratelimit("发言排行", type="group", seconds=15))
+message_check = on_command("trace",
+                           force_whitespace=True,
+                           block=True,
+                           rule=ratelimit("发言排行", type="group", seconds=5))
 
 check_reply = reply()
 
@@ -167,3 +173,24 @@ async def _(
     resp = await Interact.response(event.group_id, event.message)
     if resp and ratelimit.try_acquire():
         await interact_with.send(resp)
+
+
+@message_check.handle()
+async def _(bot: OnebotBot,
+            event: GroupMessageEvent,
+            arg: Message = CommandArg()):
+    if (input := arg.extract_plain_text()) and input.isdigit():
+        index = int(input)
+    else:
+        index = 1
+
+    message = await History.find(self_id=int(bot.self_id),
+                                 group_id=event.group_id,
+                                 index=index)
+    if message:
+        member = await bot.get_group_member_info(group_id=event.group_id,
+                                                 user_id=message.user_id)
+        name = member["card"] or member["nickname"]
+        await message_check.finish(
+            MessageSegment.text(f"{name}：\n") + message.content)
+    await message_check.finish()
