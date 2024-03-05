@@ -72,6 +72,7 @@ nbnhhsh_cmd = on_command("翻译缩写",
 
 async def abbr(matcher: Matcher, event: MessageEvent):
     abbr = event.get_message().extract_plain_text()
+    abbr = abbr.removeprefix("翻译缩写").strip()
     translation = AbbreviationTranslate.query(abbr)
     await matcher.finish(translation or None)  # empty string does send msg
 
