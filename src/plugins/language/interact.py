@@ -29,12 +29,13 @@ class Interact:
     RP_BREAK_PROB_INC = 0.1
     RP_BREAK_TEXT = "打断！"
     RP_RE_BREAK_TEXT = "打断打断！"
+    RP_BAD_TYPE = {"reply"}
 
     KW_PROB = 0.2
     KW_MIN_QUERY_LEN = 10
     KW_MIN_CORPUS_LEN = 6
     KW_MAX_CORPUS_LEN = 40
-    KW_CORPUS_SAMPLE = 128
+    KW_CORPUS_SAMPLE = 32
     KW_SIM_THRESHOLD = 0.6
 
     @classmethod
@@ -73,6 +74,8 @@ class Interact:
         contains_self = not is_recv
         for msg, is_recv in reversed(messages[:-1]):
             if not MS.message_equals(msg, repeated_message):
+                break
+            if any(seg.type in cls.RP_BAD_TYPE for seg in msg):
                 break
             consecutive += 1
             repeated_message = msg

@@ -4,9 +4,9 @@ from typing import AsyncIterable
 
 import jieba
 import jieba.posseg as pseg
-from nonebot.adapters.onebot.v11 import Bot
+from nonebot.adapters.onebot.v11 import Bot, Message
 
-from src.ext import logger_wrapper
+from src.ext import MessageSegment, logger_wrapper
 
 from .corpus import Corpus, Entry, deserialize
 
@@ -50,16 +50,19 @@ class Ask:
             return not any(word.startswith(bad) for bad in cls.BAD_ASK)
         return False
 
-    def __init__(self, bot: Bot, group_id: int, question: str) -> None:
+    def __init__(self, bot: Bot, group_id: int, question: Message) -> None:
         self.bot = bot
         self.group_id = group_id
         self.question = question
 
-    async def answer(self) -> str | None:
+    async def answer(self) -> Message | None:
         bot = self.bot
         group_id = self.group_id
         question = self.question
-        if not self.is_question(question):
+        if not question:
+            return
+        if not question[0].is_text() or not self.is_question(
+                question[0].data["text"]):
             return
 
         members = await bot.get_group_member_list(group_id=group_id)
@@ -68,16 +71,35 @@ class Ask:
         ] + ["你", "我"]
 
         self.replacement = False
-        try:
-            results = []
-            async for token in self.process(question[1:], member_names):
-                results.append(token)
-            result = "".join(results)
-        except ValueError:
-            logger.warning("Empty corpus")
-            return
+        processed_message = Message()
+        for i, ob_seg in enumerate(question):
+            seg = MessageSegment.from_onebot(ob_seg)
+            if seg.is_at():
+                # convert to plain text
+                member = await bot.get_group_member_info(
+                    group_id=group_id, user_id=seg.extract_at())
+                member_name = (member["card"] or member["nickname"]
+                               or str(seg.extract_at()))
+                append_seg = MessageSegment.text(member_name)
+            elif not seg.is_text():
+                # as is
+                append_seg = seg
+            else:
+                text = seg.extract_text()
+                if i == 0:
+                    text = text.removeprefix("问")
+                try:
+                    results = []
+                    async for token in self.process(text, member_names):
+                        results.append(token)
+                    result = "".join(results)
+                except ValueError:
+                    logger.warning("Empty corpus")
+                    return
+                append_seg = MessageSegment.text(result)
+            processed_message.append(append_seg)
         if self.replacement:
-            return result
+            return processed_message
 
     async def random_corpus_entry(
         self,

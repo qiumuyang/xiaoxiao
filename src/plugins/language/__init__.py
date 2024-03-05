@@ -113,8 +113,7 @@ async def _(event: GroupMessageEvent):
 
 @answer_ask.handle()
 async def _(bot: OnebotBot, event: GroupMessageEvent):
-    result = await Ask(bot, event.group_id,
-                       event.message.extract_plain_text()).answer()
+    result = await Ask(bot, event.group_id, event.message).answer()
     if result:
         await answer_ask.finish(result)
 

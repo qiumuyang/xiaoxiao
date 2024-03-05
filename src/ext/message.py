@@ -84,3 +84,37 @@ class MessageSegment(_MessageSegment):
             if not cls.equals(seg1, seg2):
                 return False
         return True
+
+    @classmethod
+    def from_onebot(cls, obseg: _MessageSegment) -> "MessageSegment":
+        """Create a MessageSegment from a OneBot MessageSegment."""
+        return cls(obseg.type, obseg.data)
+
+    def is_at(self) -> bool:
+        return self.type == "at"
+
+    def is_image(self) -> bool:
+        return self.type == "image"
+
+    def is_face(self) -> bool:
+        return self.type == "face"
+
+    def extract_text(self) -> str:
+        if not self.is_text():
+            raise ValueError("Not a text segment")
+        return self.data["text"]
+
+    def extract_at(self) -> int:
+        if not self.is_at():
+            raise ValueError("Not an at segment")
+        return int(self.data["qq"])
+
+    def extract_image(self) -> str:
+        if not self.is_image():
+            raise ValueError("Not an image segment")
+        return self.data["url"]
+
+    def extract_face(self) -> int:
+        if not self.is_face():
+            raise ValueError("Not a face segment")
+        return int(self.data["id"])
