@@ -191,14 +191,9 @@ async def _(bot: OnebotBot,
     else:
         index = 1
 
-    messages = await History.find_single_message(bot,
-                                                 event.group_id,
-                                                 index=index)
-    if messages:
-        await bot.call_api("send_group_forward_msg",
-                           messages=MessageSegment.serialize(messages),
-                           group_id=event.group_id)
-    await trace_single.finish()
+    await trace_single.finish(await History.find_single_message(bot,
+                                                                event.group_id,
+                                                                index=index))
 
 
 @trace_search.handle()
@@ -214,12 +209,7 @@ async def _(bot: OnebotBot,
         elif segment.is_text():
             keywords.extend(segment.extract_text_args())
 
-    messages = await History.find(bot,
-                                  event.group_id,
-                                  senders=senders,
-                                  keywords=keywords)
-    if messages:
-        await bot.call_api("send_group_forward_msg",
-                           messages=MessageSegment.serialize(messages),
-                           group_id=event.group_id)
-    await trace_single.finish()
+    await trace_single.finish(await History.find(bot,
+                                                 event.group_id,
+                                                 senders=senders,
+                                                 keywords=keywords))

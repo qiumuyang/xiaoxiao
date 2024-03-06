@@ -43,19 +43,14 @@ class History:
                                                  user_id=user_id)
         nickname = (member["card"] or member["nickname"] or str(user_id))
 
-        return Message([
-            MessageSegment.node_lagrange(user_id=user_id,
-                                         nickname=nickname,
-                                         content=selected.content)
-        ])
-        # forward_id = await bot.call_api("send_forward_msg",
-        #                                 messages=[
-        #                                     MessageSegment.node_lagrange(
-        #                                         user_id=user_id,
-        #                                         nickname=nickname,
-        #                                         content=selected.content)
-        #                                 ])
-        # return MessageSegment.forward(id_=forward_id)
+        forward_id = await bot.call_api("send_forward_msg",
+                                        messages=[
+                                            MessageSegment.node_lagrange(
+                                                user_id=user_id,
+                                                nickname=nickname,
+                                                content=selected.content)
+                                        ])
+        return Message(MessageSegment.forward(id_=forward_id))
 
     @classmethod
     async def find(
@@ -159,6 +154,5 @@ class History:
             if (user_id := message.user_id if isinstance(
                 message, ReceiveMessageData) else int(bot.self_id))
         ]
-        return Message(nodes)
-        # forward_id = await bot.call_api("send_forward_msg", messages=nodes)
-        # return MessageSegment.forward(id_=forward_id)
+        forward_id = await bot.call_api("send_forward_msg", messages=nodes)
+        return Message(MessageSegment.forward(id_=forward_id))
