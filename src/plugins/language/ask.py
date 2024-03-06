@@ -251,7 +251,7 @@ class Ask:
                 # check followed by one digit
                 length_limit = None
                 if self.PATTERN_ONE_DIGIT.match(next_remain):
-                    if length_limit := int(next_remain[0]):
+                    if (length_limit := int(next_remain[0])) > 0:
                         next_remain = next_remain[1:]
                 # check is reason
                 if prev_out == "因为" and word == "什么":
