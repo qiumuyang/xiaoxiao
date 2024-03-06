@@ -121,27 +121,18 @@ class FortuneRender:
         # upper part: avatar, name, date, lucky color
         border = cls.SZ // cls.AVATAR_BORDER_D
         radius = cls.SZ // cls.AVATAR_RADIUS_D
-        # contour is a layer decoration
-        # margin is added to expand the canvas to contain the contour
-        # avatar = Image.from_image(
-        #     raw_avatar,
-        #     margin=Space.all(border),
-        #     decorations=Decorations.of(*[
-        #         RectCrop.of_square(border_radius=cls.SZ //
-        #                            cls.AVATAR_RADIUS_D),
-        #         Contour.of(color=theme_dark, thickness=border, dilation=1)
-        #     ]))
+        radius_outer = radius + border
+
         avatar_im = Image.from_image(
             raw_avatar, decorations=[RectCrop.of_square(border_radius=radius)])
-        avatar_bg = PILImage.new("RGBA",
-                                 (cls.SZ + border * 2, cls.SZ + border * 2),
-                                 (255, 255, 255, 0))
-        ImageDraw.Draw(avatar_bg).rounded_rectangle(
-            (0, 0, avatar_bg.width, avatar_bg.height),
-            radius=radius + border,
-            fill=theme_dark.to_rgb(),
+        avatar_bg = Image.from_color(
+            width=cls.SZ + 2 * border,
+            height=cls.SZ + 2 * border,
+            color=theme_dark,
+            decorations=Decorations.of(
+                RectCrop.of_square(border_radius=radius_outer)),
         )
-        avatar = Stack.from_children([Image.from_image(avatar_bg), avatar_im],
+        avatar = Stack.from_children([avatar_bg, avatar_im],
                                      alignment=Alignment.CENTER)
 
         max_name_width = cls.SZ * 2
