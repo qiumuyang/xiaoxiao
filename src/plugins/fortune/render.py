@@ -1,6 +1,7 @@
 import textwrap
 
 from PIL import Image as PILImage
+from PIL import ImageDraw
 
 from src.utils.image.avatar import Avatar
 from src.utils.render import *
@@ -17,7 +18,7 @@ class FortuneRender:
 
     SZ = 120
     AVATAR_RADIUS_D = 8
-    AVATAR_BORDER_D = 40
+    AVATAR_BORDER_D = 30
     AVATAR_SPACE_D = 8
     FORTUNE_RATIO = 0.75
     FORTUNE_ASPECT = 0.45
@@ -119,16 +120,29 @@ class FortuneRender:
 
         # upper part: avatar, name, date, lucky color
         border = cls.SZ // cls.AVATAR_BORDER_D
+        radius = cls.SZ // cls.AVATAR_RADIUS_D
         # contour is a layer decoration
         # margin is added to expand the canvas to contain the contour
-        avatar = Image.from_image(
-            raw_avatar,
-            margin=Space.all(border),
-            decorations=Decorations.of(*[
-                RectCrop.of_square(border_radius=cls.SZ //
-                                   cls.AVATAR_RADIUS_D),
-                Contour.of(color=theme_dark, thickness=border, dilation=1)
-            ]))
+        # avatar = Image.from_image(
+        #     raw_avatar,
+        #     margin=Space.all(border),
+        #     decorations=Decorations.of(*[
+        #         RectCrop.of_square(border_radius=cls.SZ //
+        #                            cls.AVATAR_RADIUS_D),
+        #         Contour.of(color=theme_dark, thickness=border, dilation=1)
+        #     ]))
+        avatar_im = Image.from_image(
+            raw_avatar, decorations=[RectCrop.of_square(border_radius=radius)])
+        avatar_bg = PILImage.new("RGBA",
+                                 (cls.SZ + border * 2, cls.SZ + border * 2),
+                                 (255, 255, 255, 0))
+        ImageDraw.Draw(avatar_bg).rounded_rectangle(
+            (0, 0, avatar_bg.width, avatar_bg.height),
+            radius=radius + border,
+            fill=theme_dark.to_rgb(),
+        )
+        avatar = Stack.from_children([Image.from_image(avatar_bg), avatar_im],
+                                     alignment=Alignment.CENTER)
 
         max_name_width = cls.SZ * 2
         max_name_height = cls.SZ // 2
