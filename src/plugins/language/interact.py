@@ -84,12 +84,12 @@ class Interact:
             is_recv = message.is_receive
             if not MS.message_equals(msg, repeated_message):
                 break
-            if any(seg.type in cls.RP_BAD_TYPE for seg in msg):
-                break
             consecutive += 1
             repeated_message = msg
             contains_self = contains_self or not is_recv
         if consecutive < cls.RP_MIN_CONSECUTIVE:
+            return
+        if any(seg.type in cls.RP_BAD_TYPE for seg in repeated_message):
             return
         prob = (cls.RP_PROB_MIN + (cls.RP_PROB_MAX - cls.RP_PROB_MIN) *
                 (consecutive - cls.RP_MIN_CONSECUTIVE) /
