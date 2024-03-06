@@ -90,6 +90,20 @@ class MessageSegment(_MessageSegment):
         """Create a MessageSegment from a OneBot MessageSegment."""
         return cls(obseg.type, obseg.data)
 
+    @classmethod
+    def node_lagrange(
+        cls,
+        user_id: int,
+        nickname: str,
+        content: Message,
+    ) -> "MessageSegment":
+        return cls(type="node",
+                   data={
+                       "name": nickname,
+                       "uin": str(user_id),
+                       "content": content
+                   })
+
     def is_at(self) -> bool:
         return self.type == "at"
 
@@ -103,6 +117,11 @@ class MessageSegment(_MessageSegment):
         if not self.is_text():
             raise ValueError("Not a text segment")
         return self.data["text"]
+
+    def extract_text_args(self) -> list[str]:
+        if not self.is_text():
+            raise ValueError("Not a text segment")
+        return [_.strip() for _ in self.data["text"].split(" ") if _.strip()]
 
     def extract_at(self) -> int:
         if not self.is_at():

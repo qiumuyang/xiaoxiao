@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Annotated, Any
 
-from nonebot import on_command, on_message
+from nonebot import CommandGroup, on_command, on_message
 from nonebot.adapters import Bot, Message
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
@@ -22,8 +22,8 @@ from .history import History
 from .interact import Interact
 
 record_message = on_message(priority=0, block=False)
-record_unhandled_message = on_message(priority=255, block=True)
 interact_with = on_message(priority=10, block=False)
+record_unhandled_message = on_message(priority=255, block=True)
 
 recall_message = on_command("撤回", aliases={"快撤回"}, rule=to_me(), block=True)
 answer_ask = on_command("问",
@@ -35,10 +35,18 @@ message_rank = on_command("发言排行",
                           force_whitespace=True,
                           block=True,
                           rule=ratelimit("发言排行", type="group", seconds=15))
-message_check = on_command("trace",
-                           force_whitespace=True,
-                           block=True,
-                           rule=ratelimit("发言排行", type="group", seconds=5))
+
+message_trace = CommandGroup("trace", block=True)
+trace_single = message_trace.command(
+    tuple(),
+    force_whitespace=True,
+    rule=ratelimit("trace_single", type="group", seconds=5),
+)
+trace_search = message_trace.command(
+    "search",
+    force_whitespace=True,
+    rule=ratelimit("trace_search", type="group", seconds=5),
+)
 
 check_reply = reply()
 
@@ -175,7 +183,7 @@ async def _(
         await interact_with.send(resp)
 
 
-@message_check.handle()
+@trace_single.handle()
 async def _(bot: OnebotBot,
             event: GroupMessageEvent,
             arg: Message = CommandArg()):
@@ -184,13 +192,27 @@ async def _(bot: OnebotBot,
     else:
         index = 1
 
-    message = await History.find(self_id=int(bot.self_id),
-                                 group_id=event.group_id,
-                                 index=index)
-    if message:
-        member = await bot.get_group_member_info(group_id=event.group_id,
-                                                 user_id=message.user_id)
-        name = member["card"] or member["nickname"]
-        await message_check.finish(
-            MessageSegment.text(f"{name}：\n") + message.content)
-    await message_check.finish()
+    result = await History.find_single_message(bot,
+                                               event.group_id,
+                                               index=index)
+    await trace_single.finish(result)
+
+
+@trace_search.handle()
+async def _(bot: OnebotBot,
+            event: GroupMessageEvent,
+            arg: Message = CommandArg()):
+    senders = []
+    keywords = []
+    for seg in arg:
+        segment = MessageSegment.from_onebot(seg)
+        if segment.is_at():
+            senders.append(segment.extract_at())
+        elif segment.is_text():
+            keywords.extend(segment.extract_text_args())
+
+    result = await History.find(bot,
+                                event.group_id,
+                                senders=senders,
+                                keywords=keywords)
+    await trace_search.finish(result)
