@@ -2,7 +2,7 @@ import asyncio
 import re
 from datetime import datetime, timedelta
 
-from nonebot.adapters.onebot.v11 import Bot
+from nonebot.adapters.onebot.v11 import Bot, Message
 
 from src.ext.message import MessageSegment
 from src.utils.message.receive import MessageData as ReceiveMessageData
@@ -25,7 +25,7 @@ class History:
         group_id: int,
         *,
         index: int = 1,
-    ) -> MessageSegment | None:
+    ) -> Message | None:
         since = datetime.now() - cls.MAX_HISTORY_INTERVAL
         recv = await RMT.find(group_id=group_id, since=since)
         sent = await SMT.find(group_id=group_id, since=since)
@@ -43,14 +43,19 @@ class History:
                                                  user_id=user_id)
         nickname = (member["card"] or member["nickname"] or str(user_id))
 
-        forward_id = await bot.call_api("send_forward_msg",
-                                        messages=[
-                                            MessageSegment.node_lagrange(
-                                                user_id=user_id,
-                                                nickname=nickname,
-                                                content=selected.content)
-                                        ])
-        return MessageSegment.forward(id_=forward_id)
+        return Message([
+            MessageSegment.node_lagrange(user_id=user_id,
+                                         nickname=nickname,
+                                         content=selected.content)
+        ])
+        # forward_id = await bot.call_api("send_forward_msg",
+        #                                 messages=[
+        #                                     MessageSegment.node_lagrange(
+        #                                         user_id=user_id,
+        #                                         nickname=nickname,
+        #                                         content=selected.content)
+        #                                 ])
+        # return MessageSegment.forward(id_=forward_id)
 
     @classmethod
     async def find(
@@ -60,7 +65,7 @@ class History:
         *,
         senders: list[int] | None = None,
         keywords: list[str] | None = None,
-    ) -> MessageSegment | None:
+    ) -> Message | None:
         """Find messages by senders and keywords.
 
         Bot messages are not included by default.
@@ -116,6 +121,9 @@ class History:
                     filtered.append(message)
                     break
                 if seg.type == "text":
+                    if "image" in accept_types and not accept_keywords:
+                        # only display image messages
+                        continue
                     text = seg.data.get("text", "")
                     if all(keyword in text if isinstance(keyword, str) else
                            keyword.search(text)
@@ -151,5 +159,6 @@ class History:
             if (user_id := message.user_id if isinstance(
                 message, ReceiveMessageData) else int(bot.self_id))
         ]
-        forward_id = await bot.call_api("send_forward_msg", messages=nodes)
-        return MessageSegment.forward(id_=forward_id)
+        return Message(nodes)
+        # forward_id = await bot.call_api("send_forward_msg", messages=nodes)
+        # return MessageSegment.forward(id_=forward_id)
