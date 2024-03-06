@@ -4,6 +4,7 @@ from typing import Literal, Union
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.dependencies import Dependent
 from nonebot.internal.adapter import Bot, Event
+from nonebot.internal.params import Depends
 from nonebot.rule import Rule, StartswithRule
 from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
 from typing_extensions import override
@@ -44,6 +45,10 @@ class PostRule(Rule):
         self,
         other: Union[Rule, "PostRule", None],
     ) -> "PostRule":
+        """Normal rules are `infected` by post rules.
+
+        Once there exists a post rule, all rules on the chain will be infected.
+        """
         if other is None:
             return self
         return PostRule(self.post_checker, *self.checkers, *other.checkers)
@@ -156,7 +161,7 @@ def ratelimit(
         RateLimitRule(key, RateLimitType(type), seconds, concurrency, block))
 
 
-class RateLimit:
+class _RateLimit:
     """适用于 `nonebot.params.Depends` 的流量控制子依赖。
 
     `ratelimit` 规则用于事件响应器前的流量控制，将流量检测行为封装在规则内部。
@@ -183,6 +188,16 @@ class RateLimit:
             rate_limit=TokenBucketRateLimiter,
             capacity=self.concurrency,
             refill_rate=self.concurrency / self.seconds) if id else None
+
+
+def RateLimit(
+    key: str,
+    type: RateLimitType | Literal["group", "user", "session"],
+    seconds: float,
+    concurrency: int = 1,
+) -> RateLimiter:
+    return Depends(_RateLimit(key, type, seconds, concurrency),
+                   use_cache=False)
 
 
 class ReplyRule:

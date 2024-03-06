@@ -1,14 +1,14 @@
 import asyncio
 from collections import defaultdict
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
 from nonebot import CommandGroup, on_command, on_message
 from nonebot.adapters import Bot, Message
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
-from nonebot.params import CommandArg, Depends
+from nonebot.params import CommandArg
 from nonebot.rule import to_me
 from nonebot.typing import T_State
 
@@ -173,11 +173,10 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
 
 
 @interact_with.handle()
-async def _(
-    event: GroupMessageEvent,
-    ratelimit: Annotated[RateLimiter,
-                         Depends(RateLimit("随机回复", type="group", seconds=10))],
-):
+async def _(event: GroupMessageEvent,
+            ratelimit: RateLimiter = RateLimit("随机回复",
+                                               type="group",
+                                               seconds=10)):
     resp = await Interact.response(event.group_id, event.message)
     if resp and ratelimit.try_acquire():
         await interact_with.send(resp)
