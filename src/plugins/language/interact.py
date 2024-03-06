@@ -1,5 +1,6 @@
 import random
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from nonebot.adapters.onebot.v11 import Message
@@ -12,9 +13,13 @@ from .corpus import Corpus
 from .keywords import Keyword
 
 
-class Interact:
+@dataclass
+class _InteractMessage:
+    is_receive: bool
+    message: Message
 
-    IS_RECV = bool
+
+class Interact:
 
     RECENT_MESSAGE_INTERVAL = timedelta(seconds=90)
     RECENT_MIN_RECV_MESSAGE = 3
@@ -32,6 +37,7 @@ class Interact:
     RP_BAD_TYPE = {"reply"}
 
     KW_PROB = 0.2
+    KW_MAX_MESSAGE = 5
     KW_MIN_QUERY_LEN = 10
     KW_MIN_CORPUS_LEN = 6
     KW_MAX_CORPUS_LEN = 40
@@ -54,7 +60,8 @@ class Interact:
                    [False] * len(sent_messages))
         messages = sorted(zip(received_messages + sent_messages, is_recv),
                           key=lambda x: x[0].time)
-        messages = [(m.content, r) for m, r in messages] + [(message, True)]
+        messages = [_InteractMessage(r, m.content)
+                    for m, r in messages] + [_InteractMessage(True, message)]
         responser = [
             cls.repeat_response,
             cls.keyword_response,
@@ -67,12 +74,14 @@ class Interact:
     async def repeat_response(
         cls,
         group_id: int,
-        messages: list[tuple[Message, IS_RECV]],
+        messages: list[_InteractMessage],
     ) -> Message | None:
         consecutive = 0
-        repeated_message, is_recv = messages[-1]
-        contains_self = not is_recv
-        for msg, is_recv in reversed(messages[:-1]):
+        repeated_message = messages[-1].message
+        contains_self = not messages[-1].is_receive
+        for message in reversed(messages[:-1]):
+            msg = message.message
+            is_recv = message.is_receive
             if not MS.message_equals(msg, repeated_message):
                 break
             if any(seg.type in cls.RP_BAD_TYPE for seg in msg):
@@ -105,11 +114,14 @@ class Interact:
     async def keyword_response(
         cls,
         group_id: int,
-        messages: list[tuple[Message, IS_RECV]],
+        messages: list[_InteractMessage],
     ) -> Message | None:
+        if all(not seg.is_text() for seg in messages[-1].message):
+            return
         recv_text = [
-            t for m, r in messages if r and (t := m.extract_plain_text())
-        ]
+            t for m in messages
+            if m.is_receive and (t := m.message.extract_plain_text())
+        ][-cls.KW_MAX_MESSAGE:]
         query = " ".join(recv_text)
         if len(query) < cls.KW_MIN_QUERY_LEN:
             return
