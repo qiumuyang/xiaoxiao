@@ -36,7 +36,10 @@ class RateLimiter(ABC):
 
 class TokenBucketRateLimiter(RateLimiter):
 
-    __slots__ = ("capacity", "tokens", "refill_rate", "last_update")
+    __slots__ = ("capacity", "tokens", "refill_rate", "last_update",
+                 "_refill_task")
+
+    _refill_task: asyncio.Task[None]
 
     @classmethod
     async def create(  # type: ignore
@@ -46,7 +49,7 @@ class TokenBucketRateLimiter(RateLimiter):
         self.tokens = capacity
         self.refill_rate = refill_rate
         self.last_update = datetime.now()
-        asyncio.create_task(self.refill_tokens())
+        self._refill_task = asyncio.create_task(self.refill_tokens())
         return self
 
     def try_acquire(self) -> bool:
@@ -64,18 +67,25 @@ class TokenBucketRateLimiter(RateLimiter):
 
     async def refill_tokens(self) -> None:
         """Refill tokens based on the elapsed time since the last update."""
-        while True:
-            await asyncio.sleep(1 / self.refill_rate)
-            now = datetime.now()
-            time_elapsed = now - self.last_update
-            refill_count = time_elapsed.total_seconds() * self.refill_rate
-            self.tokens = min(self.capacity, self.tokens + refill_count)
-            self.last_update = now
-            # wake up waiting tasks
-            while not self._wait_queue.empty() and self.tokens >= 1:
-                future = self._wait_queue.get_nowait()
-                future.set_result(None)
-                self.tokens -= 1
+        try:
+            while True:
+                await asyncio.sleep(1 / self.refill_rate)
+                now = datetime.now()
+                time_elapsed = now - self.last_update
+                refill_count = time_elapsed.total_seconds() * self.refill_rate
+                self.tokens = min(self.capacity, self.tokens + refill_count)
+                self.last_update = now
+                # wake up waiting tasks
+                while not self._wait_queue.empty() and self.tokens >= 1:
+                    future = self._wait_queue.get_nowait()
+                    future.set_result(None)
+                    self.tokens -= 1
+        except asyncio.CancelledError:
+            pass
+
+    def __del__(self) -> None:
+        if not self._refill_task.get_loop().is_closed():
+            self._refill_task.cancel()
 
 
 class RateLimitManager:

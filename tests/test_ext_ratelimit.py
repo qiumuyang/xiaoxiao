@@ -17,6 +17,7 @@ async def test_token_bucket_ratelimit():
         ticks.append(datetime.now())
     for i in range(1, len(ticks)):
         assert ticks[i] - ticks[i - 1] >= interval
+    del rate_limit
 
 
 @pytest.mark.asyncio
@@ -37,3 +38,4 @@ async def test_token_bucket_order():
     )
     for i in range(1, len(ticks)):
         assert ticks[i] > ticks[i - 1]
+    del rate_limit
