@@ -108,7 +108,6 @@ class Corpus:
         cls.maintain()
         now = datetime.now()
         filter = filter or {}
-
         recent_text = set(text for _, text in cls.recently_sent)
         not_recent_sent = {"text": {"$nin": list(recent_text)}}
         not_recent_added = {
@@ -132,34 +131,25 @@ class Corpus:
         }
         group_id = [group_id, cls.SHARED_GROUP_ID] if isinstance(
             group_id, int) else group_id + [cls.SHARED_GROUP_ID]
-        from_group = {"group_id": {"$in": group_id}}
-        conditions = [not_recent_sent, not_recent_added, from_group]
+        match_group_id = {"group_id": {"$in": group_id}}
+        pipeline: list[dict[str, Any]] = [{
+            "$match": m
+        } for m in (match_group_id, not_recent_sent, not_recent_added)]
+        # use addfields to calculate text length
         if length is not None:
-            text_length = {
-                "$expr": {
-                    "and": [{
-                        "$gte": [{
-                            "$strLenCP": "$text"
-                        }, length[0]]
-                    }, {
-                        "$lte": [{
-                            "$strLenCP": "$text"
-                        }, length[1]]
-                    }]
+            length_field = {"text-length": {"$strLenCP": "$text"}}
+            match_length = {
+                "text-length": {
+                    "$gte": length[0],
+                    "$lte": length[1]
                 } if isinstance(length, tuple) else {
-                    "$eq": [{
-                        "$strLenCP": "$text"
-                    }, length]
+                    "$eq": length
                 }
             }
-            conditions.append(text_length)
-
-        match_filter: dict[str, Any] = {
-            "$match": {
-                "$and": conditions + [filter]
-            }
-        }
-        pipeline = [match_filter]
+            pipeline.append({"$addFields": length_field})
+            pipeline.append({"$match": match_length})
+        if filter:
+            pipeline.append({"$match": filter})
         if sample is not None:
             pipeline.append({"$sample": {"size": sample}})
         return cls.corpus.aggregate(pipeline)

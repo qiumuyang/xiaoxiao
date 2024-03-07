@@ -115,12 +115,6 @@ class Ask:
                              }} if startswith else None)
         result = await cursor.to_list(length=sample)
         entries = [deserialize(doc) for doc in result]
-        if length is not None:
-            # post length check
-            # I don't know why filter sometimes doesn't work
-            min_l, max_l = length if isinstance(length, tuple) else (length,
-                                                                     length)
-            entries = [e for e in entries if min_l <= len(e.text) <= max_l]
         if entries:
             return entries
         raise ValueError

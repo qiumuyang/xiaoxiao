@@ -141,11 +141,7 @@ class Interact:
             },
             sample=cls.KW_CORPUS_SAMPLE,
         ).to_list(length=cls.KW_CORPUS_SAMPLE)
-        # filter again, I don't know why length is not working
-        corpus = [
-            e["text"] for e in entries
-            if len(e["text"]) > cls.KW_MIN_CORPUS_LEN
-        ]
+        corpus = [e["text"] for e in entries]
         results = Keyword.search([query],
                                  corpus,
                                  threshold=cls.KW_SIM_THRESHOLD)
