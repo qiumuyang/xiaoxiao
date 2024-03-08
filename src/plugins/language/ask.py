@@ -47,6 +47,11 @@ class Ask:
     LENGTH_CHECK_ATTEMP = 5
     MIN_WHAT, MAX_WHAT = 2, 10
 
+    # (group_id, length, startswith) -> list[Entry]
+    _cache_key = tuple[int, int | tuple[int, int] | None, str]
+    _cache: dict[_cache_key, list[Entry]] = {}
+    FETCH_BATCH = 256
+
     @classmethod
     def is_question(cls, s: str) -> bool:
         if not s.startswith("问"):
@@ -110,19 +115,25 @@ class Ask:
         self,
         length: int | tuple[int, int] | None = (MIN_WHAT, MAX_WHAT),
         startswith: str = "",
-        sample: int = 10,
+        sample: int = 2,
     ) -> list[Entry]:
+        key = (self.group_id, length, startswith)
+        if (cached := self._cache.get(key)) and len(cached) >= sample:
+            result, self._cache[key] = cached[:sample], cached[sample:]
+            return result
         cursor = Corpus.find(group_id=self.group_id,
                              length=length,
-                             sample=sample,
+                             sample=max(Ask.FETCH_BATCH, sample),
                              filter={"text": {
                                  "$regex": f"^{startswith}"
                              }} if startswith else None)
         result = await cursor.to_list(length=sample)
         entries = [deserialize(doc) for doc in result]
-        if entries:
-            return entries
-        raise ValueError
+        self._cache.setdefault(key, []).extend(entries)
+        if not entries:
+            raise ValueError
+        result, self._cache[key] = entries[:sample], entries[sample:]
+        return result
 
     async def random_what_entry(self, **kwargs) -> Entry:
         return random.choice(await self.random_corpus_entry(**kwargs))
@@ -135,7 +146,7 @@ class Ask:
         except ValueError as e:
             if kwargs.get("length") is None or kwargs["length"] > 2:
                 raise e
-            entries = await self.random_corpus_entry(sample=10)
+            entries = await self.random_corpus_entry()
             if kwargs["length"] == 1:
                 return random.choice(entries[0].text)
             if kwargs["length"] == 2:
@@ -152,7 +163,7 @@ class Ask:
         entries = await self.random_corpus_entry(length=(length
                                                          or self.MIN_WHAT,
                                                          100),
-                                                 sample=64)
+                                                 sample=32)
         candidates: list[tuple[str, Entry]] = []
         for entry in entries:
             for word_pos in entry.cut_pos(start="v", end=["x", "y"]):
