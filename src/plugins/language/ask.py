@@ -27,6 +27,11 @@ def cut_before_first_punctuation(s: str) -> str:
     return s
 
 
+def number_to_chinese(n: int) -> str:
+    assert 0 <= n <= 10
+    return "零一二三四五六七八九十"[n]
+
+
 class Ask:
 
     PERSON = {"你": "我", "我": "你", "你们": "我们", "我们": "你们"}
@@ -290,7 +295,7 @@ class Ask:
                 self.replacement = True
                 num = str(random.randint(0, 100))
                 yield word.replace("多少", num)
-            elif word.startswith("几") and pos == "m":
+            elif "几" in word and pos == "m":
                 self.replacement = True
                 if word == "几点钟":
                     num = str(random.randint(1, 12))
@@ -309,15 +314,13 @@ class Ask:
                     month = int(prev_out[:-1])
                     days = {2: 29, 4: 30, 6: 30, 9: 30, 11: 30}.get(month, 31)
                     num = str(random.randint(1, days))
+                elif match := re.search(r"几[十百千万]|[十第]几", word):
+                    num = number_to_chinese(random.randint(1, 9))
                 else:
                     num = str(random.randint(0, 10))
-                if word[1:].startswith("几"):
-                    # only consume one character
-                    # leave the rest to next iteration
-                    yield output(num)
-                    next_remain = word[1:] + next_remain
-                else:
-                    yield output(num + word[1:])
+                first, rest = word.split("几", 1)
+                yield output(first + num)
+                next_remain = rest + next_remain
             else:
                 yield output(word)
             remain = next_remain
