@@ -1,9 +1,11 @@
+import json
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from nonebot.adapters.onebot.v11 import Message
+from nonebot import get_bot
+from nonebot.adapters.onebot.v11 import Bot, Message
 from nonebot.adapters.onebot.v11 import MessageSegment as _MessageSegment
 from nonebot.log import logger
 from PIL import Image
@@ -104,6 +106,15 @@ class MessageSegment(_MessageSegment):
                        "content": content
                    })
 
+    @classmethod
+    def markdown(cls, content: str) -> "MessageSegment":
+        inner = {"content": content}
+        return cls(type="markdown", data={"content": json.dumps(inner)})
+
+    @classmethod
+    def longmsg(cls, id_: str) -> "MessageSegment":
+        return cls(type="longmsg", data={"id": id_})
+
     def is_at(self) -> bool:
         return self.type == "at"
 
@@ -137,3 +148,40 @@ class MessageSegment(_MessageSegment):
         if not self.is_face():
             raise ValueError("Not a face segment")
         return int(self.data["id"])
+
+
+class MessageExtension:
+
+    @classmethod
+    def get_bot(cls) -> Bot:
+        bot = get_bot()
+        if not isinstance(bot, Bot):
+            raise ValueError("OneBot instance required")
+        return bot
+
+    @classmethod
+    async def forward(
+        cls,
+        segments: list[MessageSegment],
+        bot: Bot | None = None,
+    ) -> Message:
+        bot = bot or cls.get_bot()
+        forward_id = await bot.call_api("send_forward_msg",
+                                        messages=Message(segments))
+        return Message(MessageSegment.forward(id_=forward_id))
+
+    @classmethod
+    async def markdown(
+        cls,
+        content: str,
+        user_id: int,
+        nickname: str,
+        bot: Bot | None = None,
+    ) -> Message:
+        bot = bot or cls.get_bot()
+        markdown = MessageSegment.markdown(content)
+        node = MessageSegment.node_lagrange(user_id, nickname,
+                                            Message(markdown))
+        forward_id = await bot.call_api("send_forward_msg",
+                                        messages=Message(node))
+        return Message(MessageSegment.longmsg(id_=forward_id))
