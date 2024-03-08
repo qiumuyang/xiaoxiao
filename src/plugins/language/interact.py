@@ -1,5 +1,4 @@
 import random
-import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -42,7 +41,7 @@ class Interact:
     KW_MIN_CORPUS_LEN = 6
     KW_MAX_CORPUS_LEN = 40
     KW_CORPUS_SAMPLE = 32
-    KW_SIM_THRESHOLD = 0.6
+    KW_SIM_THRESHOLD = 0.75
 
     @classmethod
     async def response(cls, group_id: int, message: Message) -> Message | None:
@@ -128,22 +127,17 @@ class Interact:
         if random.random() > cls.KW_PROB:
             return
         words = Keyword.extract(query)
-        words = [re.escape(w) for w in words]
-        regex = "|".join(set(words))
         entries = await Corpus.find(
             group_id,
             length=(cls.KW_MIN_CORPUS_LEN, cls.KW_MAX_CORPUS_LEN),
-            filter={
-                "text": {
-                    "$regex": regex,
-                    "$options": "i"
-                }
-            },
+            keywords=words,
             sample=cls.KW_CORPUS_SAMPLE,
         ).to_list(length=cls.KW_CORPUS_SAMPLE)
         corpus = [e["text"] for e in entries]
+        corpus_kw = [e["keywords"] for e in entries]
         results = Keyword.search([query],
                                  corpus,
+                                 corpus_kw,
                                  threshold=cls.KW_SIM_THRESHOLD)
         if results:
             return Message(random.choice(results))

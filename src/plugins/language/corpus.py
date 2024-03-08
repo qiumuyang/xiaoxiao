@@ -1,15 +1,19 @@
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cached_property
 from typing import Any, Iterable
 
 import jieba.posseg as pseg
+from nonebot import get_driver
 
 from src.utils.message.receive import MessageData as RMD
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import MessageData as SMD
 from src.utils.message.send import SentMessageTracker as SMT
 from src.utils.persistence import Collection, Mongo
+
+from .keywords import Keyword
 
 
 @dataclass
@@ -18,6 +22,8 @@ class Entry:
     created: datetime
     used: datetime
     text: str
+    length: int
+    keywords: set[str]
 
     @cached_property
     def posseg(self) -> list[tuple[str, str]]:
@@ -59,6 +65,10 @@ class Corpus:
     USED_SAMPLE_INTERVAL = timedelta(hours=4)
 
     @classmethod
+    async def init(cls) -> None:
+        await cls.corpus.collection.create_index({"keywords": 1})
+
+    @classmethod
     def maintain(cls) -> None:
         """Remove outdated entries."""
         expire = datetime.now() - cls.TTL_SENTD
@@ -87,7 +97,7 @@ class Corpus:
     @classmethod
     async def use(cls, entry: Entry) -> None:
         """Mark a message as used."""
-        await cls.corpus.update_one(
+        task = cls.corpus.update_one(
             filter={
                 "text": entry.text,
                 "group_id": entry.group_id
@@ -96,12 +106,14 @@ class Corpus:
                 "used": datetime.now()
             }},
         )
+        asyncio.create_task(task)  # non-blocking
 
     @classmethod
     def find(
         cls,
         group_id: int | list[int],
         length: int | tuple[int, int] | None = None,
+        keywords: list[str] | None = None,
         filter: dict[str, Any] | None = None,
         sample: int | None = None,
     ):
@@ -135,19 +147,18 @@ class Corpus:
         pipeline: list[dict[str, Any]] = [{
             "$match": m
         } for m in (match_group_id, not_recent_sent, not_recent_added)]
-        # use addfields to calculate text length
         if length is not None:
-            length_field = {"text-length": {"$strLenCP": "$text"}}
             match_length = {
-                "text-length": {
+                "length": length
+            } if isinstance(length, int) else {
+                "length": {
                     "$gte": length[0],
                     "$lte": length[1]
-                } if isinstance(length, tuple) else {
-                    "$eq": length
                 }
             }
-            pipeline.append({"$addFields": length_field})
-            pipeline.append({"$match": match_length})
+            pipeline.insert(0, {"$match": match_length})
+        if keywords is not None:
+            pipeline.append({"$match": {"keywords": {"$in": keywords}}})
         if filter:
             pipeline.append({"$match": filter})
         if sample is not None:
@@ -162,6 +173,8 @@ def _(entry: Entry) -> dict:
         "created": entry.created,
         "used": entry.used,
         "text": entry.text,
+        "length": entry.length,
+        "keywords": list(entry.keywords),
     }
 
 
@@ -172,6 +185,8 @@ def deserialize(data: dict) -> Entry:
         created=data["created"],
         used=data["used"],
         text=data["text"],
+        length=data["length"],
+        keywords=set(data["keywords"]),
     )
 
 
@@ -195,14 +210,17 @@ async def add_to_corpus(object_id: str | None, data: RMD) -> None:
     allow_type = ("at", "face", "reply", "text")
     if any(seg.type not in allow_type for seg in data.content):
         return
-    text = data.content.extract_plain_text()
-    if text.strip():
+    text = data.content.extract_plain_text().strip()
+    if text:
+        keywords = Keyword.extract(text)
         await Corpus.add(
             Entry(
                 group_id=data.group_id,
                 created=data.time,
                 used=data.time,
                 text=text,
+                length=len(text),
+                keywords=set(keywords),
             ))
 
 
@@ -213,3 +231,11 @@ async def mark_as_sent(object_id: str, data: SMD) -> None:
     if text:
         Corpus.recently_sent.append(
             (data.time, data.content.extract_plain_text()))
+
+
+driver = get_driver()
+
+
+@driver.on_startup
+async def init_corpus() -> None:
+    await Corpus.init()
