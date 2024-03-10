@@ -186,6 +186,26 @@ class SentMessageTracker:
             filter["recalled"] = recalled
         return [data async for data in cls.sent.find_all(filter=filter)]
 
+    @classmethod
+    async def count(
+        cls,
+        *,
+        group_id: int | None = None,
+        recalled: bool | None = None,
+        since: datetime | None = None,
+    ) -> int:
+        filter = {}
+        if group_id is not None:
+            filter["session_id"] = {
+                "$regex":
+                f"^{cls.SESSION_GROUP_PREFIX.format(group_id=group_id)}"
+            }
+        if since:
+            filter["time"] = {"$gte": since}
+        if recalled is not None:
+            filter["recalled"] = recalled
+        return await cls.sent.collection.count_documents(filter)
+
 
 @SentMessageTracker.sent.serialize()
 def serialize(data: MessageData) -> dict:
