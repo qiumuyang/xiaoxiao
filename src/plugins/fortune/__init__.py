@@ -7,7 +7,7 @@ from .fortune import get_fortune
 from .render import FortuneRender
 
 matcher = on_command("今日运势",
-                     aliases={"jrys", "王优运势"},
+                     aliases={"jrys"},
                      block=True,
                      force_whitespace=True)
 
