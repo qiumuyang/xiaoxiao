@@ -11,6 +11,8 @@ from nonebot.log import logger
 from PIL import Image
 from typing_extensions import override
 
+from .button import ButtonGroup
+
 
 class MessageSegment(_MessageSegment):
 
@@ -115,6 +117,10 @@ class MessageSegment(_MessageSegment):
     def longmsg(cls, id_: str) -> "MessageSegment":
         return cls(type="longmsg", data={"id": id_})
 
+    @classmethod
+    def keyboard(cls, buttons: ButtonGroup) -> "MessageSegment":
+        return cls(type="keyboard", data={"content": buttons.dict()})
+
     def is_at(self) -> bool:
         return self.type == "at"
 
@@ -176,12 +182,18 @@ class MessageExtension:
         content: str,
         user_id: int,
         nickname: str,
+        *,
+        keyboard: ButtonGroup | None = None,
         bot: Bot | None = None,
     ) -> Message:
         bot = bot or cls.get_bot()
         markdown = MessageSegment.markdown(content)
-        node = MessageSegment.node_lagrange(user_id, nickname,
-                                            Message(markdown))
+        if keyboard:
+            buttons = MessageSegment.keyboard(keyboard)
+            message = markdown + buttons
+        else:
+            message = Message(markdown)
+        node = MessageSegment.node_lagrange(user_id, nickname, message)
         forward_id = await bot.call_api("send_forward_msg",
                                         messages=Message(node))
         return Message(MessageSegment.longmsg(id_=forward_id))
