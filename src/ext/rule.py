@@ -9,6 +9,7 @@ from nonebot.rule import Rule, StartswithRule
 from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
 from typing_extensions import override
 
+from .config import ConfigManager, T_Config
 from .ratelimit import (RateLimiter, RateLimitManager, RateLimitType,
                         TokenBucketRateLimiter)
 
@@ -219,4 +220,24 @@ class ReplyRule:
 
 
 def reply(*startswith: str) -> Rule:
+    """匹配包含回复的消息，且文本部分满足指定前缀。"""
     return Rule(ReplyRule(*startswith))
+
+
+class EnabledRule:
+
+    def __init__(self, config: type[T_Config]):
+        self.config = config
+
+    async def __call__(self, event: MessageEvent) -> bool:
+        user = await ConfigManager.get_user(event.user_id, self.config)
+        if not user.enabled:
+            return False
+        if isinstance(event, GroupMessageEvent):
+            group = await ConfigManager.get_group(event.group_id, self.config)
+            return group.enabled
+        return True
+
+
+def enabled(config: type[T_Config]) -> Rule:
+    return Rule(EnabledRule(config))
