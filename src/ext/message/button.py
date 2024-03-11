@@ -8,9 +8,9 @@ class ButtonStyle(IntEnum):
 
 
 class ButtonAction(IntEnum):
-    JUMP = 1
-    CALLBACK = 2
-    TEXT_INPUT = 3
+    JUMP = 0
+    CALLBACK = 1
+    TEXT_INPUT = 2
 
 
 class ButtonPermission(IntEnum):
