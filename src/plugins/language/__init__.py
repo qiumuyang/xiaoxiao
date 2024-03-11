@@ -14,15 +14,19 @@ from nonebot.typing import T_State
 
 from src.ext.message import MessageSegment
 from src.ext.permission import ADMIN, SUPERUSER
-from src.ext.rule import RateLimit, RateLimiter, ratelimit, reply
+from src.ext.rule import RateLimit, RateLimiter, enabled, ratelimit, reply
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
 
 from .ask import Ask
+from .config import (RandomResponseConfig, toggle_group_response_request,
+                     toggle_user_response)
 from .history import History
-from .interact import Interact
+from .interact import RandomResponse
 
 record_message = on_message(priority=0, block=False)
-interact_with = on_message(priority=10, block=False)
+random_response = on_message(priority=10,
+                             block=False,
+                             rule=enabled(RandomResponseConfig))
 record_unhandled_message = on_message(priority=255, block=True)
 
 recall_message = on_command("撤回", aliases={"快撤回"}, rule=to_me(), block=True)
@@ -35,6 +39,14 @@ message_rank = on_command("发言排行",
                           force_whitespace=True,
                           block=True,
                           rule=ratelimit("发言排行", type="group", seconds=15))
+disable_response = on_command("闭嘴",
+                              aliases={"闭菊"},
+                              force_whitespace=True,
+                              block=True)
+enable_response = on_command("张嘴",
+                             aliases={"张菊", "开菊", "开嘴"},
+                             force_whitespace=True,
+                             block=True)
 
 message_trace = CommandGroup("trace", block=True)
 trace_single = message_trace.command(
@@ -172,14 +184,14 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
     await message_rank.finish(result + ranking)
 
 
-@interact_with.handle()
+@random_response.handle()
 async def _(event: GroupMessageEvent,
             ratelimit: RateLimiter = RateLimit("随机回复",
                                                type="group",
                                                seconds=10)):
-    resp = await Interact.response(event.group_id, event.message)
+    resp = await RandomResponse.response(event.group_id, event.message)
     if resp and ratelimit.try_acquire():
-        await interact_with.send(resp)
+        await random_response.send(resp)
 
 
 @trace_single.handle()
@@ -213,3 +225,45 @@ async def _(bot: OnebotBot,
                                                  event.group_id,
                                                  senders=senders,
                                                  keywords=keywords))
+
+
+@disable_response.handle()
+async def _(event: GroupMessageEvent,
+            notice_lim: RateLimiter = RateLimit("随机回复关闭提示",
+                                                type="group",
+                                                seconds=600)):
+    if event.is_tome():
+        if await toggle_user_response(user_id=event.user_id, enabled=False):
+            await disable_response.finish("鸮鸮对你的随机回复已关闭")
+        return
+    result = await toggle_group_response_request(user_id=event.user_id,
+                                                 group_id=event.group_id,
+                                                 enabled=False)
+    if type(result) is int:
+        requests = RandomResponseConfig.num_reqs_to_toggle
+        prompt = f"正在关闭鸮鸮的随机回复，进度 {result}/{requests}"
+        if notice_lim.try_acquire():
+            prompt += "\n（@鸮鸮 可以对个人关闭）"
+        await disable_response.finish(prompt)
+    if result:
+        await disable_response.finish("鸮鸮的随机回复已关闭")
+
+
+@enable_response.handle()
+async def _(event: GroupMessageEvent):
+    user_toggled = await toggle_user_response(user_id=event.user_id,
+                                              enabled=True)
+    result = await toggle_group_response_request(user_id=event.user_id,
+                                                 group_id=event.group_id,
+                                                 enabled=True)
+    requests = RandomResponseConfig.num_reqs_to_toggle
+    if user_toggled:
+        prompt = "鸮鸮对你的随机回复已开启"
+        if type(result) is int:  # group disabled
+            prompt += f"\n群内未开启，进度 {result}/{requests}"
+        await enable_response.finish(prompt)
+    if type(result) is int:
+        prompt = f"正在开启鸮鸮的随机回复，进度 {result}/{requests}"
+        await enable_response.finish(prompt)
+    if result is True:
+        await enable_response.finish("鸮鸮的随机回复已开启")

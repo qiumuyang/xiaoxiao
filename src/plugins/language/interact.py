@@ -18,7 +18,7 @@ class _InteractMessage:
     message: Message
 
 
-class Interact:
+class RandomResponse:
 
     RECENT_MESSAGE_INTERVAL = timedelta(seconds=90)
     RECENT_MIN_RECV_MESSAGE = 3

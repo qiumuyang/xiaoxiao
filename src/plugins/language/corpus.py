@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cached_property
@@ -97,7 +96,7 @@ class Corpus:
     @classmethod
     async def use(cls, entry: Entry) -> None:
         """Mark a message as used."""
-        task = cls.corpus.update_one(
+        await cls.corpus.update_one(
             filter={
                 "text": entry.text,
                 "group_id": entry.group_id
@@ -106,7 +105,6 @@ class Corpus:
                 "used": datetime.now()
             }},
         )
-        asyncio.create_task(task)  # non-blocking
 
     @classmethod
     def find(
