@@ -17,6 +17,8 @@ T_Config = TypeVar("T_Config", bound="Config")
 class Config(BaseModel):
     # the name users see / refer to
     user_friendly: ClassVar[str]
+    # whether the feature can be disabled
+    force_enable: ClassVar[bool] = False
 
     # whether the feature is enabled
     enabled: bool = True
@@ -158,9 +160,25 @@ def serialize_config(cfg: StoreConfig):
 @ConfigManager.config.deserialize()
 def deserialize_config(data: dict):
     cls = ConfigManager.name_to_cfg[data["name"]]
+    # since config class may be modified (inconsistent with the database),
+    # we only load fields from database that are present in the class
+    fields = [key for key in cls.model_fields]
+    config = {
+        key: value
+        for key, value in data["config"].items() if key in fields
+    }
+    # warn the missing and duplicated fields
+    name = (f"{'user' if data['type'] == ConfigType.USER else 'group'}"
+            f"{data['id']}")
+    miss = set(cls.model_fields) - set(data["config"].keys())
+    if miss:
+        logger.warning(f"Missing fields in {cls.__name__} ({name}): {miss}")
+    dup = set(data["config"].keys()) - set(cls.model_fields)
+    if dup:
+        logger.warning(f"Duplicated fields in {cls.__name__} ({name}): {dup}")
     return StoreConfig(
         id=data["id"],
         type=ConfigType(data["type"]),
         name=data["name"],
-        config=cls(**data["config"]),
+        config=cls(**config),
     )
