@@ -66,6 +66,8 @@ class MessageSegment(_MessageSegment):
         if seg1 == seg2:
             return True
         if seg1.type == "image" and seg2.type == "image":
+            if not "url" in seg1.data or not "url" in seg2.data:
+                return False
             url1 = urlparse(seg1.data["url"])
             url2 = urlparse(seg2.data["url"])
             # http://gchat.qpic.cn/gchatpic_new/<uid>/aaa-bbb-ccc/0?term=255
@@ -145,10 +147,13 @@ class MessageSegment(_MessageSegment):
             raise ValueError("Not an at segment")
         return int(self.data["qq"])
 
-    def extract_image(self) -> str:
+    def extract_image(self, force_http: bool = True) -> str:
         if not self.is_image():
             raise ValueError("Not an image segment")
-        return self.data["url"]
+        url = self.data["url"]
+        if force_http:
+            url = url.replace("https://", "http://")
+        return url
 
     def extract_face(self) -> int:
         if not self.is_face():
