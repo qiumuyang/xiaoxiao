@@ -59,6 +59,7 @@ class AbbreviationTranslate:
         includes: dict[str, list[str]] | None = None,
         excludes: dict[str, list[str]] | None = None,
     ) -> str:
+        abbr = abbr.lower()
         try:
             results = await AbbreviationTranslate.fetch(abbr)
         except:
@@ -127,6 +128,7 @@ async def config_abbr(
     abbrs = set()
     for config_match in AbbreviationTranslate.CFG_PATTERN.finditer(message):
         op, abbr, t = config_match.groups()
+        abbr = abbr.lower()
         ilst = cfg.includes.setdefault(abbr, [])
         elst = cfg.excludes.setdefault(abbr, [])
         # Note: here we use a 2-step config
