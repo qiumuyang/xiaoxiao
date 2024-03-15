@@ -190,8 +190,10 @@ async def _(event: GroupMessageEvent,
                                                type="group",
                                                seconds=10)):
     resp = await RandomResponse.response(event.group_id, event.message)
-    if resp and ratelimit.try_acquire():
-        await random_response.send(resp)
+    if resp:
+        resp = MessageSegment.normalize(resp)
+        if resp and ratelimit.try_acquire():
+            await random_response.send(resp)
 
 
 @trace_single.handle()

@@ -160,6 +160,16 @@ class MessageSegment(_MessageSegment):
             raise ValueError("Not a face segment")
         return int(self.data["id"])
 
+    @classmethod
+    def normalize(cls, message: Message) -> Message:
+        """Normalize a message by removing empty segments."""
+        segments = []
+        for segment in message:
+            if segment.type == "text" and not segment.data["text"]:
+                continue
+            segments.append(segment)
+        return Message(segments)
+
 
 class MessageExtension:
 
