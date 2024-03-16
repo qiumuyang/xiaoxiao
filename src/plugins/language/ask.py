@@ -1,5 +1,6 @@
 import random
 import re
+from functools import partial
 from typing import AsyncIterable
 
 import jieba
@@ -159,6 +160,27 @@ class Ask:
                 return random.choice(words)
         raise ValueError
 
+    async def random_what_startswith(
+        self,
+        startswith: str,
+        enable_prob: float = 0.25,
+        **kwargs,
+    ) -> str:
+        length = kwargs.pop("length", None)
+        if random.random() < enable_prob:
+            try:
+                if length is not None:
+                    # fix by adding length of startswith
+                    # which will be removed later
+                    return await self.random_what(startswith=startswith,
+                                                  length=length +
+                                                  len(startswith),
+                                                  **kwargs)
+                return await self.random_what(startswith=startswith, **kwargs)
+            except ValueError:
+                pass
+        return await self.random_what(length=length, **kwargs)
+
     async def random_what_to_do(self, length: int | None = None):
         entries = await self.random_corpus_entry(length=(length
                                                          or self.MIN_WHAT,
@@ -257,7 +279,6 @@ class Ask:
             elif word in self.PERSON:
                 yield output(self.PERSON[word])
             elif word in ["什么", "为什么", "干什么"]:
-                self.replacement = True
                 # check followed by one digit
                 length_limit = None
                 if self.PATTERN_ONE_DIGIT.match(next_remain):
@@ -272,6 +293,9 @@ class Ask:
                     fn = self.random_reason
                 elif word == "干什么":
                     fn = self.random_what_to_do
+                elif not self.replacement and 1 <= len(prev_out) <= 3:
+                    fn = partial(self.random_what_startswith,
+                                 startswith=prev_out)
                 else:
                     fn = self.random_what
                 is_why = fn == self.random_reason
@@ -298,16 +322,17 @@ class Ask:
                         "，所以" if next_remain else "",
                     ]
                     generated = "".join(tokens)
-                yield generated
+                generated = generated.removeprefix(prev_out)
+                yield output(generated)
+                self.replacement = True
             elif word == "谁":
-                self.replacement = True
                 yield random.choice(members)
-            elif word.startswith("多少"):
                 self.replacement = True
+            elif word.startswith("多少"):
                 num = str(random.randint(0, 100))
                 yield word.replace("多少", num)
-            elif "几" in word and pos == "m":
                 self.replacement = True
+            elif "几" in word and pos == "m":
                 if word == "几点钟":
                     num = str(random.randint(1, 12))
                 elif word in ["几点", "几时"] and next_remain.startswith(
@@ -331,6 +356,7 @@ class Ask:
                     num = str(random.randint(0, 10))
                 first, rest = word.split("几", 1)
                 yield output(first + num)
+                self.replacement = True
                 next_remain = rest + next_remain
             else:
                 yield output(word)
