@@ -40,6 +40,12 @@ class Image(RenderObject):
         self.im.base_im.setflags(write=False)
 
     @classmethod
+    def empty(cls, width: int, height: int, color: Color,
+              **kwargs: Unpack[BaseStyle]) -> Self:
+        return cls.from_image(RenderImage.empty(width, height, color),
+                              **kwargs)
+
+    @classmethod
     def from_file(
         cls,
         path: PathLike,

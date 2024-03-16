@@ -2,7 +2,7 @@ from io import BytesIO
 
 from aiohttp import ClientSession, ClientTimeout
 from nonebot import get_driver, on_command
-from nonebot.adapters.onebot.v11 import MessageEvent
+from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
 from nonebot.typing import T_State
@@ -11,9 +11,11 @@ from PIL import Image
 from src.ext import MessageSegment, logger_wrapper, ratelimit
 from src.ext.on import on_reply
 
+from .group_member_avatar import *
 from .process import *
 
 logger = logger_wrapper("Image")
+driver = get_driver()
 
 
 async def process_image_message(
@@ -41,8 +43,8 @@ async def process_image_message(
                 await matcher.finish(MessageSegment.image(result))
 
 
-@get_driver().on_startup
-async def init():
+@driver.on_startup
+async def register_process():
     session = ClientSession(timeout=ClientTimeout(total=10))
     processors = {
         "灰度": GrayScale(),
@@ -78,3 +80,53 @@ async def init():
         cmd_matcher.handle()(fn(name[0], processor))
 
         logger.info(f"Registered image processor: {name}")
+
+
+async def response_avatar(
+    avatar: type[GroupMemberAvatar],
+    *,
+    bot: Bot,
+    matcher: Matcher,
+    event: GroupMessageEvent,
+):
+    user_id = event.user_id
+    for seg in event.message:
+        segment = MessageSegment.from_onebot(seg)
+        if segment.is_at():
+            user_id = segment.extract_at()
+            break
+    else:
+        if event.is_tome():
+            user_id = int(bot.self_id)
+
+    member = await bot.get_group_member_info(group_id=event.group_id,
+                                             user_id=user_id)
+    nickname = member["card"] or member["nickname"]
+    result = await avatar.render(user_id=user_id, nickname=nickname)
+    await matcher.finish(MessageSegment.image(result))
+
+
+@driver.on_startup
+async def register_avatar():
+    rule = ratelimit("AVATAR", type="group", seconds=5)
+    cmd = {
+        "小天使": LittleAngel,
+        "RBQ": RBQ,
+        "雌小鬼": Mesugaki,
+    }
+    for name, avatar in cmd.items():
+        matcher = on_command(name, rule=rule, block=True)
+
+        def fn(name: str, avatar: type[GroupMemberAvatar]):
+            """Create a closure to keep the avatar."""
+
+            async def _(bot: Bot, matcher: Matcher, event: GroupMessageEvent):
+                await response_avatar(avatar,
+                                      bot=bot,
+                                      matcher=matcher,
+                                      event=event)
+
+            return _
+
+        matcher.handle()(fn(name, avatar))
+        logger.info(f"Registered group avatar: {name}")
