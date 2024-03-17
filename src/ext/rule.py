@@ -5,7 +5,7 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.dependencies import Dependent
 from nonebot.internal.adapter import Bot, Event
 from nonebot.internal.params import Depends
-from nonebot.rule import Rule, StartswithRule
+from nonebot.rule import Rule
 from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
 from typing_extensions import override
 
@@ -203,17 +203,20 @@ def RateLimit(
 
 class ReplyRule:
 
-    __slots__ = ("startswith")
+    __slots__ = ("startswith", "lstrip")
 
-    def __init__(self, *startswith: str):
+    def __init__(self, *startswith: str, lstrip: bool = True):
         self.startswith = startswith
+        self.lstrip = lstrip
 
     async def __call__(self, event: MessageEvent, state: T_State) -> bool:
         if not event.reply:
             return False
         if self.startswith:
-            rule = StartswithRule(self.startswith)
-            if not await rule(event, state):
+            text = event.get_plaintext()
+            if self.lstrip:
+                text = text.lstrip()
+            if not text.startswith(self.startswith):
                 return False
         state["reply"] = event.reply.model_copy()
         return True
