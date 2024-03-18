@@ -115,7 +115,10 @@ async def register_avatar():
         "雌小鬼": Mesugaki,
     }
     for name, avatar in cmd.items():
-        matcher = on_command(name, rule=rule, block=True)
+        matcher = on_command(name,
+                             rule=rule,
+                             block=True,
+                             force_whitespace=True)
 
         def fn(name: str, avatar: type[GroupMemberAvatar]):
             """Create a closure to keep the avatar."""
