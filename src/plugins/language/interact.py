@@ -20,8 +20,9 @@ class _InteractMessage:
 
 class RandomResponse:
 
-    RECENT_MESSAGE_INTERVAL = timedelta(seconds=90)
+    RECENT_MESSAGE_PERIOD = timedelta(seconds=90)
     RECENT_MIN_RECV_MESSAGE = 3
+    RECENT_MIN_INTERVAL = 5  # at least k messages after last response
 
     RP_PROB_MIN = 0.1
     RP_PROB_MAX = 0.6
@@ -45,7 +46,7 @@ class RandomResponse:
 
     @classmethod
     async def response(cls, group_id: int, message: Message) -> Message | None:
-        since = datetime.now() - cls.RECENT_MESSAGE_INTERVAL
+        since = datetime.now() - cls.RECENT_MESSAGE_PERIOD
         received_messages = await RMT.find(group_id=group_id,
                                            handled=False,
                                            since=since)
@@ -59,6 +60,13 @@ class RandomResponse:
                    [False] * len(sent_messages))
         messages = sorted(zip(received_messages + sent_messages, is_recv),
                           key=lambda x: x[0].time)
+        # check if there are enough messages after last response
+        i = 0
+        for i, (_, recv) in enumerate(reversed(messages)):
+            if not recv:
+                break
+        if i < cls.RECENT_MIN_INTERVAL:
+            return
         messages = [_InteractMessage(r, m.content)
                     for m, r in messages] + [_InteractMessage(True, message)]
         responser = [
