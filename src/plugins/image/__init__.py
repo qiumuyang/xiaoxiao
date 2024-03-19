@@ -2,15 +2,18 @@ from io import BytesIO
 
 from aiohttp import ClientSession, ClientTimeout
 from nonebot import get_driver, on_command
+from nonebot.adapters import Message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
+from nonebot.params import CommandArg
 from nonebot.typing import T_State
 from PIL import Image
 
 from src.ext import MessageSegment, logger_wrapper, ratelimit
 from src.ext.on import on_reply
 
+from .color import parse_color, random_color, render_color
 from .group_member_avatar import *
 from .process import *
 
@@ -25,12 +28,20 @@ async def process_image_message(
     state: T_State,
     session: ClientSession,
 ):
+    # extract text args
+    arg_message = event.message
+    args = [
+        s.extract_text_args() for seg in arg_message
+        if (s := MessageSegment.from_onebot(seg)) and s.is_text()
+    ]
+    args = [_ for a in args for arg in a if (_ := arg.strip())]
+    # extract image
     if reply := state.get("reply"):
         reply: Reply | None
-        message = reply.message
+        im_message = reply.message
     else:
-        message = event.message
-    for seg in message:
+        im_message = event.message
+    for seg in im_message:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image():
             url = segment.extract_image()
@@ -39,8 +50,9 @@ async def process_image_message(
                 image = Image.open(BytesIO(await resp.read()))
                 if not processor.supports(image):
                     continue
-                result = processor.process(image)
-                await matcher.finish(MessageSegment.image(result))
+                result = processor.process(image, *args)
+                if result is not None:
+                    await matcher.finish(MessageSegment.image(result))
 
 
 @driver.on_startup
@@ -133,3 +145,14 @@ async def register_avatar():
 
         matcher.handle()(fn(name, avatar))
         logger.info(f"Registered group avatar: {name}")
+
+
+color_ = on_command("颜色", block=True, force_whitespace=True)
+
+
+@color_.handle()
+async def _(arg: Message = CommandArg()):
+    colors = list(parse_color(arg.extract_plain_text()))
+    if not colors:
+        colors = list(random_color(3))
+    await color_.finish(MessageSegment.image(render_color(*colors)))

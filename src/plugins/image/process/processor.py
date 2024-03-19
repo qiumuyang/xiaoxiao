@@ -43,7 +43,7 @@ class ImageProcessor(ABC):
         return image
 
     def process(self, image: Image.Image, *args,
-                **kwargs) -> BytesIO | Image.Image:
+                **kwargs) -> BytesIO | Image.Image | None:
         """Process an image."""
         if not self.is_gif(image):
             return self.process_frame(image, *args, **kwargs)

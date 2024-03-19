@@ -39,6 +39,8 @@ class Color(NamedTuple):
     @classmethod
     def of_hex(cls, hex: str, opacity: float | int = 1.0) -> Self:
         hex = hex.lstrip("#")
+        if len(hex) == 3:  # short form, expand it
+            hex = "".join([c * 2 for c in hex])
         r, g, b = (int(hex[i:i + 2], 16) for i in (0, 2, 4))
         return cls.of(r, g, b, opacity)
 
