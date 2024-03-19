@@ -4,6 +4,7 @@ jieba
 motor
 numpy
 opencv-python>=4.5.4.58
+orjson
 paddlepaddle
 Pillow==9.5.0
 psutil

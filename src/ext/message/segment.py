@@ -1,9 +1,9 @@
-import json
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import orjson
 from nonebot import get_bot
 from nonebot.adapters.onebot.v11 import Bot, Message
 from nonebot.adapters.onebot.v11 import MessageSegment as _MessageSegment
@@ -113,7 +113,8 @@ class MessageSegment(_MessageSegment):
     @classmethod
     def markdown(cls, content: str) -> "MessageSegment":
         inner = {"content": content}
-        return cls(type="markdown", data={"content": json.dumps(inner)})
+        return cls(type="markdown",
+                   data={"content": orjson.dumps(inner).decode()})
 
     @classmethod
     def longmsg(cls, id_: str) -> "MessageSegment":
