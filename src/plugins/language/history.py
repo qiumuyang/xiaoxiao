@@ -43,12 +43,22 @@ class History:
                                                  user_id=user_id)
         nickname = (member["card"] or member["nickname"] or str(user_id))
 
+        # forward and longmsg
+        content = selected.content
+        if content and content[0].type in ["forward", "longmsg"]:
+            id_ = content[0].data["id"]
+            if not id_:
+                content = Message("[合并转发消息]")
+            else:
+                # cannot be wrapped again by node_lagrange
+                return content
+
         forward_id = await bot.call_api("send_forward_msg",
                                         messages=[
                                             MessageSegment.node_lagrange(
                                                 user_id=user_id,
                                                 nickname=nickname,
-                                                content=selected.content)
+                                                content=content)
                                         ])
         return Message(MessageSegment.forward(id_=forward_id))
 
