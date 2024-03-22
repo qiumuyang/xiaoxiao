@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 import orjson
 from nonebot import get_bot
+from nonebot.adapters.onebot.utils import b2s, f2s
 from nonebot.adapters.onebot.v11 import Bot, Message
 from nonebot.adapters.onebot.v11 import MessageSegment as _MessageSegment
 from nonebot.log import logger
@@ -25,7 +26,7 @@ class MessageSegment(_MessageSegment):
         cache: bool = True,
         proxy: bool = True,
         timeout: int | None = None,
-    ) -> _MessageSegment:
+    ) -> "MessageSegment":
         if isinstance(image, Image.Image):
             io = BytesIO()
             image.save(io, format="PNG")
@@ -33,7 +34,14 @@ class MessageSegment(_MessageSegment):
             file = io
         else:
             file = image
-        return _MessageSegment.image(file, type_, cache, proxy, timeout)
+        return cls(type="image",
+                   data={
+                       "file": f2s(file),
+                       "type": type_,
+                       "cache": b2s(cache),
+                       "proxy": b2s(proxy),
+                       "timeout": timeout,
+                   })
 
     @classmethod
     def serialize(cls, message: Message) -> list[dict[str, Any]]:
