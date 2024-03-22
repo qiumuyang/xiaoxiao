@@ -113,7 +113,7 @@ class ConfigManager:
                 "name": name
             },
             {"$set": {
-                "config": value.model_dump()
+                "config": value.model_dump(mode="json")
             }},
             upsert=True,
         )
@@ -153,7 +153,7 @@ def serialize_config(cfg: StoreConfig):
         "id": cfg.id,
         "type": cfg.type,
         "name": cfg.name,
-        "config": cfg.config.model_dump(),
+        "config": cfg.config.model_dump(mode="json"),
     }
 
 

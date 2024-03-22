@@ -5,6 +5,7 @@ from PIL import Image as PILImage
 from src.utils.image.avatar import Avatar
 from src.utils.render import *
 
+from .config import RenderBackground
 from .fortune import Fortune
 
 
@@ -14,6 +15,12 @@ class FortuneRender:
     BAD_EVENT_COLOR = (90, 138, 189)
     GOOD_FORTUNE_COLOR = (204, 0, 0)
     BAD_FORTUNE_COLOR = (52, 88, 129)
+
+    BG_COLOR_MAPPING = {
+        RenderBackground.WHITE: Palette.WHITE,
+        RenderBackground.BLACK: Palette.BLACK,
+        RenderBackground.TRANSPARENT: Palette.TRANSPARENT,
+    }
 
     SZ = 120
     AVATAR_RADIUS_D = 8
@@ -104,7 +111,11 @@ class FortuneRender:
                                           spacing=space))
 
     @classmethod
-    async def render(cls, fortune: Fortune) -> PILImage.Image:
+    async def render(
+        cls,
+        fortune: Fortune,
+        background: RenderBackground = RenderBackground.WHITE,
+    ) -> PILImage.Image:
         raw_avatar = await Avatar.user(fortune["user_id"])
         if raw_avatar is None:
             # failed to get avatar
@@ -225,6 +236,6 @@ class FortuneRender:
                 lower_container,
             ],
             padding=Space.of_side(15, 5),
-            background=Palette.WHITE,
+            background=cls.BG_COLOR_MAPPING[background],
             direction=Direction.VERTICAL,
         ).render().to_pil()
