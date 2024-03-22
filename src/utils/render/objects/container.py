@@ -23,6 +23,7 @@ class Container(RenderObject):
         alignment: Alignment,
         direction: Direction,
         children: Iterable[RenderObject],
+        spacing: int = 0,
         **kwargs: Unpack[BaseStyle],
     ) -> None:
         super().__init__(**kwargs)
@@ -30,6 +31,7 @@ class Container(RenderObject):
             self.alignment = alignment
             self.direction = direction
             self.children = vlt.list(children)
+            self.spacing = spacing
 
     @classmethod
     def from_children(
@@ -37,16 +39,20 @@ class Container(RenderObject):
         children: Iterable[RenderObject],
         alignment: Alignment = Alignment.START,
         direction: Direction = Direction.HORIZONTAL,
+        spacing: int = 0,
         **kwargs: Unpack[BaseStyle],
     ) -> Self:
-        return cls(alignment, direction, children, **kwargs)
+        return cls(alignment, direction, children, spacing, **kwargs)
 
     @property
     @cached
     @override
     def content_width(self) -> int:
         if self.direction == Direction.HORIZONTAL:
-            return sum(child.width for child in self.children)
+            spacing = self.spacing * (len(self.children) - 1)
+            if not self.children:
+                spacing = 0
+            return sum(child.width for child in self.children) + spacing
         return max(child.width
                    for child in self.children) if self.children else 0
 
@@ -57,7 +63,10 @@ class Container(RenderObject):
         if self.direction == Direction.HORIZONTAL:
             return max(child.height
                        for child in self.children) if self.children else 0
-        return sum(child.height for child in self.children)
+        spacing = self.spacing * (len(self.children) - 1)
+        if not self.children:
+            spacing = 0
+        return sum(child.height for child in self.children) + spacing
 
     @cached
     @override
@@ -65,7 +74,10 @@ class Container(RenderObject):
         if not self.children:
             return RenderImage.empty(0, 0)
         rendered = map(lambda child: child.render(), self.children)
-        concat = RenderImage.concat(rendered, self.direction, self.alignment)
+        concat = RenderImage.concat(rendered,
+                                    self.direction,
+                                    self.alignment,
+                                    spacing=self.spacing)
         return concat
 
 
