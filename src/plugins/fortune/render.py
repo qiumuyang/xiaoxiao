@@ -23,8 +23,9 @@ class FortuneRender:
     }
 
     SZ = 120
+    AVATAR_RATIO = 0.9
     AVATAR_RADIUS_D = 8
-    AVATAR_BORDER_D = 30
+    AVATAR_BORDER_D = 40
     AVATAR_SPACE_D = 8
     FORTUNE_RATIO = 0.75
     FORTUNE_ASPECT = 0.45
@@ -33,8 +34,8 @@ class FortuneRender:
     EVENT_EXPAND = 1.5
     EVENT_RADIUS_D = 32
     EVENT_ASPECT = 4 / EVENT_EXPAND
-    FONT_SMALL = 16
-    FONT_MEDIUM = 30
+    FONT_SMALL = 18
+    FONT_MEDIUM = 28
     FONT_EVENT = 22
     FONT_LARGE = 40
     VSPACE = 8
@@ -44,8 +45,8 @@ class FortuneRender:
     STLiti = "data/static/fonts/STLITI.TTF"
 
     text_template = textwrap.dedent("""
-        <luck>■  今天的幸运色是{lucky_color}</luck>
         <date>■  {date}</date>
+        <luck>■  今天的幸运色是 {lucky_color}</luck>
         """).strip()
 
     @classmethod
@@ -67,9 +68,19 @@ class FortuneRender:
         }
 
     @classmethod
-    def render_event_row(cls, width: int, is_good: bool,
-                         events: list[str]) -> RenderObject:
+    def render_event_row(
+        cls,
+        width: int,
+        is_good: bool,
+        events: list[str],
+        is_dark: bool = False,
+    ) -> RenderObject:
+        """Use a darker color for the event if the background is dark."""
         color = cls.GOOD_EVENT_COLOR if is_good else cls.BAD_EVENT_COLOR
+        if is_dark:
+            color = Palette.blend(Color.of(*color), Palette.BLACK, 0.2)
+        else:
+            color = Color.of(*color)
         head = Text.of(text="宜" if is_good else "忌",
                        font=cls.NotoSansHansMedium,
                        size=cls.FONT_EVENT,
@@ -81,7 +92,7 @@ class FortuneRender:
             height=event_height,
             justify_content=JustifyContent.CENTER,
             alignment=Alignment.CENTER,
-            background=Color.of(*color),
+            background=color,
             decorations=Decorations.of().final(
                 RectCrop.of(border_radius=cls.SZ // cls.EVENT_RADIUS_D)))
         event_width = round(event_height * cls.EVENT_ASPECT)
@@ -97,7 +108,7 @@ class FortuneRender:
                 height=event_height,
                 justify_content=JustifyContent.CENTER,
                 alignment=Alignment.CENTER,
-                background=Color.of(*color),
+                background=color,
                 decorations=Decorations.of().final(
                     RectCrop.of(border_radius=cls.SZ // cls.EVENT_RADIUS_D)))
             for event in events
@@ -117,27 +128,28 @@ class FortuneRender:
         background: RenderBackground = RenderBackground.WHITE,
     ) -> PILImage.Image:
         raw_avatar = await Avatar.user(fortune["user_id"])
+        avatar_sz = round(cls.SZ * cls.AVATAR_RATIO)
         if raw_avatar is None:
             # failed to get avatar
-            raw_avatar = PILImage.new("RGB", (cls.SZ, cls.SZ),
+            raw_avatar = PILImage.new("RGB", (avatar_sz, avatar_sz),
                                       Palette.WHITE.to_rgb())
         else:
-            raw_avatar = raw_avatar.resize((cls.SZ, cls.SZ))
+            raw_avatar = raw_avatar.resize((avatar_sz, avatar_sz))
 
         theme = Palette.dominant(raw_avatar)
         theme_light = Palette.blend(theme, Palette.WHITE, 0.3)
         theme_dark = Palette.blend(theme, Palette.BLACK, 0.2)
 
         # upper part: avatar, name, date, lucky color
-        border = cls.SZ // cls.AVATAR_BORDER_D
-        radius = cls.SZ // cls.AVATAR_RADIUS_D
+        border = avatar_sz // cls.AVATAR_BORDER_D
+        radius = avatar_sz // cls.AVATAR_RADIUS_D
         radius_outer = radius + border
 
         avatar_im = Image.from_image(
             raw_avatar, decorations=[RectCrop.of_square(border_radius=radius)])
         avatar_bg = Image.from_color(
-            width=cls.SZ + 2 * border,
-            height=cls.SZ + 2 * border,
+            width=avatar_sz + 2 * border,
+            height=avatar_sz + 2 * border,
             color=theme_dark,
             decorations=Decorations.of(
                 RectCrop.of_square(border_radius=radius_outer)),
@@ -157,21 +169,19 @@ class FortuneRender:
                                              max_size=max_name_size,
                                              color=theme_light,
                                              stroke_color=theme_dark,
-                                             stroke_width=2)
+                                             stroke_width=1)
         if name_text.width < max_name_width:
             # pad at right
             name_text = Image.from_image(
                 name_text.render(),
                 margin=Space.of(0, max_name_width - name_text.width, 0, 0))
         desc_text = StyledText.of(
-            text=cls.text_template.format(
-                lucky_color=lucky_color.as_hex(),
-                date=fortune["date"],
-            ),
+            text=cls.text_template.format(lucky_color=lucky_color.as_hex(),
+                                          date=fortune["date"]),
             styles=cls.text_style(theme_dark, theme_light, lucky_color),
             default=TextStyle.of(),  # default style not used
             max_width=max_name_width,
-            line_spacing=4)
+            line_spacing=cls.FONT_MEDIUM // 4)
 
         avatar_space_r = cls.SZ // cls.AVATAR_SPACE_D
         avatar_offset = (avatar_space_r, 0)
@@ -212,10 +222,16 @@ class FortuneRender:
         fortune_space = cls.SZ // cls.FORTUNE_SPACE_D
         event_offset = (fortune_space, 0)
         event_width = upper_container.width - fortune_text.width - fortune_space
-        event_good = cls.render_event_row(event_width, True,
-                                          fortune["event_good"])
-        event_bad = cls.render_event_row(event_width, False,
-                                         fortune["event_bad"])
+        event_good = cls.render_event_row(
+            event_width,
+            True,
+            fortune["event_good"],
+            is_dark=background == RenderBackground.BLACK)
+        event_bad = cls.render_event_row(
+            event_width,
+            False,
+            fortune["event_bad"],
+            is_dark=background == RenderBackground.BLACK)
 
         lower_container = RelativeContainer(padding=Space.vertical(cls.VSPACE))
         lower_container.add_child(fortune_text,
