@@ -6,7 +6,7 @@ from nonebot.params import CommandArg
 from .feihua.game import FeiHua
 
 matcher = on_command("飞花令", block=True, force_whitespace=True)
-shortcut = on_regex(r"^[\u4e00-\u9fa5]{4,}", block=False)
+shortcut = on_regex(r"^[\u4e00-\u9fa5]{2,}", block=False)
 
 
 @matcher.handle()

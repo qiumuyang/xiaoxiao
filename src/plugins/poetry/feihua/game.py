@@ -107,8 +107,9 @@ class FeiHua:
         if all(p in group.parts for p in hit_part):
             return MessageSegment.text(self.E_EXIST)
         # accept the answer
-        # choose the origin by title length (shorter is better)
-        origin = min(match_poetry, key=lambda x: len(x["title"]))
+        # choose the first dynasty
+        origin = min(match_poetry,
+                     key=lambda x: Poetry.dynasty.index(x["dynasty"]))
         group.score.setdefault(user_id, 0)
         group.score[user_id] += 1
         group.history.append((user_id, input_))
