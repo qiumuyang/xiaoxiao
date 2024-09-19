@@ -35,6 +35,7 @@ answer_ask = on_command("问",
                         priority=2,
                         block=True,
                         rule=ratelimit("问", type="user", seconds=2))
+debug_ask = on_command("cut", force_whitespace=True, block=True)
 message_rank = on_command("发言排行",
                           force_whitespace=True,
                           block=True,
@@ -142,6 +143,14 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
     result = await Ask(bot, event.group_id, event.message).answer()
     if result:
         await answer_ask.finish(result)
+
+
+@debug_ask.handle()
+async def _(bot: OnebotBot,
+            event: GroupMessageEvent,
+            arg: Message = CommandArg()):
+    if (input := arg.extract_plain_text()):
+        await debug_ask.finish("/".join(Ask.pseg_cut(input)))
 
 
 @message_rank.handle()

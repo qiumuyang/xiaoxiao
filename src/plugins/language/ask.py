@@ -15,6 +15,7 @@ logger = logger_wrapper(__name__)
 
 jieba.add_word("问一下", tag="v")
 jieba.add_word("号号", tag="n")
+jieba.add_word("几块钱", tag="m")
 
 punctuation_en = r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
 punctuation_cn = r"""！“”‘’（），。：；《》？【】……"""
@@ -31,6 +32,16 @@ def cut_before_first_punctuation(s: str) -> str:
 def number_to_chinese(n: int) -> str:
     assert 0 <= n <= 10
     return "零一二三四五六七八九十"[n]
+
+
+def endswith_num_and_char(s: str, chars: str, range_: tuple[int, int]):
+    if not any(s.endswith(c) for c in chars):
+        return False
+    i = 2
+    while i <= len(s) and s[-i].isdigit():
+        i += 1
+    num = s[-i + 1:-1]
+    return num and range_[0] <= int(num) <= range_[1]
 
 
 class Ask:
@@ -227,6 +238,10 @@ class Ask:
         await Corpus.use(entry)
         return reason
 
+    @classmethod
+    def pseg_cut(cls, s: str) -> list[str]:
+        return [word for word, _ in pseg.cut(s, use_paddle=True)]
+
     async def process(
         self,
         s: str,
@@ -240,12 +255,15 @@ class Ask:
         """
 
         remain = s
+        total_out = ""
         prev_out = ""
         prev_in = ""
         prev_in_pos = ""
 
         def output(out: str):
+            nonlocal total_out
             nonlocal prev_out
+            total_out += out
             prev_out = out
             return out
 
@@ -338,16 +356,25 @@ class Ask:
                 elif word in ["几点", "几时"] and next_remain.startswith(
                     ("几分", "几刻", "几秒")):
                     num = str(random.randint(1, 12))
-                elif word == "几分" and re.fullmatch(r"\d+[点时]", prev_out):
+                elif word == "几分" and endswith_num_and_char(
+                        total_out, "点时", (0, 24)):
                     num = str(random.randint(1, 59))
-                elif word == "几秒" and re.fullmatch(r"\d+[点时分]", prev_out):
+                # yapf: disable
+                elif word == "几秒" and (
+                    endswith_num_and_char(total_out, "点时", (0, 24)) or
+                    endswith_num_and_char(total_out, "分", (0, 60))
+                ):
                     num = str(random.randint(1, 59))
+                # yapf: enable
                 elif word == "几刻":
                     num = str(random.randint(1, 3))
                 elif word == "几月":
                     num = str(random.randint(1, 12))
-                elif word == "几号" and re.fullmatch(r"\d+月", prev_out):
-                    month = int(prev_out[:-1])
+                elif word in {"几号", "几日"} and endswith_num_and_char(
+                        total_out, "月", (1, 12)):
+                    m = re.search(r"(\d+)月$", total_out)
+                    assert m is not None
+                    month = int(m.group(1))
                     days = {2: 29, 4: 30, 6: 30, 9: 30, 11: 30}.get(month, 31)
                     num = str(random.randint(1, days))
                 elif match := re.search(r"几[十百千万]|[十第]几", word):
