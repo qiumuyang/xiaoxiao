@@ -143,7 +143,12 @@ class RenderText(Cacheable):
     @cached
     def width(self) -> int:
         font = ImageFont.truetype(str(self.font), self.size)
-        width, _ = font.getsize(self.text, stroke_width=self.stroke_width)
+        # width, _ = font.getsize(self.text, stroke_width=self.stroke_width)
+        if hasattr(font, "getsize"):  # Pillow <= 9.5.0
+            width, _ = font.getsize(self.text, stroke_width=self.stroke_width)
+        else:
+            _, _, width, _ = font.getbbox(self.text,
+                                          stroke_width=self.stroke_width)
         return width
 
     @property
