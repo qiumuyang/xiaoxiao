@@ -1,4 +1,5 @@
-from typing import Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar
+from typing import (Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar,
+                    get_args)
 
 from motor.core import (AgnosticCollection, AgnosticCommandCursor,
                         AgnosticCursor)
@@ -7,6 +8,9 @@ from pymongo.results import (DeleteResult, InsertManyResult, InsertOneResult,
                              UpdateResult)
 
 from src.ext import logger_wrapper
+from src.utils.env import inject_env
+
+from .serialize import deserialize, serialize
 
 T = TypeVar("T")
 D = TypeVar("D", bound=Mapping[str, Any])
@@ -22,7 +26,27 @@ class Collection(Generic[D, T]):
         self._from_mongo: Callable[[D], T] = lambda x: x  # type: ignore
         self._to_filter: Callable[[T], D] = lambda x: x  # type: ignore
 
+    def auto_serialize(self):
+        """Use default serialization and deserialization methods."""
+        cls_d, cls_t = get_args(self.__orig_class__)  # type: ignore
+        if cls_d is not dict:
+            raise ValueError("auto_serialize only supports dict")
+        self._to_mongo = lambda x: serialize(x)
+        self._from_mongo = lambda x: deserialize(x, cls_t)  # type: ignore
+        return self
+
     def serialize(self):
+        """Decorator to specify serialization method.
+
+        Example:
+        ```
+        data = Collection(...)
+
+        @data.serialize()
+        def _(data: T) -> D:
+            return data.to_dict()
+        ```
+        """
 
         def decorator(fn: Callable[[T], D]) -> Callable[[T], D]:
             self._to_mongo = fn
@@ -31,6 +55,7 @@ class Collection(Generic[D, T]):
         return decorator
 
     def deserialize(self, drop_id: bool = False):
+        """Decorator to specify deserialization method."""
 
         def decorator(fn: Callable[[D], T]) -> Callable[[D], T]:
 
@@ -194,19 +219,20 @@ class Collection(Generic[D, T]):
         await self.collection.drop()
 
 
+@inject_env()
 class Mongo:
 
-    DB = "nonebot2"
+    DB: str = "nonebot2"
 
     _client = AsyncIOMotorClient()
 
-    collections: list[tuple[str, str]] = []
+    _collections: list[tuple[str, str]] = []
 
     @classmethod
     def collection(cls, name: str, db: str = "") -> Collection:
         db = db or cls.DB
-        if (db, name) not in cls.collections:
-            cls.collections.append((db, name))
+        if (db, name) not in cls._collections:
+            cls._collections.append((db, name))
         else:
             logger.warning(
                 f"Collection {name} already exists in database {db}")
