@@ -14,8 +14,8 @@ from src.ext import MessageSegment, logger_wrapper, ratelimit
 from src.ext.on import on_reply
 
 from .color import parse_color, random_color, render_color
-from .group_member_avatar import *
-from .process import *
+from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
+from .process import Flip, GrayScale, ImageProcessor, Reflect, Reverse
 
 logger = logger_wrapper("Image")
 driver = get_driver()
@@ -148,6 +148,7 @@ async def register_avatar():
 
 
 color_ = on_command("颜色", block=True, force_whitespace=True)
+image_url = on_reply(("链接", "url"), block=True)
 
 
 @color_.handle()
@@ -156,3 +157,18 @@ async def _(arg: Message = CommandArg()):
     if not colors:
         colors = list(random_color(3))
     await color_.finish(MessageSegment.image(render_color(*colors)))
+
+
+@image_url.handle()
+async def _(bot: Bot, event: MessageEvent, state: T_State):
+    reply: Reply | None = state.get("reply")
+    if not reply:
+        return
+    urls = []
+    for seg in reply.message:
+        segment = MessageSegment.from_onebot(seg)
+        if segment.is_image():
+            urls.append(segment.extract_image(force_http=False))
+    await image_url.finish(
+        MessageSegment.reply(reply.message_id) +
+        MessageSegment.text("\n".join(urls)))
