@@ -22,7 +22,7 @@ create_tmux_session() {
 }
 
 bot_session="bot"
-start_bot="source .venv/bin/activate && nb run"
+start_bot="source .venv/bin/activate && ENVIRONMENT=prod nb run"
 start_lagrange="cd ~/Lagrange.Core/ && dotnet run --project Lagrange.OneBot --framework net8.0"
 
 start() {
