@@ -141,6 +141,9 @@ class MessageSegment(_MessageSegment):
     def is_face(self) -> bool:
         return self.type == "face"
 
+    def is_mface(self) -> bool:
+        return self.type == "mface"
+
     def extract_text(self) -> str:
         if not self.is_text():
             raise ValueError("Not a text segment")
@@ -156,9 +159,9 @@ class MessageSegment(_MessageSegment):
             raise ValueError("Not an at segment")
         return int(self.data["qq"])
 
-    def extract_image(self, force_http: bool = True) -> str:
-        if not self.is_image():
-            raise ValueError("Not an image segment")
+    def extract_url(self, force_http: bool = True) -> str:
+        if "url" not in self.data:
+            raise ValueError("Segment does not contain a URL")
         url = self.data["url"]
         if force_http:
             url = url.replace("https://", "http://")

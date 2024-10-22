@@ -202,6 +202,12 @@ def RateLimit(
 
 
 class ReplyRule:
+    """检查消息是否为回复消息，并满足指定前缀。
+
+    参数:
+        *startswith: 任一前缀
+        lstrip: 是否去除空白字符后检查
+    """
 
     __slots__ = ("startswith", "lstrip")
 

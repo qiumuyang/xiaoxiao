@@ -44,7 +44,7 @@ async def process_image_message(
     for seg in im_message:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image():
-            url = segment.extract_image()
+            url = segment.extract_url()
             async with session.get(url) as resp:
                 resp.raise_for_status()
                 image = Image.open(BytesIO(await resp.read()))
@@ -167,8 +167,8 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     urls = []
     for seg in reply.message:
         segment = MessageSegment.from_onebot(seg)
-        if segment.is_image():
-            urls.append(segment.extract_image(force_http=False))
+        if segment.is_image() or segment.is_mface():
+            urls.append(segment.extract_url(force_http=False))
     await image_url.finish(
         MessageSegment.reply(reply.message_id) +
         MessageSegment.text("\n".join(urls)))
