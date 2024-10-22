@@ -1,7 +1,8 @@
 from contextlib import AsyncExitStack
 from typing import Literal, Union
 
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
+from nonebot.adapters.onebot.v11 import (GroupMessageEvent, MessageEvent,
+                                         NoticeEvent)
 from nonebot.dependencies import Dependent
 from nonebot.internal.adapter import Bot, Event
 from nonebot.internal.params import Depends
@@ -117,19 +118,25 @@ class RateLimitRule:
     @classmethod
     def get_message_event_id(
         cls,
-        event: MessageEvent,
+        event: Event,
         type: RateLimitType,
     ) -> str | None:
+        if not isinstance(event, (MessageEvent, NoticeEvent)):
+            raise NotImplementedError
         match type:
             case RateLimitType.GROUP:
-                return f"group_{event.group_id}" if isinstance(
-                    event, GroupMessageEvent) else None
+                key = "group_id"
+                fmt = "group_{value}"
             case RateLimitType.USER:
-                return f"user_{event.user_id}"
+                key = "user_id"
+                fmt = "user_{value}"
             case RateLimitType.SESSION:
                 return event.get_session_id()
             case _:
                 raise NotImplementedError
+        if not hasattr(event, key):
+            return None
+        return fmt.format(value=getattr(event, key))
 
     async def __call__(self, event: MessageEvent) -> bool:
         """此处调用流量控制器，返回是否通过流量控制。
@@ -182,7 +189,7 @@ class _RateLimit:
         self.seconds = seconds
         self.concurrency = concurrency
 
-    async def __call__(self, event: MessageEvent) -> RateLimiter | None:
+    async def __call__(self, event: Event) -> RateLimiter | None:
         id = RateLimitRule.get_message_event_id(event, self.type)
         return await RateLimitManager.create_or_get(
             key=self.key + id,

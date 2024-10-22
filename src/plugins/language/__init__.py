@@ -3,11 +3,11 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from nonebot import CommandGroup, on_command, on_message
+from nonebot import CommandGroup, on_command, on_message, on_notice
 from nonebot.adapters import Bot, Message
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
-from nonebot.adapters.onebot.v11.event import Reply
+from nonebot.adapters.onebot.v11.event import PokeNotifyEvent, Reply
 from nonebot.params import CommandArg
 from nonebot.rule import to_me
 from nonebot.typing import T_State
@@ -48,6 +48,7 @@ enable_response = on_command("张嘴",
                              aliases={"张菊", "开菊", "开嘴"},
                              force_whitespace=True,
                              block=True)
+poke_source = on_notice()
 
 message_trace = CommandGroup("trace", block=True)
 trace_single = message_trace.command(
@@ -278,3 +279,20 @@ async def _(event: GroupMessageEvent):
         await enable_response.finish(prompt)
     if result is True:
         await enable_response.finish("鸮鸮的随机回复已开启")
+
+
+@poke_source.handle()
+async def _(bot: Bot,
+            event: PokeNotifyEvent,
+            ratelimiter: RateLimiter = RateLimit("poke",
+                                                 type="group",
+                                                 seconds=10)):
+    """Poke after others poke someone in the group."""
+    if int(bot.self_id) in (event.user_id, event.target_id):
+        return
+    if not event.group_id:
+        return
+    if ratelimiter.try_acquire():
+        await bot.call_api("group_poke",
+                           group_id=event.group_id,
+                           user_id=event.target_id)
