@@ -121,7 +121,7 @@ class Avatar:
                 ids = []
                 while cls._queue and len(tasks) < cls.avatar_concurrency:
                     id, is_group = cls._queue.popleft()
-                    ids.append(id)
+                    ids.append(str(id))
                     tasks.append(
                         asyncio.create_task(
                             cls._fetch_with_local(session, id, is_group)))
