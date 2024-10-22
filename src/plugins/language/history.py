@@ -5,18 +5,20 @@ from datetime import datetime, timedelta
 from nonebot.adapters.onebot.v11 import Bot, Message
 
 from src.ext.message import MessageSegment
+from src.utils.env import inject_env
 from src.utils.message.receive import MessageData as ReceiveMessageData
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import MessageData as SentMessageData
 from src.utils.message.send import SentMessageTracker as SMT
 
 
+@inject_env()
 class History:
 
-    MAX_HISTORY_COUNT = 200
-    MAX_HISTORY_INTERVAL = timedelta(days=1)
+    MAX_HISTORY_COUNT: int
+    MAX_HISTORY_INTERVAL_DAYS: int
 
-    FORWARD_MESSAGE_LIMIT = 30
+    FORWARD_MESSAGE_LIMIT: int
 
     @classmethod
     async def find_single_message(
@@ -26,7 +28,7 @@ class History:
         *,
         index: int = 1,
     ) -> Message | None:
-        since = datetime.now() - cls.MAX_HISTORY_INTERVAL
+        since = datetime.now() - timedelta(days=cls.MAX_HISTORY_INTERVAL_DAYS)
         recv = await RMT.find(group_id=group_id, since=since)
         sent = await SMT.find(group_id=group_id, since=since)
         messages = sorted(recv + sent, key=lambda x: x.time)
@@ -104,7 +106,7 @@ class History:
             else:
                 accept_keywords.append(keyword)
 
-        since = datetime.now() - cls.MAX_HISTORY_INTERVAL
+        since = datetime.now() - timedelta(days=cls.MAX_HISTORY_INTERVAL_DAYS)
         recv = await RMT.find(group_id=group_id, since=since)
         sent = await SMT.find(group_id=group_id, since=since)
         messages = sorted(recv + sent, key=lambda x: x.time)
