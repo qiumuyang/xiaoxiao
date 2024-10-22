@@ -1,6 +1,13 @@
 import os
 from typing import get_args, get_origin
 
+import dotenv
+
+if os.getenv("ENVIRONMENT") == "dev":
+    dotenv.load_dotenv(".env.dev")
+else:
+    dotenv.load_dotenv(".env.prod")
+
 
 def _construct_parser(type):
     if get_origin(type) is list:
