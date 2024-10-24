@@ -43,7 +43,7 @@ async def process_image_message(
         im_message = event.message
     for seg in im_message:
         segment = MessageSegment.from_onebot(seg)
-        if segment.is_image():
+        if segment.is_image() or segment.is_mface():
             url = segment.extract_url()
             async with session.get(url) as resp:
                 resp.raise_for_status()
