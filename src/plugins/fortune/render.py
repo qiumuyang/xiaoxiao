@@ -36,10 +36,12 @@ class FortuneRender:
     FONT_MEDIUM = 28
     FONT_EVENT = 22
     FONT_LARGE = 40
+    EMOJI_CORRECTION = 0.7
     VSPACE = 8
 
     NotoSansHansBold = "data/static/fonts/NotoSansHans-Bold.otf"
     NotoSansHansMedium = "data/static/fonts/NotoSansHans-Medium.otf"
+    SegUIEmoji = "data/static/fonts/seguiemj.ttf"
     STLiti = "data/static/fonts/STLITI.TTF"
 
     text_template = textwrap.dedent("""
@@ -120,6 +122,49 @@ class FortuneRender:
                                           spacing=space))
 
     @classmethod
+    def render_username(
+        cls,
+        username: str,
+        max_name_width: int,
+        max_name_height: int,
+        theme_light: Color,
+        theme_dark: Color,
+    ) -> RenderObject:
+        max_name_size = (max_name_width, max_name_height)
+        font_size = Text.get_max_fitting_font_size(
+            text=username,
+            font=cls.NotoSansHansBold,
+            font_size_range=(cls.FONT_LARGE // 4, cls.FONT_LARGE),
+            max_size=max_name_size,
+            color=Palette.WHITE,
+            stroke_color=Palette.BLACK,
+            stroke_width=1,
+        )
+        styled_parts = []
+        for text, support in Text.split_font_unsupported(
+                cls.NotoSansHansBold, username):
+            # let's assume unsupported characters are all emojis
+            styled_parts.append(text if support else f"<emoji>{text}</emoji>")
+        return StyledText.of(
+            text="".join(styled_parts),
+            styles={
+                "emoji":
+                TextStyle.of(font=cls.SegUIEmoji,
+                             size=round(font_size * cls.EMOJI_CORRECTION),
+                             stroke_width=0,
+                             embedded_color=True)
+            },
+            default=TextStyle.of(
+                font=cls.NotoSansHansBold,
+                size=font_size,
+                color=theme_light,
+                stroke_color=theme_dark,
+                stroke_width=1,
+            ),
+            max_width=max_name_width,
+        )
+
+    @classmethod
     def is_dark_by_sunrise_sunset(cls) -> bool:
         now = datetime.now()
         if now.day != cls._cache_date.day:
@@ -178,19 +223,13 @@ class FortuneRender:
         avatar = Stack.from_children([avatar_bg, avatar_im],
                                      alignment=Alignment.CENTER)
 
-        max_name_width = cls.SZ * 2
-        max_name_height = cls.SZ // 2
-        max_name_size = (max_name_width, max_name_height)
         lucky_color = Color.of(*fortune["lucky_color"])
         # FIXME: incorrect text render start-position
-        name_text = FontSizeAdaptableText.of(text=fortune["user_name"],
-                                             font=cls.NotoSansHansBold,
-                                             font_range=(cls.FONT_LARGE // 4,
-                                                         cls.FONT_LARGE),
-                                             max_size=max_name_size,
-                                             color=theme_light,
-                                             stroke_color=theme_dark,
-                                             stroke_width=1)
+        max_name_width = cls.SZ * 2
+        max_name_height = cls.SZ // 2
+        name_text = cls.render_username(fortune["user_name"], max_name_width,
+                                        max_name_height, theme_light,
+                                        theme_dark)
         if name_text.width < max_name_width:
             # pad at right
             name_text = Image.from_image(
