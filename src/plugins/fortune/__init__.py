@@ -44,9 +44,10 @@ async def _(event: MessageEvent, arg: Message = CommandArg()):
     mapping = {
         "白": RenderBackground.WHITE,
         "黑": RenderBackground.BLACK,
-        "透明": RenderBackground.TRANSPARENT
+        "透明": RenderBackground.TRANSPARENT,
+        "自动": RenderBackground.AUTO,
     }
     if color not in mapping:
-        await set_bg.finish("可选背景色：白/黑/透明")
+        await set_bg.finish("可选背景色：自动/白/黑/透明")
     cfg.render_bg = mapping[color]
     await ConfigManager.set_user(user_id, cfg)

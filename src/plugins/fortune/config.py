@@ -8,6 +8,7 @@ class RenderBackground(IntEnum):
     WHITE = 0
     BLACK = 1
     TRANSPARENT = 2
+    AUTO = 3
 
 
 class FortuneConfig(Config):

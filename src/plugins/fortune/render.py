@@ -1,4 +1,5 @@
 import textwrap
+from datetime import datetime
 
 from PIL import Image as PILImage
 
@@ -6,21 +7,18 @@ from src.utils.image.avatar import Avatar
 from src.utils.render import *
 
 from .config import RenderBackground
-from .fortune import Fortune
+from .fortune import Fortune, get_sunrise_sunset
 
 
 class FortuneRender:
+
+    LOC = {"latitude": 32, "longitude": 118}
+    _cache_date = datetime.now()
 
     GOOD_EVENT_COLOR = (255, 219, 66)
     BAD_EVENT_COLOR = (90, 138, 189)
     GOOD_FORTUNE_COLOR = (204, 0, 0)
     BAD_FORTUNE_COLOR = (52, 88, 129)
-
-    BG_COLOR_MAPPING = {
-        RenderBackground.WHITE: Palette.WHITE,
-        RenderBackground.BLACK: Palette.BLACK,
-        RenderBackground.TRANSPARENT: Palette.TRANSPARENT,
-    }
 
     SZ = 120
     AVATAR_RATIO = 0.9
@@ -122,6 +120,15 @@ class FortuneRender:
                                           spacing=space))
 
     @classmethod
+    def is_dark_by_sunrise_sunset(cls) -> bool:
+        now = datetime.now()
+        if now.day != cls._cache_date.day:
+            cls._cache_date = now
+            get_sunrise_sunset.cache_clear()
+        sunrise, sunset = get_sunrise_sunset(**cls.LOC)
+        return not sunrise < now < sunset
+
+    @classmethod
     async def render(
         cls,
         fortune: Fortune,
@@ -135,6 +142,20 @@ class FortuneRender:
                                       Palette.WHITE.to_rgb())
         else:
             raw_avatar = raw_avatar.resize((avatar_sz, avatar_sz))
+
+        match background:
+            case RenderBackground.AUTO:
+                is_dark = cls.is_dark_by_sunrise_sunset()
+                bg_color = Palette.BLACK if is_dark else Palette.WHITE
+            case RenderBackground.WHITE:
+                is_dark = False
+                bg_color = Palette.WHITE
+            case RenderBackground.BLACK:
+                is_dark = True
+                bg_color = Palette.BLACK
+            case RenderBackground.TRANSPARENT:
+                is_dark = False
+                bg_color = Palette.TRANSPARENT
 
         theme = Palette.dominant(raw_avatar)
         theme_light = Palette.blend(theme, Palette.WHITE, 0.3)
@@ -222,16 +243,14 @@ class FortuneRender:
         fortune_space = cls.SZ // cls.FORTUNE_SPACE_D
         event_offset = (fortune_space, 0)
         event_width = upper_container.width - fortune_text.width - fortune_space
-        event_good = cls.render_event_row(
-            event_width,
-            True,
-            fortune["event_good"],
-            is_dark=background == RenderBackground.BLACK)
-        event_bad = cls.render_event_row(
-            event_width,
-            False,
-            fortune["event_bad"],
-            is_dark=background == RenderBackground.BLACK)
+        event_good = cls.render_event_row(event_width,
+                                          True,
+                                          fortune["event_good"],
+                                          is_dark=is_dark)
+        event_bad = cls.render_event_row(event_width,
+                                         False,
+                                         fortune["event_bad"],
+                                         is_dark=is_dark)
 
         lower_container = RelativeContainer(padding=Space.vertical(cls.VSPACE))
         lower_container.add_child(fortune_text,
@@ -252,6 +271,6 @@ class FortuneRender:
                 lower_container,
             ],
             padding=Space.of_side(15, 5),
-            background=cls.BG_COLOR_MAPPING[background],
+            background=bg_color,
             direction=Direction.VERTICAL,
         ).render().to_pil()
