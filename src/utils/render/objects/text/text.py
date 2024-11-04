@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Sequence
 
 import pyphen
+from fontTools.ttLib import TTFont
 from PIL.ImageFont import FreeTypeFont, truetype
 from typing_extensions import Self, Unpack, override
 
@@ -56,8 +57,47 @@ class Text(RenderObject):
     @staticmethod
     @lru_cache()
     def _calculate_width(font: FreeTypeFont, text: str, stroke: int) -> int:
-        w, _ = font.getsize(text, stroke_width=stroke)
-        return w
+        # width, _ = font.getsize(text, stroke_width=stroke)
+        if hasattr(font, "getsize"):  # Pillow <= 9.5.0
+            width, _ = font.getsize(text, stroke_width=stroke)
+        else:
+            _, _, width, _ = font.getbbox(text, stroke_width=stroke)
+        return width
+
+    @classmethod
+    def split_font_unsupported(
+        cls,
+        font_path: PathLike,
+        text: str,
+    ) -> list[tuple[str, bool]]:
+        """
+        Splits the given text into segments based on
+        whether the characters are supported by the specified font.
+
+        TODO: StyledText
+        list of fonts (fallback) => auto select the first supported font
+        """
+        font = TTFont(font_path)
+        cmap = font["cmap"].getBestCmap()  # type: ignore
+
+        results = []
+        current_status = None
+        current_group = []
+
+        for char in text:
+            is_supported = ord(char) in cmap
+            if is_supported != current_status:
+                if current_group:
+                    results.append((current_group, current_status))
+                current_group = [char]
+                current_status = is_supported
+            else:
+                current_group.append(char)
+
+        if current_group:
+            results.append((current_group, current_status))
+
+        return [("".join(group), status) for group, status in results]
 
     @classmethod
     def split_once(
@@ -260,12 +300,40 @@ class Text(RenderObject):
             spacing=self.line_spacing,
         )
 
+    @staticmethod
+    def get_max_fitting_font_size(
+        text: str,
+        font: PathLike,
+        font_size_range: tuple[int, int],
+        max_size: tuple[int, int],
+        alignment: Alignment = Alignment.START,
+        color: Color | None = None,
+        stroke_width: int = 0,
+        stroke_color: Color | None = None,
+        line_spacing: int = 0,
+        hyphenation: bool = True,
+        text_decoration: TextDecoration = TextDecoration.NONE,
+        text_decoration_thickness: int = -1,
+        shading: Color = Palette.TRANSPARENT,
+        **kwargs: Unpack[BaseStyle],
+    ) -> int:
+        """Find the maximum font size that fits the given size."""
+        start, end = font_size_range
+        max_width, max_height = max_size
+        if start > end:
+            start, end = end, start
+        for size in range(end, start - 1, -1):
+            temp = Text.of(text, font, size, max_width, alignment, color,
+                          stroke_width, stroke_color, line_spacing,
+                          hyphenation, text_decoration,
+                          text_decoration_thickness, shading, **kwargs)
+            if temp.height <= max_height:
+                return size
+        raise ValueError(
+            "Unable to find a font size that fits the given size.")
+
 
 class FontSizeAdaptableText(Text):
-    """Text with font size adaptable to the specified size.
-
-    Choose the maximum font size that fits.
-    """
 
     @classmethod
     def of(cls,
@@ -283,22 +351,16 @@ class FontSizeAdaptableText(Text):
            text_decoration_thickness: int = -1,
            shading: Color = Palette.TRANSPARENT,
            **kwargs: Unpack[BaseStyle]) -> Text:
-        s_font, e_font = font_range
-        if s_font > e_font:
-            s_font, e_font = e_font, s_font
         if not max_size:
-            return Text.of(text, font, s_font, None, alignment, color,
-                           stroke_width, stroke_color, line_spacing,
-                           hyphenation, text_decoration,
-                           text_decoration_thickness, shading, **kwargs)
-
-        max_width, max_height = max_size
-        for size in range(e_font, s_font, -1):
-            temp = Text.of(text, font, size, max_width, alignment, color,
-                           stroke_width, stroke_color, line_spacing,
-                           hyphenation, text_decoration,
-                           text_decoration_thickness, shading, **kwargs)
-            if temp.height <= max_height:
-                return temp
-        raise ValueError(
-            "Unable to find a font size that fits the given size.")
+            max_width = None
+            font_size = font_range[1]
+        else:
+            max_width, _ = max_size
+            font_size = Text.get_max_fitting_font_size(
+                text, font, font_range, max_size, alignment, color,
+                stroke_width, stroke_color, line_spacing, hyphenation,
+                text_decoration, text_decoration_thickness, shading, **kwargs)
+        return Text.of(text, font, font_size, max_width, alignment, color,
+                       stroke_width, stroke_color, line_spacing, hyphenation,
+                       text_decoration, text_decoration_thickness, shading,
+                       **kwargs)

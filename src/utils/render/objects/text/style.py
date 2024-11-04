@@ -21,6 +21,7 @@ class TextStyle(Cacheable):
         hyphenation: bool | Undefined,
         decoration: TextDecoration | Undefined,
         decoration_thickness: int | Undefined,
+        embedded_color: bool | Undefined,
     ) -> None:
         super().__init__()
         with volatile(self):
@@ -33,6 +34,7 @@ class TextStyle(Cacheable):
             self.hyphenation = hyphenation
             self.decoration = decoration
             self.decoration_thickness = decoration_thickness
+            self.embedded_color = embedded_color
 
     @classmethod
     def of(
@@ -46,6 +48,7 @@ class TextStyle(Cacheable):
         hyphenation: bool | Undefined = undefined,
         decoration: TextDecoration | Undefined = undefined,
         decoration_thickness: int | Undefined = undefined,
+        embedded_color: bool | Undefined = undefined,
     ) -> Self:
         return cls(
             font,
@@ -57,6 +60,7 @@ class TextStyle(Cacheable):
             hyphenation,
             decoration,
             decoration_thickness,
+            embedded_color,
         )
 
     def items(self) -> Generator[tuple[str, object], None, None]:

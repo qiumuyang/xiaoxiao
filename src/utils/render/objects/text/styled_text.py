@@ -174,6 +174,7 @@ class StyledText(RenderObject):
                                            TextDecoration.NONE)
             thick = Undefined.default(style.decoration_thickness, -1)
             shading = Undefined.default(style.shading, None)
+            embedded_color = Undefined.default(style.embedded_color, False)
 
             line_break_at_end = block.endswith('\n')
             lines = block.split('\n')
@@ -208,6 +209,7 @@ class StyledText(RenderObject):
                             thick,
                             shading=shading or Palette.TRANSPARENT,
                             background=self.background,
+                            embedded_color=embedded_color,
                         ))
                     line = remain
                 # end of natural line

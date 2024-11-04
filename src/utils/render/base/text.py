@@ -45,6 +45,7 @@ class RenderText(Cacheable):
         decoration: TextDecoration = TextDecoration.NONE,
         decoration_thickness: int = -1,
         shading: Color = Palette.TRANSPARENT,
+        embedded_color: bool = False,
     ) -> None:
         super().__init__()
         with volatile(self):
@@ -57,6 +58,7 @@ class RenderText(Cacheable):
             self.decoration = decoration
             self.decoration_thickness = decoration_thickness
             self.shading = shading
+            self.embedded_color = embedded_color
 
     @classmethod
     def of(
@@ -71,6 +73,7 @@ class RenderText(Cacheable):
         decoration_thickness: int = -1,
         shading: Color = Palette.TRANSPARENT,
         background: Color = Palette.TRANSPARENT,
+        embedded_color: bool = False,
     ) -> Self:
         """Create a `RenderText` instance with default values.
 
@@ -86,11 +89,12 @@ class RenderText(Cacheable):
         if decoration_thickness < 0:
             decoration_thickness = max(size // 10, 1)
         return cls(text, font, size, color, stroke_width, stroke_color,
-                   decoration, decoration_thickness, shading)
+                   decoration, decoration_thickness, shading, embedded_color)
 
     @cached
     def render(self) -> RenderImage:
         font = ImageFont.truetype(str(self.font), self.size)
+        # https://pillow.readthedocs.io/en/stable/handbook/text-anchors.html
         # 1. calculate font metrics and text bounding box
         l, t, r, _ = font.getbbox(self.text,
                                   mode="RGBA",
@@ -111,6 +115,7 @@ class RenderText(Cacheable):
             font=font,
             stroke_width=self.stroke_width,
             stroke_fill=self.stroke_color,
+            embedded_color=self.embedded_color,
         )
         # 3. draw decoration
         lines_y: list[int] = []
