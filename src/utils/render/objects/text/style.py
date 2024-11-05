@@ -9,11 +9,18 @@ from ...utils import PathLike, Undefined, undefined
 
 
 class TextStyle(Cacheable):
+    """Defines the style of a text object.
+
+    If not specified, the outer-level style will be used.
+
+    Attributes:
+        size: font size if integer, or relative size to default if float.
+    """
 
     def __init__(
         self,
         font: PathLike | Undefined,
-        size: int | Undefined,
+        size: float | Undefined,
         color: Color | None | Undefined,
         stroke_width: int | Undefined,
         stroke_color: Color | None | Undefined,
@@ -22,6 +29,7 @@ class TextStyle(Cacheable):
         decoration: TextDecoration | Undefined,
         decoration_thickness: int | Undefined,
         embedded_color: bool | Undefined,
+        ymin_correction: bool | Undefined,
     ) -> None:
         super().__init__()
         with volatile(self):
@@ -35,12 +43,13 @@ class TextStyle(Cacheable):
             self.decoration = decoration
             self.decoration_thickness = decoration_thickness
             self.embedded_color = embedded_color
+            self.ymin_correction = ymin_correction
 
     @classmethod
     def of(
         cls,
         font: PathLike | Undefined = undefined,
-        size: int | Undefined = undefined,
+        size: float | Undefined = undefined,
         color: Color | None | Undefined = undefined,
         stroke_width: int | Undefined = undefined,
         stroke_color: Color | None | Undefined = undefined,
@@ -49,6 +58,7 @@ class TextStyle(Cacheable):
         decoration: TextDecoration | Undefined = undefined,
         decoration_thickness: int | Undefined = undefined,
         embedded_color: bool | Undefined = undefined,
+        ymin_correction: bool | Undefined = undefined,
     ) -> Self:
         return cls(
             font,
@@ -61,6 +71,7 @@ class TextStyle(Cacheable):
             decoration,
             decoration_thickness,
             embedded_color,
+            ymin_correction,
         )
 
     def items(self) -> Generator[tuple[str, object], None, None]:

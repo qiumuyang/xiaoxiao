@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from typing import Generator, Iterable
 
 from PIL import ImageFont
@@ -158,6 +159,7 @@ class StyledText(RenderObject):
         max_width = self.max_width
         blocks = self._cut_blocks()
         line_buffer: list[RenderText] = []
+        default_style = self.styles["default"]
         for block, style in blocks:
             # load style properties
             if style.font is undefined:
@@ -175,6 +177,7 @@ class StyledText(RenderObject):
             thick = Undefined.default(style.decoration_thickness, -1)
             shading = Undefined.default(style.shading, None)
             embedded_color = Undefined.default(style.embedded_color, False)
+            ymin_correction = Undefined.default(style.ymin_correction, False)
 
             line_break_at_end = block.endswith('\n')
             lines = block.split('\n')
@@ -201,7 +204,8 @@ class StyledText(RenderObject):
                         RenderText.of(
                             split.lstrip(" ") if not line_buffer else split,
                             font_path,
-                            font_size,
+                            round(font_size * default_style.size)
+                            if type(font_size) is float else font_size,
                             color,
                             stroke_width,
                             stroke_color,
@@ -210,6 +214,7 @@ class StyledText(RenderObject):
                             shading=shading or Palette.TRANSPARENT,
                             background=self.background,
                             embedded_color=embedded_color,
+                            ymin_correction=ymin_correction,
                         ))
                     line = remain
                 # end of natural line
@@ -236,6 +241,7 @@ class StyledText(RenderObject):
     def of(
         cls,
         text: str,
+        *,
         styles: dict[str, TextStyle],
         default: TextStyle | None = None,
         max_width: int | None = None,
@@ -272,3 +278,40 @@ class StyledText(RenderObject):
             raise ValueError("Missing default style")
 
         return cls(text, styles, max_width, alignment, line_spacing, **kwargs)
+
+    @staticmethod
+    def get_max_fitting_font_size(
+        text: str,
+        *,
+        styles: dict[str, TextStyle],
+        font_size_range: tuple[int, int],
+        max_size: tuple[int, int],
+        default: TextStyle | None = None,
+        alignment: Alignment = Alignment.START,
+        line_spacing: int = 0,
+        **kwargs: Unpack[BaseStyle],
+    ) -> int:
+        """Find the maximum font size that fits the given size."""
+        start, end = font_size_range
+        max_width, max_height = max_size
+        if start > end:
+            start, end = end, start
+        for size in range(end, start - 1, -1):
+            default_cp = deepcopy(default)
+            styles_cp = deepcopy(styles)
+            if default_cp is not None:
+                default_cp.size = size
+            for style in styles_cp.values():
+                if type(style.size) is float:
+                    style.size = round(style.size * size)
+            temp = StyledText.of(text,
+                                 styles=styles_cp,
+                                 default=default_cp,
+                                 max_width=max_width,
+                                 alignment=alignment,
+                                 line_spacing=line_spacing,
+                                 **kwargs)
+            if temp.height <= max_height:
+                return size
+        raise ValueError(
+            "Unable to find a font size that fits the given size.")

@@ -7,6 +7,7 @@ from .object import BaseStyle, RenderObject
 from .properties import (Alignment, Border, BoundingBox, Direction,
                          Interpolation, Space)
 from .text import RenderText, TextDecoration
+from .textfont import TextFont
 
 __all__ = [
     "Alignment",
@@ -29,6 +30,7 @@ __all__ = [
     "RenderText",
     "Space",
     "TextDecoration",
+    "TextFont",
     "cached",
     "volatile",
 ]
