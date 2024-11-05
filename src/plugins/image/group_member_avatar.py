@@ -14,9 +14,15 @@ class Item(Enum):
 RenderItem = Item | Text | Spacer
 
 NotoSansHansBold = "data/static/fonts/NotoSansHans-Bold.otf"
+SegUIEmoji = "data/static/fonts/seguiemj.ttf"
 
 
 class GroupMemberAvatar:
+    """
+    GroupMemberAvatar is a class responsible for rendering group member avatars with titles.
+
+    Renders the complete avatar with title and other elements as specified in `RENDER_LIST`.
+    """
 
     AVATAR_RATIO = 0.9
     MARGIN_HOR_RATIO = 0.015
@@ -25,6 +31,7 @@ class GroupMemberAvatar:
 
     TITLE_TEMPLATE = "{nickname}"
     TITLE_FONT = NotoSansHansBold
+    TITLE_FALLBACK_FONT = SegUIEmoji
     TITLE_FONT_SIZE_RANGE = (4, 28)
     TITLE_ASPECT = 0.25
     TITLE_FILL = Palette.BLACK
@@ -57,15 +64,44 @@ class GroupMemberAvatar:
         max_width = cls.get_max_width()
         max_height = round(max_width * cls.TITLE_ASPECT)
         stroke_fill, stroke_width = cls.TITLE_STROKE
-        return FontSizeAdaptableText.of(
-            text=cls.TITLE_TEMPLATE.format(nickname=nickname),
-            font=cls.TITLE_FONT,
-            font_range=cls.TITLE_FONT_SIZE_RANGE,
+        styled_parts = []
+        for text, support in Text.split_font_unsupported(
+                cls.TITLE_FONT, cls.TITLE_TEMPLATE.format(nickname=nickname)):
+            styled_parts.append(text if support else f"<emoji>{text}</emoji>")
+        font_size = StyledText.get_max_fitting_font_size(
+            text="".join(styled_parts),
+            styles={
+                "emoji":
+                TextStyle.of(
+                    font=cls.TITLE_FALLBACK_FONT,
+                    embedded_color=True,
+                    ymin_correction=True,
+                )
+            },
+            default=TextStyle.of(font=cls.TITLE_FONT,
+                                 color=cls.TITLE_FILL,
+                                 stroke_color=stroke_fill,
+                                 stroke_width=stroke_width),
+            font_size_range=cls.TITLE_FONT_SIZE_RANGE,
             max_size=(max_width, max_height),
+        )
+        return StyledText.of(
+            text="".join(styled_parts),
+            styles={
+                "emoji":
+                TextStyle.of(
+                    font=cls.TITLE_FALLBACK_FONT,
+                    embedded_color=True,
+                    ymin_correction=True,
+                )
+            },
+            default=TextStyle.of(font=cls.TITLE_FONT,
+                                 size=font_size,
+                                 color=cls.TITLE_FILL,
+                                 stroke_color=stroke_fill,
+                                 stroke_width=stroke_width),
             alignment=alignment,
-            color=cls.TITLE_FILL,
-            stroke_color=stroke_fill,
-            stroke_width=stroke_width,
+            max_width=max_width,
         )
 
     @classmethod
