@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from io import BytesIO
-from typing import Iterable, Literal
+from typing import Iterable
 
 from PIL import Image
 
@@ -14,7 +14,7 @@ class ImageProcessor(ABC):
     @classmethod
     def gif_iter(cls, image: Image.Image) -> Iterable[Image.Image]:
         """Iterate over the frames of a GIF image."""
-        for i in range(image.n_frames):
+        for i in range(getattr(image, "n_frames", 1)):
             image.seek(i)
             yield image.copy()
 
@@ -25,7 +25,7 @@ class ImageProcessor(ABC):
         *,
         min_size: tuple[int, int] | None = None,
         max_size: tuple[int, int] | None = None,
-        resample: Literal[0, 1, 2, 3, 4, 5] = Image.LANCZOS,
+        resample: Image.Resampling = Image.Resampling.LANCZOS,
     ) -> Image.Image:
         """Scale an image to fit within a given size range."""
         if min_size and max_size:

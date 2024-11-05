@@ -16,11 +16,11 @@ class Reflect(ImageProcessor):
         "T": (0, 0, 1, 0.5),
         "B": (0, 0.5, 1, 1),
     }
-    TRANS: dict[str, Literal[0, 1]] = {
-        "L": Image.FLIP_LEFT_RIGHT,
-        "R": Image.FLIP_LEFT_RIGHT,
-        "T": Image.FLIP_TOP_BOTTOM,
-        "B": Image.FLIP_TOP_BOTTOM,
+    TRANS: dict[str, Image.Transpose] = {
+        "L": Image.Transpose.FLIP_LEFT_RIGHT,
+        "R": Image.Transpose.FLIP_LEFT_RIGHT,
+        "T": Image.Transpose.FLIP_TOP_BOTTOM,
+        "B": Image.Transpose.FLIP_TOP_BOTTOM,
     }
 
     def __init__(self, direction: Literal["L2R", "R2L", "T2B", "B2T"]) -> None:
@@ -76,13 +76,11 @@ class GrayScale(ImageProcessor):
 class Flip(ImageProcessor):
     """Flip the image."""
 
-    method: Literal[0, 1]
-
     def __init__(self, direction: Literal["horizontal", "vertical"]) -> None:
         if direction == "horizontal":
-            self.method = Image.FLIP_LEFT_RIGHT
+            self.method = Image.Transpose.FLIP_LEFT_RIGHT
         else:
-            self.method = Image.FLIP_TOP_BOTTOM
+            self.method = Image.Transpose.FLIP_TOP_BOTTOM
 
     def process_frame(self, image: Image.Image, *args,
                       **kwargs) -> Image.Image:
