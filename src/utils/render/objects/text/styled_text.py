@@ -167,6 +167,8 @@ class StyledText(RenderObject):
             else:
                 font_path = Undefined.default(str(style.font), "")
                 font_size = Undefined.default(style.size, 0)
+                if type(font_size) is float:
+                    font_size = round(font_size * default_style.size)
                 font = ImageFont.truetype(font_path, font_size)
             color = Undefined.default(style.color, None)
             stroke_width = Undefined.default(style.stroke_width, 0)
@@ -199,13 +201,11 @@ class StyledText(RenderObject):
                         split, remain, _ = Text.split_once(
                             font, line, stroke_width, current_width(),
                             hyphenation)
-
                     line_buffer.append(
                         RenderText.of(
                             split.lstrip(" ") if not line_buffer else split,
                             font_path,
-                            round(font_size * default_style.size)
-                            if type(font_size) is float else font_size,
+                            font_size,
                             color,
                             stroke_width,
                             stroke_color,
