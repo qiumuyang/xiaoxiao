@@ -6,6 +6,7 @@ from typing import Any, Iterable
 import jieba.posseg as pseg
 from nonebot import get_driver
 
+from src.utils.env import inject_env
 from src.utils.message.receive import MessageData as RMD
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import MessageData as SMD
@@ -50,7 +51,10 @@ class Entry:
                         yield self.posseg[i:j + int(keepend)]
 
 
+@inject_env()
 class Corpus:
+
+    MAX_CORPUS_TEXT_LENGTH: int
 
     SHARED_GROUP_ID = 1
 
@@ -209,7 +213,7 @@ async def add_to_corpus(object_id: str | None, data: RMD) -> None:
     if any(seg.type not in allow_type for seg in data.content):
         return
     text = data.content.extract_plain_text().strip()
-    if text:
+    if text and len(text) <= Corpus.MAX_CORPUS_TEXT_LENGTH:
         keywords = Keyword.extract(text)
         await Corpus.add(
             Entry(
