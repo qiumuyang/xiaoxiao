@@ -29,7 +29,7 @@ random_response = on_message(priority=10,
                              rule=enabled(RandomResponseConfig))
 record_unhandled_message = on_message(priority=255, block=True)
 
-recall_message = on_command("撤回", aliases={"快撤回"}, rule=to_me(), block=True)
+recall_message = on_command("撤回", aliases={"快撤回"}, block=True)
 answer_ask = on_command("问",
                         force_whitespace=False,
                         priority=2,
@@ -83,32 +83,47 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
         event)
 
-    # directly called without reply specified
-    if not await check_reply(bot, event, state):
+    # directly called without reply specified (+ to_me)
+    if not await check_reply(bot, event, state) and event.is_tome():
         message_id = await SentMessageTracker.remove(session_id)
         if message_id is not None:
             await bot.delete_msg(message_id=message_id)
         await recall_message.finish()
 
     # try to recall the replied message
+    # cases:
+    # - replied message sent by BOT:
+    #   - check if the message is triggered by the same user
+    #   - check if the user has higher permission
+    # - replied message sent by CURRENT USER:
+    #   - check bot permission
     reply: Reply = state["reply"]
-    if str(reply.sender.user_id) != bot.self_id:  # bot.self_id is a string
-        await recall_message.finish()
-    session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
-        event)
+    from src.ext.log import debug_logger
+    debug_logger.info(reply.model_dump_json())
+    if str(reply.sender.user_id) == bot.self_id:  # bot.self_id is a string
+        session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
+            event)
 
-    # user exact match
-    message_id = await SentMessageTracker.remove(session_id, reply.message_id)
-    if message_id is not None:
-        await bot.delete_msg(message_id=message_id)
-        await recall_message.finish()
-    perm = SUPERUSER | ADMIN
-    if await perm(bot, event):
-        message_id = await SentMessageTracker.remove_prefix(
-            group_prefix, reply.message_id)
+        # user exact match
+        message_id = await SentMessageTracker.remove(session_id,
+                                                     reply.message_id)
         if message_id is not None:
             await bot.delete_msg(message_id=message_id)
             await recall_message.finish()
+        # superuser or admin match
+        perm = SUPERUSER | ADMIN
+        if await perm(bot, event):
+            message_id = await SentMessageTracker.remove_prefix(
+                group_prefix, reply.message_id)
+            if message_id is not None:
+                await bot.delete_msg(message_id=message_id)
+                await recall_message.finish()
+    elif reply.sender.user_id == event.user_id and isinstance(
+            event, GroupMessageEvent):
+        mem = await bot.get_group_member_info(group_id=event.group_id,
+                                              user_id=int(bot.self_id))
+        if mem["role"] in ("owner", "admin"):
+            await bot.delete_msg(message_id=reply.message_id)
 
 
 @record_message.handle()
