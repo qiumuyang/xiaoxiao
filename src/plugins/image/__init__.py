@@ -12,6 +12,7 @@ from PIL import Image
 
 from src.ext import MessageSegment, logger_wrapper, ratelimit
 from src.ext.on import on_reply
+from src.utils.image.avatar import Avatar
 
 from .color import parse_color, random_color, render_color
 from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
@@ -149,6 +150,7 @@ async def register_avatar():
 
 color_ = on_command("颜色", block=True, force_whitespace=True)
 image_url = on_reply(("链接", "url"), block=True)
+avatar_update = on_command("更新头像", block=True, force_whitespace=True)
 
 
 @color_.handle()
@@ -172,3 +174,9 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     await image_url.finish(
         MessageSegment.reply(reply.message_id) +
         MessageSegment.text("\n".join(urls)))
+
+
+@avatar_update.handle()
+async def _(bot: Bot, event: MessageEvent):
+    if Avatar.clear_user_local(event.user_id):
+        await avatar_update.finish("头像缓存已清除")

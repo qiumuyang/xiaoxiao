@@ -108,6 +108,14 @@ class Avatar:
         return await Avatar.fetch(group_id, is_group=True, default=default)
 
     @classmethod
+    def clear_user_local(cls, user_id: int) -> bool:
+        file = Path(cls.LOCAL_FALLBACK_DIR) / cls.USER_PATH.format(id=user_id)
+        if file.exists():
+            file.unlink()
+            return True
+        return False
+
+    @classmethod
     async def _start_queue(cls):
         if not cls._queue_handled:
             cls._queue_handled = True
