@@ -9,7 +9,6 @@ from nonebot.adapters.onebot.v11 import Bot as OnebotBot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11.event import PokeNotifyEvent, Reply
 from nonebot.params import CommandArg
-from nonebot.rule import to_me
 from nonebot.typing import T_State
 
 from src.ext.message import MessageSegment

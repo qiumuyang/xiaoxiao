@@ -7,6 +7,7 @@ from nonebot.adapters.onebot.v11 import Message
 from src.ext import MessageSegment as MS
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import SentMessageTracker as SMT
+from src.utils.env import inject_env
 
 from .corpus import Corpus
 from .keywords import Keyword
@@ -18,8 +19,18 @@ class _InteractMessage:
     message: Message
 
 
+@inject_env()
 class RandomResponse:
-
+    """
+    ClassVar:
+        KW_PROB: probability of keyword response
+        KW_BY_RECENT_K_MESSAGES: num of recent messages to search for keywords
+        KW_MIN_QUERY_LEN: min length of query to trigger keyword response
+        KW_MIN_CORPUS_LEN: min length of corpus for match
+        KW_MAX_CORPUS_LEN: max length of corpus for match
+        KW_CORPUS_SAMPLES: num of corpus to sample
+        KW_SIM_THRESHOLD: similarity threshold for keyword response
+    """
     RECENT_MESSAGE_PERIOD = timedelta(seconds=90)
     RECENT_MIN_RECV_MESSAGE = 3
     RECENT_MIN_INTERVAL = 5  # at least k messages after last response
@@ -36,13 +47,13 @@ class RandomResponse:
     RP_RE_BREAK_TEXT = "打断打断！"
     RP_BAD_TYPE = {"reply"}
 
-    KW_PROB = 0.2
-    KW_MAX_MESSAGE = 5
-    KW_MIN_QUERY_LEN = 10
-    KW_MIN_CORPUS_LEN = 6
-    KW_MAX_CORPUS_LEN = 40
-    KW_CORPUS_SAMPLE = 32
-    KW_SIM_THRESHOLD = 0.75
+    KW_PROB: float
+    KW_BY_RECENT_K_MESSAGES: int
+    KW_MIN_QUERY_LEN: int
+    KW_MIN_CORPUS_LEN: int
+    KW_MAX_CORPUS_LEN: int
+    KW_CORPUS_SAMPLES: int
+    KW_SIM_THRESHOLD: float
 
     @classmethod
     async def response(cls, group_id: int, message: Message) -> Message | None:
@@ -128,7 +139,7 @@ class RandomResponse:
         recv_text = [
             t for m in messages
             if m.is_receive and (t := m.message.extract_plain_text())
-        ][-cls.KW_MAX_MESSAGE:]
+        ][-cls.KW_BY_RECENT_K_MESSAGES:]
         query = " ".join(recv_text)
         if len(query) < cls.KW_MIN_QUERY_LEN:
             return
@@ -139,8 +150,8 @@ class RandomResponse:
             group_id,
             length=(cls.KW_MIN_CORPUS_LEN, cls.KW_MAX_CORPUS_LEN),
             keywords=words,
-            sample=cls.KW_CORPUS_SAMPLE,
-        ).to_list(length=cls.KW_CORPUS_SAMPLE)
+            sample=cls.KW_CORPUS_SAMPLES,
+        ).to_list(length=cls.KW_CORPUS_SAMPLES)
         corpus = [e["text"] for e in entries]
         corpus_kw = [e["keywords"] for e in entries]
         results = Keyword.search([query],
