@@ -118,12 +118,11 @@ def collect_statistics(
     user_active_days = {user_id: s.active_days for user_id, s in users.items()}
     user_messages = {user_id: s.num_messages for user_id, s in users.items()}
     for rank, (user_id, _) in enumerate(
-            sorted(user_active_days.items(), key=lambda x: -x[1])):
-        users[user_id].message_rank = rank + 1
-    for rank, (user_id, _) in enumerate(
             sorted(user_messages.items(), key=lambda x: -x[1])):
+        users[user_id].message_rank = rank + 1
+    for rank, (user_id, days) in enumerate(
+            sorted(talkative_user_days.items(), key=lambda x: -x[1])):
         users[user_id].talkative_rank = rank + 1
-    for user_id, days in talkative_user_days.items():
         users[user_id].talkative_days = days
     group_stat = GroupStatistics(
         num_messages=num_messages,

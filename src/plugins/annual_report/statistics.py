@@ -56,15 +56,15 @@ class AnnualStatistics:
 
     @classmethod
     async def process_group(cls, group_id: int):
-        date = datetime.strptime(cls.ANNUAL_STATISTICS_END, "%Y-%m-%d")
+        ends = datetime.strptime(cls.ANNUAL_STATISTICS_END, "%Y-%m-%d")
         # before Dec, use last year
-        if date.month < 12:
-            year = date.year - 1
+        if ends.month < 12:
+            year = ends.year - 1
         else:
-            year = date.year
+            year = ends.year
         messages = await RMT.find(group_id,
                                   since=datetime(year, 1, 1),
-                                  until=datetime(year, 12, 31))
+                                  until=ends)
         group, users = collect_statistics(messages, year)
         # dump
         cls._dump(Path(cls.GROUP_LOCAL.format(group_id=group_id)), group)
