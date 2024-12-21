@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Awaitable, Callable
 
 from nonebot.adapters.onebot.v11 import Message
@@ -81,6 +81,7 @@ class ReceivedMessageTracker:
         *,
         user_id: int | list[int] = [],
         since: datetime | None = None,
+        until: datetime | None = None,
         handled: bool | None = None,
     ) -> list[MessageData]:
         """Find messages by group_id and user_id."""
@@ -93,8 +94,13 @@ class ReceivedMessageTracker:
             filter["user_id"] = user_id
         elif user_id:
             filter["user_id"] = {"$in": user_id}
+        time_filter = {}
         if since:
-            filter["time"] = {"$gte": since}
+            time_filter["$gte"] = since
+        if until:
+            time_filter["$lte"] = until
+        if time_filter:
+            filter["time"] = time_filter
         if handled is not None:
             filter["handled"] = handled
         return [data async for data in cls.received.find_all(filter=filter)]
@@ -123,6 +129,28 @@ class ReceivedMessageTracker:
         if handled is not None:
             filter["handled"] = handled
         return await cls.received.collection.count_documents(filter)
+
+    @classmethod
+    async def list_active_users(
+        cls,
+        group_id: int,
+        recent: timedelta,
+    ) -> list[int]:
+        """List active users in a group."""
+        return await cls.received.collection.distinct(
+            "user_id",
+            filter={
+                "group_id": group_id,
+                "time": {
+                    "$gte": datetime.now() - recent
+                },
+            },
+        )
+
+    @classmethod
+    async def list_distinct_groups(cls) -> list[int]:
+        """List distinct groups."""
+        return await cls.received.collection.distinct("group_id")
 
 
 @ReceivedMessageTracker.received.serialize()
