@@ -27,6 +27,7 @@ __all__ = [
     "cached",
     "volatile",
     # objects
+    "BarChart",
     "Container",
     "FixedContainer",
     "FontSizeAdaptableText",
