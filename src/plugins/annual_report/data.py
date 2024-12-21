@@ -15,10 +15,11 @@ class GroupStatistics(BaseModel):
     active_users: int
     # user ranking
     user_messages: dict[int, int]  # user_id: num_messages
-    user_active_days: dict[int, int]  # user_id: num_active_days
+    user_talkative_days: dict[int, int]  # user_id: num_talkative_days
     # special day
     most_user: tuple[date, int] | None  # date, num_users
     most_message: tuple[date, int] | None  # date, num_messages
+    popular_sentences: list[tuple[str, int, int]]  # sentence, times, num_users
 
 
 class UserStatistics(BaseModel):
@@ -40,10 +41,13 @@ def collect_statistics(
 ) -> tuple[GroupStatistics, dict[int, UserStatistics]]:
     text_max_length = 20
     text_min_times = 10
+    text_min_times_group = 50
+    max_num_popular_sentences = 30
     # first aggregate by date and user
     date_to_stat: dict[date, dict[int, int]] = {}
     active_users = set()
     user_language: dict[int, dict[str, int]] = {}
+    group_pseudo = -1
     for message in messages:
         day = message.time.date()
         date_to_stat.setdefault(day, {})
@@ -54,9 +58,10 @@ def collect_statistics(
             if "暂不支持该消息类型" in text:
                 continue
             if len(text) <= text_max_length:
-                user_language.setdefault(message.user_id, {})
-                user_language[message.user_id].setdefault(text, 0)
-                user_language[message.user_id][text] += 1
+                for uid in (message.user_id, group_pseudo):
+                    user_language.setdefault(uid, {})
+                    user_language[uid].setdefault(text, 0)
+                    user_language[uid][text] += 1
     # then collect basic user statistics
     users: dict[int, UserStatistics] = {}
     for user_id in active_users:
@@ -115,7 +120,6 @@ def collect_statistics(
         most_message = None
         most_user = None
     # group-level user ranking
-    user_active_days = {user_id: s.active_days for user_id, s in users.items()}
     user_messages = {user_id: s.num_messages for user_id, s in users.items()}
     for rank, (user_id, _) in enumerate(
             sorted(user_messages.items(), key=lambda x: -x[1])):
@@ -124,15 +128,24 @@ def collect_statistics(
             sorted(talkative_user_days.items(), key=lambda x: -x[1])):
         users[user_id].talkative_rank = rank + 1
         users[user_id].talkative_days = days
-    group_stat = GroupStatistics(
-        num_messages=num_messages,
-        message_each_month=group_months,
-        message_each_day=group_days,
-        active_days=sum(1 for day in group_days if day > 0),
-        active_users=len(active_users),
-        user_messages=user_messages,
-        user_active_days=user_active_days,
-        most_user=most_user,
-        most_message=most_message,
-    )
+    # group popular sentences
+    popular_sentences = sorted(
+        ((sentence, times,
+          sum(1 for user_id in active_users
+              if sentence in user_language.get(user_id, {})))
+         for sentence, times in user_language.get(group_pseudo, {}).items()
+         if times >= text_min_times_group),
+        key=lambda x: -x[1],
+    )[:max_num_popular_sentences]
+    group_stat = GroupStatistics(num_messages=num_messages,
+                                 message_each_month=group_months,
+                                 message_each_day=group_days,
+                                 active_days=sum(1 for day in group_days
+                                                 if day > 0),
+                                 active_users=len(active_users),
+                                 user_messages=user_messages,
+                                 user_talkative_days=talkative_user_days,
+                                 most_user=most_user,
+                                 most_message=most_message,
+                                 popular_sentences=popular_sentences)
     return group_stat, users
