@@ -21,6 +21,11 @@ class NestedTextStyle:
         self.stack: list[tuple[str, TextStyle]] = []
 
     def push(self, name: str, style: TextStyle) -> None:
+        if type(style.size) is float:
+            style = deepcopy(style)
+            out = self.query()
+            assert out.size is not undefined
+            style.size = style.size * out.size
         self.stack.append((name, style))
 
     def pop(self, name: str) -> TextStyle:
@@ -167,8 +172,9 @@ class StyledText(RenderObject):
             else:
                 font_path = Undefined.default(str(style.font), "")
                 font_size = Undefined.default(style.size, 0)
-                if type(font_size) is float:
-                    font_size = round(font_size * default_style.size)
+                # if type(font_size) is float:
+                #     font_size = round(font_size * default_style.size)
+                font_size = round(font_size)
                 font = ImageFont.truetype(font_path, font_size)
             color = Undefined.default(style.color, None)
             stroke_width = Undefined.default(style.stroke_width, 0)
