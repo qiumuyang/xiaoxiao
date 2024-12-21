@@ -41,6 +41,7 @@ class AnnualReportRenderer:
         size=18,
         color=NORMAL_TEXT_COLOR,
     )
+    SMALL = TextStyle.of(size=0.75)
     EMPH_TEXT_STYLE = TextStyle.of(
         font=NotoSansHansBold,
         size=1.6,  # relative to normal
@@ -84,14 +85,16 @@ class AnnualReportRenderer:
     GROUP_ACTIVE_DAYS_TEMPLATE = "今年，群内活跃了 <b>{active_days}</b> 天"
     GROUP_MESSAGE_COUNT_TEMPLATE = ("在这些日子里，<b>{active_users}</b> "
                                     "位群友一共发送了 <b>{num_messages}</b> 条消息")
-    GROUP_MOST_USER_TEMPLATE = "<b>{month}月{day}日</b>，群内共有<b>{most_user}</b>人发言"
-    GROUP_MOST_MESSAGE_TEMPLATE = "<b>{month}月{day}日</b>共发送<b>{most_message}</b>条消息"
+    GROUP_MOST_USER_TEMPLATE = ("<b>{month}月{day}日</b>，"
+                                "群内共有 <b>{most_user}</b> 人发言")
+    GROUP_MOST_MESSAGE_TEMPLATE = ("<b>{month}月{day}日</b>共发送 "
+                                   "<b>{most_message}</b> 条消息")
     GROUP_COMMENTS = ["历历瞬间 令人难忘", "真是温暖的大家庭", "和你们聊天，不怕冷场"]
     GROUP_POPULAR_SENTENCE_TEMPLATE = ("过去的一年里，<b>{users}</b> 位群友说了"
                                        "<b>{times}</b>次“<b>{sentence}</b>”")
     GROUP_POPULAR_SENTENCE_EXTRA = "此外，群友们还经常说：\n\n{items}"
     GROUP_POPULAR_SENTENCE_ITEM_TEMPLATE = (
-        "“<b2>{sentence}</b2>” ({users}/{times})")
+        "“<b2>{sentence}</b2>” （{users} <s>人</s>{times} <s>次</s>）")
     GROUP_POPULAR_SENTENCE_ITEM_JOIN = "\n"
     GROUP_TOP_USER_MESSAGE_TEMPLATE = "发言TOP3占比 <b>{top3_ratio:.1%}</b>"
     GROUP_TOP_USER_MESSAGE_COMMENT_THRESH = 0.5
@@ -231,7 +234,8 @@ class AnnualReportRenderer:
                     default=cls.NORMAL_TEXT_STYLE,
                     styles={
                         "b2": cls.EMPH_TEXT_STYLE2,
-                        "emoji": cls.EMOJI_TEXT_STYLE
+                        "emoji": cls.EMOJI_TEXT_STYLE,
+                        "s": cls.SMALL,
                     },
                     alignment=Alignment.CENTER,
                     max_width=cls.MAX_WIDTH,
