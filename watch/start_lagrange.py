@@ -18,7 +18,7 @@ assert "SUPERUSERS" in os.environ
 START = "cd ~/Lagrange.Core/ && dotnet run --project Lagrange.OneBot --framework net8.0"
 KICK_KW = "[WtExchangeLogic] [FATAL]: KickNTEvent"
 EXPIRE_KW = "QrCode Expired, Please Fetch QrCode Again"
-
+CANCEL_KW = "QrCode Canceled, Please Fetch QrCode Again"
 REPORT_TO_REMOTE = True
 
 
@@ -90,7 +90,7 @@ def start_and_watch():
                 if not url:
                     raise Exception("Failed to fetch QR code")
 
-            if EXPIRE_KW in stdout:
+            if EXPIRE_KW in stdout or CANCEL_KW in stdout:
                 proc, url = restart(proc)
                 if not url:
                     raise Exception("Failed to fetch QR code")
