@@ -20,7 +20,7 @@ class LinearPolynomial:
     def of_const(cls, const: float) -> Self:
         return cls(const)
 
-    def __add__(self, other: Linear) -> Self:
+    def __add__(self, other: Linear) -> LinearPolynomial:
         if isinstance(other, LinearPolynomial):
             keys = set(self.symbols.keys()) | set(other.symbols.keys())
             coef = {
@@ -33,39 +33,44 @@ class LinearPolynomial:
             return LinearPolynomial(self.const + other, **self.symbols)
         return NotImplemented
 
-    def __radd__(self, other: Linear) -> Self:
+    def __radd__(self, other: Linear) -> LinearPolynomial:
         return self + other
 
-    def __sub__(self, other: Linear) -> Self:
+    def __sub__(self, other: Linear) -> LinearPolynomial:
         return self + (-other)
 
-    def __neg__(self) -> Self:
+    def __neg__(self) -> LinearPolynomial:
         return LinearPolynomial(
-            -self.const, **{key: -coef
-                            for key, coef in self.symbols.items()})
+            -self.const, **{
+                key: -coef
+                for key, coef in self.symbols.items()
+            })
 
-    def __mul__(self, other: int | float) -> Self:
+    def __mul__(self, other: int | float) -> LinearPolynomial:
         if isinstance(other, (int, float)):
             return LinearPolynomial(
-                self.const * other,
-                **{key: coef * other
-                   for key, coef in self.symbols.items()})
+                self.const * other, **{
+                    key: coef * other
+                    for key, coef in self.symbols.items()
+                })
         return NotImplemented
 
-    def __truediv__(self, other: int | float) -> Self:
+    def __truediv__(self, other: int | float) -> LinearPolynomial:
         if isinstance(other, (int, float)):
             return LinearPolynomial(
-                self.const / other,
-                **{key: coef / other
-                   for key, coef in self.symbols.items()})
+                self.const / other, **{
+                    key: coef / other
+                    for key, coef in self.symbols.items()
+                })
         return NotImplemented
 
-    def __floordiv__(self, other: int | float) -> Self:
+    def __floordiv__(self, other: int | float) -> LinearPolynomial:
         if isinstance(other, (int, float)):
             return LinearPolynomial(
-                self.const // other,
-                **{key: coef // other
-                   for key, coef in self.symbols.items()})
+                self.const // other, **{
+                    key: coef // other
+                    for key, coef in self.symbols.items()
+                })
         return NotImplemented
 
     def __lt__(self, other: Linear) -> bool:
@@ -279,44 +284,44 @@ class Box:
     def y2(self) -> LinearPolynomial:
         return self.p2.y
 
-    def above(self, other: Self) -> Self:
+    def above(self, other: Self) -> Box:
         return Box.of_size(self.p1.x, other.p1.y - self.h, self.w, self.h)
 
-    def below(self, other: Self) -> Self:
+    def below(self, other: Self) -> Box:
         return Box.of_size(self.p1.x, other.p2.y, self.w, self.h)
 
-    def left(self, other: Self) -> Self:
+    def left(self, other: Self) -> Box:
         return Box.of_size(other.p1.x - self.w, self.p1.y, self.w, self.h)
 
-    def right(self, other: Self) -> Self:
+    def right(self, other: Self) -> Box:
         return Box.of_size(other.p2.x, self.p1.y, self.w, self.h)
 
-    def align_top(self, other: Self) -> Self:
+    def align_top(self, other: Self) -> Box:
         return Box.of_size(self.p1.x, other.p1.y, self.w, self.h)
 
-    def align_bottom(self, other: Self) -> Self:
+    def align_bottom(self, other: Self) -> Box:
         return Box.of_size(self.p1.x, other.p2.y - self.h, self.w, self.h)
 
-    def align_left(self, other: Self) -> Self:
+    def align_left(self, other: Self) -> Box:
         return Box.of_size(other.p1.x, self.p1.y, self.w, self.h)
 
-    def align_right(self, other: Self) -> Self:
+    def align_right(self, other: Self) -> Box:
         return Box.of_size(other.p2.x - self.w, self.p1.y, self.w, self.h)
 
-    def center_vertical(self, other: Self) -> Self:
+    def center_vertical(self, other: Self) -> Box:
         return Box.of_size(self.p1.x, other.p1.y + (other.h - self.h) / 2,
                            self.w, self.h)
 
-    def center_horizontal(self, other: Self) -> Self:
+    def center_horizontal(self, other: Self) -> Box:
         return Box.of_size(other.p1.x + (other.w - self.w) / 2, self.p1.y,
                            self.w, self.h)
 
-    def center(self, other: Self) -> Self:
+    def center(self, other: Self) -> Box:
         """Brief alias of center_horizontal + center_vertical."""
         return Box.of_size(other.p1.x + (other.w - self.w) / 2,
                            other.p1.y + (other.h - self.h) / 2, self.w, self.h)
 
-    def relative(self, other: Self) -> Self:
+    def relative(self, other: Self) -> Box:
         """Brief alias of align_left + align_top."""
         return Box.of_size(other.p1.x, other.p1.y, self.w, self.h)
 
@@ -331,7 +336,7 @@ class Box:
         self,
         other: Self,
         relative_type: str,
-    ) -> Self:
+    ) -> Box:
         """Get an updated box as if self is placed relative to the other."""
         if not hasattr(self, relative_type):
             raise ValueError(f"Invalid relative type: {relative_type}")
@@ -349,7 +354,7 @@ class Box:
             return Inequality.greater(self.y1, other.y2)
         raise ValueError(f"Invalid constraint: {constraint}")
 
-    def offset(self, x: Linear, y: Linear) -> Self:
+    def offset(self, x: Linear, y: Linear) -> Box:
         return Box.of_size(self.p1.x + x, self.p1.y + y, self.w, self.h)
 
     def __str__(self) -> str:

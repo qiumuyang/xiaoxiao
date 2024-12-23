@@ -164,7 +164,6 @@ class StyledText(RenderObject):
         max_width = self.max_width
         blocks = self._cut_blocks()
         line_buffer: list[RenderText] = []
-        default_style = self.styles["default"]
         for block, style in blocks:
             # load style properties
             if style.font is undefined:
@@ -258,12 +257,12 @@ class StyledText(RenderObject):
         """Create a Text object from a string with tags.
 
         Args:
-            text: The text to render with tags to specify style.
-            default: The default text style. Can be specified along with styles.
-            styles: Mapping from tag to style.
-            max_width: The maximum width of the text. None for no limit.
-            alignment: The alignment of the text.
-            line_spacing: The spacing between lines.
+            text: Text to render, including tag strings to specify styles.
+            default: Default text style, i.e., no-tag style.
+            styles: Mapping of tag names to text styles.
+            max_width: Maximum width of the text, or None for no limit.
+            alignment:
+            line_spacing:
 
         Raises:
             ValueError: If the default style is not correctly specified.

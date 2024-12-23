@@ -69,6 +69,7 @@ class Color(NamedTuple):
 
 class Palette:
     # yapf: disable
+    # flake8: noqa
     TRANSPARENT             = Color.of(255, 255, 255, 0)
     # Basic colors
     BLACK                   = Color.of(0, 0, 0)
@@ -214,6 +215,7 @@ class Palette:
     WHITE_SMOKE             = Color.of(245, 245, 245)
     YELLOW_GREEN            = Color.of(154, 205, 50)
     # yapf: enable
+    # flake8: enable
 
     @classmethod
     def blend(cls, color1: Color, color2: Color, t: float) -> Color:
@@ -230,7 +232,10 @@ class Palette:
 
     @classmethod
     def natural_blend(cls, color1: Color, color2: Color, t: float) -> Color:
-        """Natural color mixing by Mixbox (https://github.com/scrtwpns/mixbox)."""
+        """Natural color mixing by Mixbox
+
+        From https://github.com/scrtwpns/mixbox.
+        """
         if lerp is None:
             return cls.blend(color1, color2, t)
         color = lerp(color1, color2, t)
@@ -286,9 +291,9 @@ class Palette:
                 continue
 
             # Calculate the score, preferring highly saturated colors.
-            # Add 0.1 to the saturation, so we don't completely ignore grayscale
-            # colors by multiplying the count by zero, but still give them a low
-            # weight.
+            # Add 0.1 to the saturation, so we don't completely ignore
+            # grayscale colors by multiplying the count by zero,
+            # but still give them a low weight.
             score = (saturation + 0.1) * count
 
             if not max_score or score > max_score:

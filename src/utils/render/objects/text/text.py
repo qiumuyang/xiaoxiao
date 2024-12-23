@@ -142,8 +142,12 @@ class Text(RenderObject):
                     bound = prev
                 else:
                     first, second = cls._split_word(
-                        font, word, stroke_width, max_width -
-                        cls._calculate_width(font, text[:prev], stroke_width))
+                        font, word, stroke_width,
+                        max_width - cls._calculate_width(
+                            font,
+                            text[:prev],
+                            stroke_width,
+                        ))
                     if not first:
                         # no possible cut, put the whole word in the next line
                         bound = prev
@@ -324,9 +328,9 @@ class Text(RenderObject):
             start, end = end, start
         for size in range(end, start - 1, -1):
             temp = Text.of(text, font, size, max_width, alignment, color,
-                          stroke_width, stroke_color, line_spacing,
-                          hyphenation, text_decoration,
-                          text_decoration_thickness, shading, **kwargs)
+                           stroke_width, stroke_color, line_spacing,
+                           hyphenation, text_decoration,
+                           text_decoration_thickness, shading, **kwargs)
             if temp.height <= max_height:
                 return size
         raise ValueError(

@@ -35,7 +35,8 @@ class RenderText(Cacheable):
         shading: shading color of the text.
             Do not confuse with `RenderObject.background`.
         embedded_color: whether to use embedded color in the font.
-        ymin_correction: whether to use yMin in font metrics for baseline correction.
+        ymin_correction: whether to use yMin in font metrics
+            for baseline correction.
     """
 
     def __init__(

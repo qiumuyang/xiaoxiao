@@ -189,7 +189,9 @@ class RenderImage:
         """Pastes the image onto this image at the given coordinates
         only where the cover image is not transparent.
 
-        If the cover pixel is transparent, the pixel in the base image is not changed."""
+        If the cover pixel is transparent,
+        the pixel in the base image is not changed.
+        """
         b, t, l, r = (y, y + im.height, x, x + im.width)
         if b >= self.height or t < 0 or l >= self.width or r < 0:
             return self
@@ -396,7 +398,7 @@ class RenderImage:
         Alpha channel of the image will be multiplied by the mask.
 
         Args:
-            mask: a 2D numpy array of shape (height, width) with values in [0, 255]
+            mask: a 2D numpy array of shape (height, width) \\in [0, 255]
                 or a boolean array of shape (height, width).
 
         Raises:

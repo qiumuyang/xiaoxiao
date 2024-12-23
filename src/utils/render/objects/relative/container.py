@@ -242,7 +242,8 @@ class RelativeContainer(RenderObject):
                 _x2 = box.x2.eval(x=0, y=0, w=width_c, h=height_c)
                 _y1 = box.y1.eval(x=0, y=0, w=width_c, h=height_c)
                 _y2 = box.y2.eval(x=0, y=0, w=width_c, h=height_c)
-                if _x1 >= 0 and _x2 <= width_c and _y1 >= 0 and _y2 <= height_c:
+                if (_x1 >= 0 and _x2 <= width_c and _y1 >= 0
+                        and _y2 <= height_c):
                     inside_box[obj] = box
             if len(inside_box) < len(boxes):
                 return self._infer_size(inside_box, x, y, w, h)
