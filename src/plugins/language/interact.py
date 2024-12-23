@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 from nonebot.adapters.onebot.v11 import Message
 
 from src.ext import MessageSegment as MS
+from src.utils.env import inject_env
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import SentMessageTracker as SMT
-from src.utils.env import inject_env
 
 from .corpus import Corpus
 from .keywords import Keyword
@@ -33,7 +33,8 @@ class RandomResponse:
     """
     RECENT_MESSAGE_PERIOD = timedelta(seconds=90)
     RECENT_MIN_RECV_MESSAGE = 3
-    RECENT_MIN_INTERVAL = 5  # at least k messages after last response
+    # min interval between last response and now (in messages)
+    RECENT_MIN_INTERVAL_MUTE: int
 
     RP_PROB_MIN = 0.1
     RP_PROB_MAX = 0.6
@@ -54,6 +55,8 @@ class RandomResponse:
     KW_MAX_CORPUS_LEN: int
     KW_CORPUS_SAMPLES: int
     KW_SIM_THRESHOLD: float
+    KW_AFTER_PROB: float  # if kw, prob for after
+    KW_AFTER_SECONDS: int
 
     @classmethod
     async def response(cls, group_id: int, message: Message) -> Message | None:
@@ -76,20 +79,20 @@ class RandomResponse:
         for i, (_, recv) in enumerate(reversed(messages)):
             if not recv:
                 break
-        if i < cls.RECENT_MIN_INTERVAL:
+        if i < cls.RECENT_MIN_INTERVAL_MUTE:
             return
         messages = [_InteractMessage(r, m.content)
                     for m, r in messages] + [_InteractMessage(True, message)]
-        responser = [
-            cls.repeat_response,
-            cls.keyword_response,
+        respond = [
+            cls.repeat_respond,
+            cls.keyword_respond,
         ]
-        for r in responser:
+        for r in respond:
             if resp := await r(group_id, messages):
                 return resp
 
     @classmethod
-    async def repeat_response(
+    async def repeat_respond(
         cls,
         group_id: int,
         messages: list[_InteractMessage],
@@ -129,7 +132,7 @@ class RandomResponse:
                                cls.RP_BREAK_TEXT else cls.RP_BREAK_TEXT)
 
     @classmethod
-    async def keyword_response(
+    async def keyword_respond(
         cls,
         group_id: int,
         messages: list[_InteractMessage],
@@ -146,17 +149,32 @@ class RandomResponse:
         if random.random() > cls.KW_PROB:
             return
         words = Keyword.extract(query)
-        entries = await Corpus.find(
-            group_id,
-            length=(cls.KW_MIN_CORPUS_LEN, cls.KW_MAX_CORPUS_LEN),
-            keywords=words,
-            sample=cls.KW_CORPUS_SAMPLES,
-        ).to_list(length=cls.KW_CORPUS_SAMPLES)
-        corpus = [e["text"] for e in entries]
-        corpus_kw = [e["keywords"] for e in entries]
-        results = Keyword.search([query],
-                                 corpus,
-                                 corpus_kw,
-                                 threshold=cls.KW_SIM_THRESHOLD)
-        if results:
-            return Message(random.choice(results))
+        if random.random() < cls.KW_AFTER_PROB:
+            # find relevant corpus and choose corpus created after them
+            # possibly other users' response to query
+            cursor = await Corpus.find_after(
+                group_id,
+                keywords=words,
+                after=timedelta(seconds=cls.KW_AFTER_SECONDS),
+                sample=cls.KW_CORPUS_SAMPLES,
+            )
+            if cursor is not None:
+                entries = await cursor.to_list(length=cls.KW_CORPUS_SAMPLES)
+                if entries:
+                    return Message(random.choice(entries)["text"])
+        else:
+            # find relevant corpus and directly use them as response
+            entries = await Corpus.find(
+                group_id,
+                length=(cls.KW_MIN_CORPUS_LEN, cls.KW_MAX_CORPUS_LEN),
+                keywords=words,
+                sample=cls.KW_CORPUS_SAMPLES,
+            ).to_list(length=cls.KW_CORPUS_SAMPLES)
+            corpus = [e["text"] for e in entries]
+            corpus_kw = [e["keywords"] for e in entries]
+            results = Keyword.search([query],
+                                     corpus,
+                                     corpus_kw,
+                                     threshold=cls.KW_SIM_THRESHOLD)
+            if results:
+                return Message(random.choice(results))

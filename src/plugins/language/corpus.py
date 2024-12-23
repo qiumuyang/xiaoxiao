@@ -118,6 +118,8 @@ class Corpus:
         keywords: list[str] | None = None,
         filter: dict[str, Any] | None = None,
         sample: int | None = None,
+        *,
+        no_shared: bool = False,
     ):
         cls.maintain()
         now = datetime.now()
@@ -143,8 +145,11 @@ class Corpus:
                 }
             }]
         }
-        group_id = [group_id, cls.SHARED_GROUP_ID] if isinstance(
-            group_id, int) else group_id + [cls.SHARED_GROUP_ID]
+        if no_shared:
+            group_id = [group_id] if isinstance(group_id, int) else group_id
+        else:
+            group_id = [group_id, cls.SHARED_GROUP_ID] if isinstance(
+                group_id, int) else group_id + [cls.SHARED_GROUP_ID]
         match_group_id = {"group_id": {"$in": group_id}}
         pipeline: list[dict[str, Any]] = [{
             "$match": m
@@ -166,6 +171,35 @@ class Corpus:
         if sample is not None:
             pipeline.append({"$sample": {"size": sample}})
         return cls.corpus.aggregate(pipeline)
+
+    @classmethod
+    async def find_after(
+        cls,
+        group_id: int,
+        keywords: list[str],
+        after: timedelta,
+        sample: int,
+    ):
+        """Find corpus entry after a given message."""
+        matched = await cls.find(group_id,
+                                 keywords=keywords,
+                                 sample=sample,
+                                 no_shared=True).to_list(length=sample)
+        if not matched:
+            return None
+        periods = [(entry["created"], entry["created"] + after)
+                   for entry in matched]
+        return cls.find(
+            group_id,
+            filter={
+                "$or": [{
+                    "created": {
+                        "$gte": start,
+                        "$lt": end
+                    }
+                } for start, end in periods]
+            },
+        )
 
 
 @Corpus.corpus.serialize()
