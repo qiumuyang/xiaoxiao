@@ -41,19 +41,19 @@ class Alphabet:
     THEME = {
         Status.EXACT: {
             "background": Color.of(56, 161, 105),
-            "foreground": Palette.WHITE.of_alpha(200),
+            "foreground": Palette.WHITE.with_alpha(200),
         },
         Status.MISS: {
             "background": Color.of(113, 128, 150),
-            "foreground": Palette.WHITE.of_alpha(200),
+            "foreground": Palette.WHITE.with_alpha(200),
         },
         Status.EXIST: {
             "background": Color.of(214, 158, 46),
-            "foreground": Palette.WHITE.of_alpha(200),
+            "foreground": Palette.WHITE.with_alpha(200),
         },
         Status.TODO: {
             "background": Color.of(237, 242, 247),
-            "foreground": Palette.BLACK.of_alpha(200),
+            "foreground": Palette.BLACK.with_alpha(200),
         },
     }
 

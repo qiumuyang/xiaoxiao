@@ -68,7 +68,7 @@ def random_color(k: int) -> Iterable[Color]:
 def parse_color(s: str) -> Iterable[Color]:
     for color_hex in color_string_pattern.findall(s):
         try:
-            yield Color.of_hex(color_hex)
+            yield Color.from_hex(color_hex)
         except ValueError:
             pass
 

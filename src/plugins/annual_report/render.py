@@ -31,11 +31,11 @@ class AnnualReportRenderer:
     AVATAR_DEFAULT = PILImage.new("RGB", (AVATAR_SIZE, AVATAR_SIZE),
                                   Palette.WHITE)
     AVATAR_BORDER = Border.of(1, Color.of(240, 240, 240, 128))
-    TREND_BORDER = Border.of(3, Palette.WHITE.of_alpha(0.4))
+    TREND_BORDER = Border.of(3, Palette.WHITE.with_alpha(0.4))
     GLOBAL_MARGIN = Space.of_side(horizontal=30, vertical=15)
 
     EMPH_TEXT_COLOR = Color.of(80, 80, 80)
-    NORMAL_TEXT_COLOR = EMPH_TEXT_COLOR.of_alpha(0.75)
+    NORMAL_TEXT_COLOR = EMPH_TEXT_COLOR.with_alpha(0.75)
     NORMAL_TEXT_STYLE = TextStyle.of(
         font=NotoSansHansRegular,
         size=18,
@@ -111,13 +111,13 @@ class AnnualReportRenderer:
     ]
 
     TITLE_COLOR = Color.of(40, 40, 40)
-    MONTH_COLOR1 = Color.of_hex("#c2e9fb")
-    MONTH_COLOR2 = Color.of_hex("#a1c4fd")
-    DAY_COLOR1 = Color.of_hex("#f6d365")
-    DAY_COLOR2 = Color.of_hex("#fda085")
-    BG_COLOR1 = Color.of_hex("#a8edea")
-    BG_COLOR2 = Color.of_hex("#fed6e3")
-    HOR_LINE_COLOR = NORMAL_TEXT_COLOR.of_alpha(0.25)
+    MONTH_COLOR1 = Color.from_hex("#c2e9fb")
+    MONTH_COLOR2 = Color.from_hex("#a1c4fd")
+    DAY_COLOR1 = Color.from_hex("#f6d365")
+    DAY_COLOR2 = Color.from_hex("#fda085")
+    BG_COLOR1 = Color.from_hex("#a8edea")
+    BG_COLOR2 = Color.from_hex("#fed6e3")
+    HOR_LINE_COLOR = NORMAL_TEXT_COLOR.with_alpha(0.25)
 
     TREND_CAPTION_TEXT = Text.from_style("活跃度趋势", style=CAPTION_TEXT_STYLE)
     TALKATIVE_DAYS_FALLBACK_TEXT = Text.from_style(TALKATIVE_DAYS_FALLBACK,
@@ -523,7 +523,7 @@ class AnnualReportRenderer:
     @classmethod
     @lru_cache
     def _render_footer(cls):
-        color = cls.NORMAL_TEXT_COLOR.of_alpha(0.6)
+        color = cls.NORMAL_TEXT_COLOR.with_alpha(0.6)
         return Text.of(
             f"* 数据起止：{cls.ANNUAL_STATISTICS_BEGIN} ~"
             f"{cls.ANNUAL_STATISTICS_END}",

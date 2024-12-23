@@ -37,7 +37,7 @@ class Color(NamedTuple):
         return cls(r, g, b, a)
 
     @classmethod
-    def of_hex(cls, hex: str, opacity: float | int = 1.0) -> Self:
+    def from_hex(cls, hex: str, opacity: float | int = 1.0) -> Self:
         hex = hex.lstrip("#")
         if len(hex) == 3:  # short form, expand it
             hex = "".join([c * 2 for c in hex])
@@ -49,7 +49,7 @@ class Color(NamedTuple):
         r, g, b, a = (randint(0, 255) for _ in range(4))
         return cls.of(r, g, b, a if rand_alpha else 255)
 
-    def of_alpha(self, a: int | float) -> Self:
+    def with_alpha(self, a: int | float) -> Self:
         return self.of(self.r, self.g, self.b, a)
 
     def as_hex(self, lower: bool = False) -> str:
