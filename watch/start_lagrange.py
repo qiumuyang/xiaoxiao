@@ -19,7 +19,7 @@ START = "cd ~/Lagrange.Core/ && dotnet run --project Lagrange.OneBot --framework
 KICK_KW = "[WtExchangeLogic] [FATAL]: KickNTEvent"
 EXPIRE_KW = "QrCode Expired, Please Fetch QrCode Again"
 CANCEL_KW = "QrCode Canceled, Please Fetch QrCode Again"
-REPORT_TO_REMOTE = True
+SSL_ERROR = "The SSL connection could not be established"
 
 
 def analyase(proc: subprocess.Popen):
@@ -35,6 +35,8 @@ def analyase(proc: subprocess.Popen):
         if start:
             qr_code_lines.append(stdout)
         if "Please scan the QR code above, Url" in stdout:
+            break
+        if SSL_ERROR in stdout:
             break
         time.sleep(0.1)
         tolerance -= 1
@@ -82,24 +84,20 @@ def start_and_watch():
                 continue
             if KICK_KW in stdout:
                 # notify admin and restart when kicked
+                notify()
                 proc, url = restart(proc)
-                if REPORT_TO_REMOTE:
-                    report(url)
-                # if local, display QR code
-                notify(repr(url) if not REPORT_TO_REMOTE else None)
-                if not url:
-                    raise Exception("Failed to fetch QR code")
+                while not url:
+                    time.sleep(5)
+                    proc, url = restart(proc)
+                report(url)
 
-            if EXPIRE_KW in stdout or CANCEL_KW in stdout:
+            if any(err in stdout for err in [EXPIRE_KW, CANCEL_KW, SSL_ERROR]):
                 proc, url = restart(proc)
-                if not url:
-                    raise Exception("Failed to fetch QR code")
-                if REPORT_TO_REMOTE:
-                    # if remote, update url
-                    report(url)
-                else:
-                    # if local, give up when expired
-                    break
+                while not url:
+                    # raise Exception("Failed to fetch QR code")
+                    time.sleep(5)
+                    proc, url = restart(proc)
+                report(url)
             time.sleep(0.1)
     finally:
         stop_all_lagrange()
