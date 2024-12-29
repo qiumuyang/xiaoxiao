@@ -12,8 +12,8 @@ from .data import GroupStatistics, UserStatistics, collect_statistics
 @inject_env()
 class AnnualStatistics:
 
-    GROUP_LOCAL = "data/dynamic/annual_report/{group_id}/group.json"
-    USER_LOCAL = "data/dynamic/annual_report/{group_id}/{user_id}.json"
+    GROUP_LOCAL = "data/dynamic/annual_report/{year}/{group_id}/group.json"
+    USER_LOCAL = "data/dynamic/annual_report/{year}/{group_id}/{user_id}.json"
 
     ANNUAL_STATISTICS_END: str
 
@@ -28,13 +28,25 @@ class AnnualStatistics:
         path.write_text(data.model_dump_json())
 
     @classmethod
-    def _load_group(cls, group_id: int) -> GroupStatistics | None:
-        path = Path(cls.GROUP_LOCAL.format(group_id=group_id))
+    def _load_group(
+        cls,
+        year: int,
+        group_id: int,
+    ) -> GroupStatistics | None:
+        path = Path(cls.GROUP_LOCAL.format(group_id=group_id, year=year))
         return cls._load(path, GroupStatistics)
 
     @classmethod
-    def _load_user(cls, user_id: int, group_id: int) -> UserStatistics | None:
-        path = Path(cls.USER_LOCAL.format(group_id=group_id, user_id=user_id))
+    def _load_user(
+        cls,
+        year: int,
+        user_id: int,
+        group_id: int,
+    ) -> UserStatistics | None:
+        path = Path(
+            cls.USER_LOCAL.format(group_id=group_id,
+                                  user_id=user_id,
+                                  year=year))
         return cls._load(path, UserStatistics)
 
     @classmethod
@@ -47,28 +59,49 @@ class AnnualStatistics:
         return stat
 
     @classmethod
-    async def group(cls, group_id: int) -> GroupStatistics:
-        return await cls._get_statistics(cls._load_group, group_id)
+    def _default_year_by_end(cls):
+        ends = datetime.strptime(cls.ANNUAL_STATISTICS_END, "%Y-%m-%d")
+        # before Dec, use last year
+        if ends.month < 12:
+            return ends.year - 1
+        return ends.year
 
     @classmethod
-    async def user(cls, user_id: int, group_id: int) -> UserStatistics:
-        return await cls._get_statistics(cls._load_user, user_id, group_id)
+    async def group(
+        cls,
+        *,
+        year: int | None = None,
+        group_id: int,
+    ) -> GroupStatistics:
+        year = year or cls._default_year_by_end()
+        return await cls._get_statistics(cls._load_group, year, group_id)
+
+    @classmethod
+    async def user(
+        cls,
+        *,
+        year: int | None = None,
+        user_id: int,
+        group_id: int,
+    ) -> UserStatistics:
+        year = year or cls._default_year_by_end()
+        return await cls._get_statistics(cls._load_user, year, user_id,
+                                         group_id)
 
     @classmethod
     async def process_group(cls, group_id: int):
         ends = datetime.strptime(cls.ANNUAL_STATISTICS_END, "%Y-%m-%d")
-        # before Dec, use last year
-        if ends.month < 12:
-            year = ends.year - 1
-        else:
-            year = ends.year
+        year = cls._default_year_by_end()
         messages = await RMT.find(group_id,
                                   since=datetime(year, 1, 1),
                                   until=ends)
         group, users = collect_statistics(messages, year)
         # dump
-        cls._dump(Path(cls.GROUP_LOCAL.format(group_id=group_id)), group)
+        cls._dump(Path(cls.GROUP_LOCAL.format(group_id=group_id, year=year)),
+                  group)
         for user_id, user in users.items():
             cls._dump(
-                Path(cls.USER_LOCAL.format(group_id=group_id,
-                                           user_id=user_id)), user)
+                Path(
+                    cls.USER_LOCAL.format(group_id=group_id,
+                                          user_id=user_id,
+                                          year=year)), user)

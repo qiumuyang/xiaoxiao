@@ -21,7 +21,8 @@ async def _(bot: Bot, event: GroupMessageEvent, arg_: Message = CommandArg()):
         if seg.is_at():
             user_id = seg.extract_at()
             break
-    statistics = await AnnualStatistics.user(user_id, event.group_id)
+    statistics = await AnnualStatistics.user(user_id=user_id,
+                                             group_id=event.group_id)
     try:
         mem = await bot.get_group_member_info(group_id=event.group_id,
                                               user_id=user_id)
@@ -35,7 +36,7 @@ async def _(bot: Bot, event: GroupMessageEvent, arg_: Message = CommandArg()):
 
 @annual_report_group.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
-    statistics = await AnnualStatistics.group(event.group_id)
+    statistics = await AnnualStatistics.group(group_id=event.group_id)
     info = await bot.get_group_info(group_id=event.group_id)
     result = await AnnualReportRenderer.render_group(statistics,
                                                      event.group_id,
