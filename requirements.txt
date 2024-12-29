@@ -1,12 +1,13 @@
 aiohttp
 async-lru
+fonttools
 jieba
 motor
 numpy
 opencv-python>=4.5.4.58
 orjson
 paddlepaddle
-Pillow==9.5.0
+Pillow==11.0.0
 psutil
 pymixbox==2.0.0
 pyphen>=0.13.2
@@ -14,3 +15,4 @@ pypinyin
 pytest-asyncio
 requests
 typing_extensions>=4.10.0
+watchdog
