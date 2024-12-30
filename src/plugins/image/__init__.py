@@ -17,7 +17,7 @@ from src.utils.image.avatar import Avatar
 from .color import parse_color, random_color, render_color
 from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
 from .process import (Flip, GrayScale, ImageProcessor, Reflect, Reverse,
-                      ShouldIAlways)
+                      ShouldIAlways, FlipFlop)
 
 logger = logger_wrapper("Image")
 driver = get_driver()
@@ -70,6 +70,7 @@ async def register_process():
         "向上反射": Reflect("B2T"),
         "向下反射": Reflect("T2B"),
         "要我一直": ShouldIAlways(),
+        "左右横跳": FlipFlop("horizontal"),
     }
     for name, processor in processors.items():
         if isinstance(name, str):
