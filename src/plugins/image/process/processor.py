@@ -28,18 +28,15 @@ class ImageProcessor(ABC):
         resample: Image.Resampling = Image.Resampling.LANCZOS,
     ) -> Image.Image:
         """Scale an image to fit within a given size range."""
-        if min_size and max_size:
-            raise ValueError("min_size and max_size cannot be used together")
-        if max_size:
-            im = image.copy()
-            im.thumbnail(max_size, resample)
-            return im
         if min_size:
             width, height = image.size
             if width < min_size[0] or height < min_size[1]:
                 scale = max(min_size[0] / width, min_size[1] / height)
-                return image.resize((int(width * scale), int(height * scale)),
-                                    resample)
+                image = image.resize((int(width * scale), int(height * scale)),
+                                     resample)
+        if max_size:
+            im = image.copy()
+            im.thumbnail(max_size, resample)
         return image
 
     def process(self, image: Image.Image, *args,
