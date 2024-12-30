@@ -18,11 +18,12 @@ assert "SUPERUSERS" in os.environ
 START = "cd ~/Lagrange.Core/ && dotnet run --project Lagrange.OneBot --framework net8.0"
 KICK_KW = "[WtExchangeLogic] [FATAL]: KickNTEvent"
 EXPIRE_KW = "QrCode Expired, Please Fetch QrCode Again"
+EXPIRE_KW2 = "QrCode State Queried: 49"  # lagrange not handled
 CANCEL_KW = "QrCode Canceled, Please Fetch QrCode Again"
 SSL_ERROR = "The SSL connection could not be established"
 
 
-def analyase(proc: subprocess.Popen):
+def parse_login_url(proc: subprocess.Popen):
     qr_code_lines = []
     start = False
     tolerance = 100  # lines
@@ -34,7 +35,7 @@ def analyase(proc: subprocess.Popen):
             start = True
         if start:
             qr_code_lines.append(stdout)
-        if "Please scan the QR code above, Url" in stdout:
+        if "Please scan the QR code above" in stdout:
             break
         if SSL_ERROR in stdout:
             break
@@ -62,7 +63,7 @@ def restart(previous_proc: subprocess.Popen):
                             shell=True,
                             stdout=subprocess.PIPE,
                             text=True)
-    url = analyase(proc)
+    url = parse_login_url(proc)
     return proc, url
 
 
@@ -82,16 +83,10 @@ def start_and_watch():
             print(stdout, end="")
             if any(w in stdout for w in white_list):
                 continue
-            if KICK_KW in stdout:
-                # notify admin and restart when kicked
-                notify()
-                proc, url = restart(proc)
-                while not url:
-                    time.sleep(5)
-                    proc, url = restart(proc)
-                report(url)
-
-            if any(err in stdout for err in [EXPIRE_KW, CANCEL_KW, SSL_ERROR]):
+            if any(err in stdout for err in
+                   [KICK_KW, EXPIRE_KW, CANCEL_KW, SSL_ERROR, EXPIRE_KW2]):
+                if KICK_KW in stdout:
+                    notify()
                 proc, url = restart(proc)
                 while not url:
                     # raise Exception("Failed to fetch QR code")
