@@ -52,6 +52,6 @@ class ShouldIAlways(ImageProcessor):
             alignment=Alignment.CENTER,
             direction=Direction.VERTICAL,
             spacing=ver_spacing,
-            padding=Space.all(10),
+            padding=Space.of_side(10, 0),  # no vertical padding
             background=Palette.WHITE,
         ).render().to_pil()
