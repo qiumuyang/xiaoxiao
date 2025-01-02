@@ -15,6 +15,7 @@ from src.utils.message import SentMessageTracker as SMT
 class Status(TypedDict):
     cpu: int
     memory: int
+    memory_free: int
     message_sent: int
     message_received: int
     commands_handled: int
@@ -30,6 +31,7 @@ class Checker:
         proc = psutil.Process()
         cpu = round(proc.cpu_percent())
         memory = proc.memory_info().rss // 1024 // 1024  # MB
+        memory_free = psutil.virtual_memory().available // 1024 // 1024  # MB
         create_time = datetime.fromtimestamp(proc.create_time())
         running_time = datetime.now() - create_time
 
@@ -43,6 +45,7 @@ class Checker:
         return {
             "cpu": cpu,
             "memory": memory,
+            "memory_free": memory_free,
             "message_sent": sent,
             "message_received": recv,
             "commands_handled": cmd,
@@ -54,7 +57,7 @@ class Checker:
         tm = str(status["running_time"]).split(".")[0]  # remove milliseconds
         fmt = ("Running Time: {tm}\n"
                "CPU: {cpu}%\n"
-               "Mem: {memory}MB\n"
+               "Mem: {memory}MB (Free: {memory_free}MB)\n"
                "Messages (Sent/Recv): {message_sent}/{message_received}\n"
                "Handle Commands: {commands_handled}")
         return fmt.format(tm=tm, **status)
