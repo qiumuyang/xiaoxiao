@@ -132,6 +132,9 @@ class MessageSegment(_MessageSegment):
     def keyboard(cls, buttons: ButtonGroup) -> "MessageSegment":
         return cls(type="keyboard", data={"content": buttons.dict()})
 
+    def is_empty(self) -> bool:
+        return self.type == "text" and not self.data["text"]
+
     def is_at(self) -> bool:
         return self.type == "at"
 

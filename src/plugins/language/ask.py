@@ -72,6 +72,41 @@ class Ask:
             return not any(word.startswith(bad) for bad in cls.BAD_ASK)
         return False
 
+    def preprocess_choice(self, s: Message) -> Message:
+        choices: list[list[MessageSegment]] = []
+        current: list[MessageSegment] = []
+        for ob_seg in s:
+            seg = MessageSegment.from_onebot(ob_seg)
+            if seg.is_text():
+                text = seg.extract_text()
+                parts = text.split("还是")
+                if len(parts) == 1:
+                    current.append(seg)
+                else:
+                    current.append(MessageSegment.text(parts[0]))
+                    choices.append(current)
+                    for part in parts[1:-1]:
+                        choices.append([MessageSegment.text(part)])
+                    current = [MessageSegment.text(parts[-1])]
+            else:
+                current.append(seg)
+        choices.append(current)
+        filtered: list[tuple[int, Message]] = []
+        for i, choice in enumerate(choices):
+            if not choice:
+                continue
+            if (len(choice) == 1 and choice[0].is_text()
+                    and choice[0].is_empty()):
+                continue
+            filtered.append((i, Message(choice)))
+        if not filtered:
+            return s  # as is
+        i, message = random.choice(filtered)
+        self.replacement = True
+        # if not first choice, add a pseudo "问"
+        return message if i == 0 else Message(
+            [MessageSegment.text("问"), *message])
+
     def __init__(self, bot: Bot, group_id: int, question: Message) -> None:
         self.bot = bot
         self.group_id = group_id
@@ -94,15 +129,16 @@ class Ask:
 
         self.replacement = False
         processed_message = Message()
-        for i, ob_seg in enumerate(question):
+        for i, ob_seg in enumerate(self.preprocess_choice(question)):
             seg = MessageSegment.from_onebot(ob_seg)
+            append_seg = None
             if seg.is_at():
                 # convert to plain text
                 member = await bot.get_group_member_info(
                     group_id=group_id, user_id=seg.extract_at())
                 member_name = (member["card"] or member["nickname"]
                                or str(seg.extract_at()))
-                append_seg = MessageSegment.text(member_name)
+                append_seg = MessageSegment.text("@" + member_name)
             elif not seg.is_text():
                 # as is
                 append_seg = seg
@@ -118,8 +154,10 @@ class Ask:
                 except ValueError:
                     logger.warning("Empty corpus")
                     return
-                append_seg = MessageSegment.text(result)
-            processed_message.append(append_seg)
+                if result:
+                    append_seg = MessageSegment.text(result)
+            if append_seg is not None:
+                processed_message.append(append_seg)
         if self.replacement:
             return processed_message
 
