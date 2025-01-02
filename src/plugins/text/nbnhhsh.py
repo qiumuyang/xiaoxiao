@@ -2,6 +2,7 @@
 
 import random
 import re
+import shlex
 from typing import ClassVar, TypedDict
 
 import aiohttp
@@ -34,7 +35,7 @@ class AbbreviationTranslate:
     client: aiohttp.ClientSession | None = None
 
     PATTERN = r"^[a-zA-Z\d]{2,10}$"  # requires fullmatch
-    CFG_PATTERN = re.compile(r"([+-])([a-zA-Z\d]{2,10})(?:->|→)([^\s]+)")
+    CFG_PATTERN = re.compile(r"([+-])([a-zA-Z\d]{2,10})(?:->|→)(.+)")
     CUSTOM_MAX_LEN = 20
 
     @staticmethod
@@ -126,26 +127,31 @@ async def config_abbr(
 ):
     cfg = await ConfigManager.get_group(event.group_id, AbbrTranslateConfig)
     abbrs = set()
-    for config_match in AbbreviationTranslate.CFG_PATTERN.finditer(message):
-        op, abbr, t = config_match.groups()
+    # for config_match in AbbreviationTranslate.CFG_PATTERN.finditer(message):
+    for part in shlex.split(message):
+        if not (config_match :=
+                AbbreviationTranslate.CFG_PATTERN.fullmatch(part)):
+            continue
+        op, abbr, trans = config_match.groups()
         abbr = abbr.lower()
-        ilst = cfg.includes.setdefault(abbr, [])
-        elst = cfg.excludes.setdefault(abbr, [])
+        trans = trans.strip()
+        include_list = cfg.includes.setdefault(abbr, [])
+        exclude_list = cfg.excludes.setdefault(abbr, [])
         # Note: here we use a 2-step config
         # if already configured, remove from the configuration
         # else add to the configuration
         if op == "+":
-            if len(t) > AbbreviationTranslate.CUSTOM_MAX_LEN:
+            if len(trans) > AbbreviationTranslate.CUSTOM_MAX_LEN:
                 continue
-            if t in elst:
-                elst.remove(t)
-            elif t not in ilst:
-                ilst.append(t)
+            if trans in exclude_list:
+                exclude_list.remove(trans)
+            elif trans not in include_list:
+                include_list.append(trans)
         elif op == "-":
-            if t in ilst:
-                ilst.remove(t)
-            elif t not in elst:
-                elst.append(t)
+            if trans in include_list:
+                include_list.remove(trans)
+            elif trans not in exclude_list:
+                exclude_list.append(trans)
         else:
             raise ValueError(f"Unknown operation: {op}")
         abbrs.add(abbr)
@@ -153,14 +159,14 @@ async def config_abbr(
 
     lines = []
     for abbr in sorted(abbrs):
-        ilst = cfg.includes.get(abbr, [])
-        elst = cfg.excludes.get(abbr, [])
+        include_list = cfg.includes.get(abbr, [])
+        exclude_list = cfg.excludes.get(abbr, [])
         line = f"【{abbr}】"
-        if ilst:
-            line += f"\n  + {'|'.join(ilst)}"
-        if elst:
-            line += f"\n  - {'|'.join(elst)}"
-        if not ilst and not elst:
+        if include_list:
+            line += f"\n  + {'|'.join(include_list)}"
+        if exclude_list:
+            line += f"\n  - {'|'.join(exclude_list)}"
+        if not include_list and not exclude_list:
             line += " 无"
         lines.append(line)
     if lines:
