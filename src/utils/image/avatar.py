@@ -133,7 +133,7 @@ class Avatar:
     ) -> Literal["updated", "cache", "custom", "none"]:
         if avatar is None:
             # remove both
-            for template in (cls.USER_PATH, cls.USER_CUSTOM_PATH):
+            for template in (cls.USER_CUSTOM_PATH, cls.USER_PATH):
                 file = Path(
                     cls.LOCAL_FALLBACK_DIR) / template.format(id=user_id)
                 if file.exists():

@@ -194,6 +194,7 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
         if segment.is_image() or segment.is_mface():
             await Avatar.update_user_avatar(event.user_id,
                                             segment.extract_url())
+            await avatar_update.finish("头像已更新")
             break
     else:
         # remove avatar
@@ -212,6 +213,8 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     for seg in reply.message:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image() or segment.is_mface():
-            await Avatar.update_user_avatar(event.user_id,
-                                            segment.extract_url())
+            result = await Avatar.update_user_avatar(event.user_id,
+                                                     segment.extract_url())
+            if result == "updated":
+                await avatar_update_reply.finish("头像已更新")
     # if no image, do nothing since implicit
