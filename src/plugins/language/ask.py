@@ -257,17 +257,19 @@ class Ask:
         raise ValueError
 
     async def random_reason_entry(self, length: int | None = None) -> Entry:
-        coroutines = [
-            self.random_what_entry(startswith="因为",
-                                   length=length + 2 if length else None),
-            self.random_what_entry(length=length),
+        kwargs = [
+            dict(startswith="因为", length=length + 2 if length else None),
+            dict(length=length)
         ]
         if random.random() < 0.5:
-            coroutines.reverse()
-        try:
-            return await coroutines[0]  # type: ignore
-        except ValueError:
-            return await coroutines[1]  # type: ignore
+            kwargs.reverse()
+        for kw in kwargs:
+            try:
+                return await self.random_what_entry(**kw)
+            except ValueError:
+                pass
+        # not expected to reach here
+        return await self.random_what_entry()
 
     async def random_reason(self, **kwargs) -> str:
         entry = await self.random_reason_entry(**kwargs)
@@ -417,6 +419,9 @@ class Ask:
                     num = str(random.randint(1, days))
                 elif match := re.search(r"几[十百千万]|[十第]几", word):
                     num = number_to_chinese(random.randint(1, 9))
+                elif word == "几" and prev_out == "星期":
+                    num = number_to_chinese(random.randint(1, 7))
+                    num = "天" if num == "七" else num
                 else:
                     num = str(random.randint(0, 10))
                 first, rest = word.split("几", 1)
