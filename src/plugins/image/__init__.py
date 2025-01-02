@@ -71,8 +71,8 @@ async def register_process():
         "向下反射": Reflect("T2B"),
         "要我一直": ShouldIAlways(),
         "左右横跳": FlipFlop("horizontal"),
-        "大风车": Rotate("clockwise"),
-        "反向大风车": Rotate("counterclockwise"),
+        ("顺时针旋转", "大风车"): Rotate("clockwise"),
+        ("逆时针旋转", "反向大风车"): Rotate("counterclockwise"),
     }
     for name, processor in processors.items():
         if isinstance(name, str):
@@ -157,7 +157,11 @@ async def register_avatar():
 
 color_ = on_command("颜色", block=True, force_whitespace=True)
 image_url = on_reply(("链接", "url"), block=True)
-avatar_update = on_command("更新头像", block=True, force_whitespace=True)
+avatar_update = on_command("更新头像",
+                           block=True,
+                           force_whitespace=True,
+                           priority=2)
+avatar_update_reply = on_reply("更新头像", block=True)
 
 
 @color_.handle()
@@ -184,6 +188,30 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
 
 
 @avatar_update.handle()
-async def _(bot: Bot, event: MessageEvent):
-    if Avatar.clear_user_local(event.user_id):
-        await avatar_update.finish("头像缓存已清除")
+async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
+    for seg in arg:
+        segment = MessageSegment.from_onebot(seg)
+        if segment.is_image() or segment.is_mface():
+            await Avatar.update_user_avatar(event.user_id,
+                                            segment.extract_url())
+            break
+    else:
+        # remove avatar
+        match await Avatar.update_user_avatar(event.user_id, None):
+            case "cache":
+                await avatar_update.finish("已清除头像缓存")
+            case "custom":
+                await avatar_update.finish("已清除自定义头像")
+
+
+@avatar_update_reply.handle()
+async def _(bot: Bot, event: MessageEvent, state: T_State):
+    reply: Reply | None = state.get("reply")
+    if not reply:
+        return
+    for seg in reply.message:
+        segment = MessageSegment.from_onebot(seg)
+        if segment.is_image() or segment.is_mface():
+            await Avatar.update_user_avatar(event.user_id,
+                                            segment.extract_url())
+    # if no image, do nothing since implicit
