@@ -2,12 +2,15 @@
 Fix fonts overshooting ascender.
 """
 
+import string
 from copy import deepcopy
 from dataclasses import dataclass
+from functools import lru_cache
 
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._h_e_a_d import table__h_e_a_d
 from fontTools.ttLib.tables._h_h_e_a import table__h_h_e_a
+from PIL import Image, ImageDraw, ImageFont
 
 
 @dataclass
@@ -51,3 +54,24 @@ class TextFont:
         result.descent *= font_size / result.units_per_em
         result.y_min *= font_size / result.units_per_em
         return result
+
+    @classmethod
+    @lru_cache()
+    def get_padding(cls, font_path: str, font_size: int) -> int:
+        font = ImageFont.truetype(font_path, font_size)
+        ascent, descent = font.getmetrics()
+        text = string.ascii_letters
+        width = round(font.getlength(text))
+        height = ascent + descent
+        im1 = Image.new("RGBA", (width, height), color=(255, 255, 255, 0))
+        im2 = Image.new("RGBA", (width, height + 100),
+                        color=(255, 255, 255, 0))
+        draw1 = ImageDraw.Draw(im1)
+        draw2 = ImageDraw.Draw(im2)
+        draw1.text(xy=(0, 0), text=text, fill=(0, 0, 0), font=font)
+        draw2.text(xy=(0, 0), text=text, fill=(0, 0, 0), font=font)
+        bbox1 = im1.getbbox()
+        bbox2 = im2.getbbox()
+        assert bbox1 is not None
+        assert bbox2 is not None
+        return max(bbox2[3] - bbox1[3] + bbox1[1] - bbox2[1], 0)

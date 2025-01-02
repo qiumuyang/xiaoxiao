@@ -218,7 +218,6 @@ class FortuneRender:
                                      alignment=Alignment.CENTER)
 
         lucky_color = Color.of(*fortune["lucky_color"])
-        # FIXME: incorrect text render start-position
         max_name_width = cls.SZ * 2
         max_name_height = cls.SZ // 2
         name_text = cls.render_username(fortune["user_name"], max_name_width,

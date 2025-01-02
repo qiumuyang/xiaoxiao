@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import string
 from functools import lru_cache
 from typing import Sequence
@@ -57,12 +58,8 @@ class Text(RenderObject):
     @staticmethod
     @lru_cache()
     def _calculate_width(font: FreeTypeFont, text: str, stroke: int) -> int:
-        # width, _ = font.getsize(text, stroke_width=stroke)
-        if hasattr(font, "getsize"):  # Pillow <= 9.5.0
-            width, _ = font.getsize(text, stroke_width=stroke)
-        else:
-            _, _, width, _ = font.getbbox(text, stroke_width=stroke)
-        return width
+        l, _, r, _ = font.getbbox(text, stroke_width=stroke)
+        return math.ceil(r - l)
 
     @classmethod
     def split_font_unsupported(

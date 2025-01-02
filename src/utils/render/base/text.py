@@ -113,15 +113,16 @@ class RenderText(Cacheable):
         # ascent: distance from the top to the baseline
         # descent: distance from the baseline to the bottom
         #          (normally negative, but in Pillow it is positive)
-        pad = math.ceil(-metrics.y_min) if self.ymin_correction else 0
+        pad_b = TextFont.get_padding(str(self.font), self.size)
+        pad_t = math.ceil(-metrics.y_min) if self.ymin_correction else 0
         ascent, descent = font.getmetrics()
         width = math.ceil(r - l)
-        height = ascent + descent + self.stroke_width * 2 + pad
+        height = ascent + descent + self.stroke_width * 2 + pad_t + pad_b
         # 2. draw text
         im = Image.new("RGBA", (width, height), color=self.shading)
         draw = ImageDraw.Draw(im)
         draw.text(
-            xy=(self.stroke_width, self.stroke_width + pad),
+            xy=(self.stroke_width, self.stroke_width + pad_t),
             text=self.text,
             fill=self.color,
             font=font,
@@ -162,13 +163,8 @@ class RenderText(Cacheable):
     @cached
     def width(self) -> int:
         font = ImageFont.truetype(str(self.font), self.size)
-        # width, _ = font.getsize(self.text, stroke_width=self.stroke_width)
-        if hasattr(font, "getsize"):  # Pillow <= 9.5.0
-            width, _ = font.getsize(self.text, stroke_width=self.stroke_width)
-        else:
-            _, _, width, _ = font.getbbox(self.text,
-                                          stroke_width=self.stroke_width)
-        return width
+        l, _, r, _ = font.getbbox(self.text, stroke_width=self.stroke_width)
+        return math.ceil(r - l)
 
     @property
     @cached
@@ -176,5 +172,6 @@ class RenderText(Cacheable):
         font = ImageFont.truetype(str(self.font), self.size)
         ascent, descent = font.getmetrics()
         metrics = TextFont.get_metrics(str(self.font), self.size)
-        pad = math.ceil(-metrics.y_min) if self.ymin_correction else 0
-        return ascent + descent + self.stroke_width * 2 + pad
+        pad_t = math.ceil(-metrics.y_min) if self.ymin_correction else 0
+        pad_b = TextFont.get_padding(str(self.font), self.size)
+        return ascent + descent + self.stroke_width * 2 + pad_t + pad_b
