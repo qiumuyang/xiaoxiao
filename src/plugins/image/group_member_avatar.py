@@ -172,6 +172,24 @@ class GroupMemberAvatar:
         return container.render().to_pil()
 
 
+def text1(s: str) -> Text:
+    return Text.of(
+        s,
+        font=NotoSansHansBold,
+        size=32,
+        alignment=Alignment.CENTER,
+    )
+
+
+def text2(s: str) -> Text:
+    return Text.of(
+        s,
+        font=NotoSansHansBold,
+        size=18,
+        alignment=Alignment.CENTER,
+    )
+
+
 class LittleAngel(GroupMemberAvatar):
 
     RENDER_LIST = [
@@ -179,14 +197,8 @@ class LittleAngel(GroupMemberAvatar):
         Item.SP,
         Item.AVATAR,
         Item.SP,
-        Text.of("非常可爱！简直就是小天使",
-                font=NotoSansHansBold,
-                size=32,
-                alignment=Alignment.CENTER),
-        Text.of("她没失踪也没怎么样 我只是觉得你们都该看一下",
-                font=NotoSansHansBold,
-                size=18,
-                alignment=Alignment.CENTER),
+        text1("非常可爱！简直就是小天使"),
+        text2("她没失踪也没怎么样 我只是觉得你们都该看一下"),
     ]
 
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
@@ -199,14 +211,8 @@ class Mesugaki(GroupMemberAvatar):
         Item.SP,
         Item.AVATAR,
         Item.SP,
-        Text.of("非常欠艹！简直就是雌小鬼",
-                font=NotoSansHansBold,
-                size=32,
-                alignment=Alignment.CENTER),
-        Text.of("她没失踪也没怎么样 我只是觉得你们都该调教一下",
-                font=NotoSansHansBold,
-                size=18,
-                alignment=Alignment.CENTER),
+        text1("非常欠艹！简直就是雌小鬼"),
+        text2("她没失踪也没怎么样 我只是觉得你们都该调教一下"),
     ]
 
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
@@ -219,14 +225,8 @@ class RBQ(GroupMemberAvatar):
         Item.SP,
         Item.AVATAR,
         Item.SP,
-        Text.of("非常可爱！简直就是RBQ",
-                font=NotoSansHansBold,
-                size=32,
-                alignment=Alignment.CENTER),
-        Text.of("她没失踪也没怎么样 我只是觉得你们都该玩一下",
-                font=NotoSansHansBold,
-                size=18,
-                alignment=Alignment.CENTER),
+        text1("非常可爱！简直就是RBQ"),
+        text2("她没失踪也没怎么样 我只是觉得你们都该玩一下"),
     ]
 
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
