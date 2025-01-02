@@ -155,11 +155,9 @@ class Fetcher:
             file.parent.mkdir(parents=True, exist_ok=True)
             if isinstance(avatar, str):
                 if session is None:
-                    avatar = cls.fetch_avatar(id=user_id, is_group=False)
+                    avatar = cls.fetch(avatar)
                 else:
-                    avatar = await cls.fetch_avatar_async(session,
-                                                          id=user_id,
-                                                          is_group=False)
+                    avatar = await cls.afetch(session, avatar)
                 if avatar is None:
                     return UpdateStatus.FAIL
             # process custom image
