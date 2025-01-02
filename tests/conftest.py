@@ -1,11 +1,13 @@
 import asyncio
 
+import dotenv
 import nonebot
 import pytest
 
 
 def pytest_configure(config):
     nonebot.init()
+    dotenv.load_dotenv(".env.dev")
 
 
 # without this, asyncio related tests will fail with:

@@ -1,9 +1,9 @@
-from typing import (Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar,
-                    get_args)
+from typing import Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar
 
 from motor.core import (AgnosticCollection, AgnosticCommandCursor,
                         AgnosticCursor)
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel
 from pymongo.results import (DeleteResult, InsertManyResult, InsertOneResult,
                              UpdateResult)
 
@@ -26,11 +26,16 @@ class Collection(Generic[D, T]):
         self._from_mongo: Callable[[D], T] = lambda x: x  # type: ignore
         self._to_filter: Callable[[T], D] = lambda x: x  # type: ignore
 
-    def auto_serialize(self):
+    def auto_serialize(self, cls_t: type[T]):
         """Use default serialization and deserialization methods."""
-        cls_d, cls_t = get_args(self.__orig_class__)  # type: ignore
-        if cls_d is not dict:
-            raise ValueError("auto_serialize only supports dict")
+        # check pydantic model (shortcut)
+        if issubclass(cls_t, BaseModel):
+            self._to_mongo = lambda x: x.model_dump(  # type: ignore
+                mode="json")
+            self._from_mongo = lambda x: cls_t.model_validate(x
+                                                              )  # type: ignore
+            return self
+
         self._to_mongo = lambda x: serialize(x)
         self._from_mongo = lambda x: deserialize(x, cls_t)  # type: ignore
         return self
