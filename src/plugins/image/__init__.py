@@ -12,7 +12,7 @@ from PIL import Image
 
 from src.ext import MessageSegment, logger_wrapper, ratelimit
 from src.ext.on import on_reply
-from src.utils.image.avatar import Avatar
+from src.utils.image.avatar import Avatar, UpdateStatus
 
 from .color import parse_color, random_color, render_color
 from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
@@ -192,16 +192,16 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
     for seg in arg:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image() or segment.is_mface():
-            await Avatar.update_user_avatar(event.user_id,
-                                            segment.extract_url())
-            await avatar_update.finish("头像已更新")
-            break
+            result = await Avatar.update(event.user_id, segment.extract_url())
+            if result == UpdateStatus.UPDATED:
+                await avatar_update.finish("头像已更新")
+                break
     else:
         # remove avatar
-        match await Avatar.update_user_avatar(event.user_id, None):
-            case "cache":
+        match await Avatar.update(event.user_id, None):
+            case UpdateStatus.REMOVE_CACHE:
                 await avatar_update.finish("已清除头像缓存")
-            case "custom":
+            case UpdateStatus.REMOVE_CUSTOM:
                 await avatar_update.finish("已清除自定义头像")
 
 
@@ -213,8 +213,7 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     for seg in reply.message:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image() or segment.is_mface():
-            result = await Avatar.update_user_avatar(event.user_id,
-                                                     segment.extract_url())
-            if result == "updated":
+            result = await Avatar.update(event.user_id, segment.extract_url())
+            if result == UpdateStatus.UPDATED:
                 await avatar_update_reply.finish("头像已更新")
     # if no image, do nothing since implicit

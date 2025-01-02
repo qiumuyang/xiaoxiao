@@ -28,8 +28,6 @@ class AnnualReportRenderer:
     TITLE_FONT = NotoSansHansBold
     TITLE_FONT_SIZE = 40
     AVATAR_SIZE = 80
-    AVATAR_DEFAULT = PILImage.new("RGB", (AVATAR_SIZE, AVATAR_SIZE),
-                                  Palette.WHITE)
     AVATAR_BORDER = Border.of(1, Color.of(240, 240, 240, 128))
     TREND_BORDER = Border.of(3, Palette.WHITE.with_alpha(0.4))
     GLOBAL_MARGIN = Space.of_side(horizontal=30, vertical=15)
@@ -436,12 +434,12 @@ class AnnualReportRenderer:
                              user_id: int = -1,
                              group_id: int = -1,
                              size: int = -1):
-        avatar = None
         if user_id != -1:
             avatar = await Avatar.user(user_id)
         elif group_id != -1:
             avatar = await Avatar.group(group_id)
-        avatar = avatar or cls.AVATAR_DEFAULT
+        else:
+            raise ValueError
         if size == -1:
             size = cls.AVATAR_SIZE
         return Image.from_image(

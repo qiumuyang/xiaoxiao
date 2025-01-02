@@ -118,12 +118,7 @@ class GroupMemberAvatar:
         elif group_id > 0:
             im = await Avatar.group(group_id)
         else:
-            im = None
-        if im is None:
-            return Image.empty(width,
-                               width,
-                               Palette.WHITE,
-                               border=Border.of(2))
+            raise ValueError
         return Image.from_image(im).resize(width, width)
 
     @classmethod

@@ -179,12 +179,6 @@ class FortuneRender:
     ) -> PILImage.Image:
         raw_avatar = await Avatar.user(fortune["user_id"])
         avatar_sz = round(cls.SZ * cls.AVATAR_RATIO)
-        if raw_avatar is None:
-            # failed to get avatar
-            raw_avatar = PILImage.new("RGB", (avatar_sz, avatar_sz),
-                                      Palette.WHITE.to_rgb())
-        else:
-            raw_avatar = raw_avatar.resize((avatar_sz, avatar_sz))
 
         match background:
             case RenderBackground.AUTO:
@@ -210,7 +204,9 @@ class FortuneRender:
         radius_outer = radius + border
 
         avatar_im = Image.from_image(
-            raw_avatar, decorations=[RectCrop.of_square(border_radius=radius)])
+            raw_avatar.resize((avatar_sz, avatar_sz)),
+            decorations=[RectCrop.of_square(border_radius=radius)],
+        )
         avatar_bg = Image.from_color(
             width=avatar_sz + 2 * border,
             height=avatar_sz + 2 * border,

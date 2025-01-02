@@ -3,8 +3,6 @@ from enum import Enum
 from functools import lru_cache
 from typing import TypedDict
 
-from PIL import Image as PILImage
-
 from src.utils.image.avatar import Avatar
 from src.utils.render import *
 
@@ -175,11 +173,9 @@ class GuessAttempt:
     @classmethod
     async def render_attempt(cls, user_id: int, syllables: list[str],
                              diff: list[Diff]) -> RenderObject:
+        avatar = await Avatar.user(user_id)
         objects: list[RenderObject] = [
-            Image.from_image(
-                await Avatar.user(user_id)
-                or PILImage.new("RGBA", cls.AVATAR_SIZE,
-                                Palette.TRANSPARENT)).resize(*cls.AVATAR_SIZE)
+            Image.from_image(avatar.resize(cls.AVATAR_SIZE))
         ]
         s = 0
         for syllable in syllables:
