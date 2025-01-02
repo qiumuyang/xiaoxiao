@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from io import BytesIO
-from typing import Iterable
+from typing import Iterable, Literal
 
 from PIL import Image
 
@@ -38,6 +38,30 @@ class ImageProcessor(ABC):
             im = image.copy()
             im.thumbnail(max_size, resample)
         return image
+
+    @classmethod
+    def to_square(cls,
+                  image: Image.Image,
+                  mode: Literal["pad", "crop"] = "crop") -> Image.Image:
+        """Crop or pad an image to make it square."""
+        width, height = image.size
+        if width == height:
+            return image
+        if mode == "crop":
+            size = min(width, height)
+            left = (width - size) // 2
+            top = (height - size) // 2
+            right = left + size
+            bottom = top + size
+            return image.crop((left, top, right, bottom))
+        elif mode == "pad":
+            size = max(width, height)
+            im = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+            left = (size - width) // 2
+            top = (size - height) // 2
+            im.paste(image, (left, top))
+            return im
+        raise ValueError(f"Invalid mode {mode}")
 
     def process(self, image: Image.Image, *args,
                 **kwargs) -> BytesIO | Image.Image | None:

@@ -16,8 +16,8 @@ from src.utils.image.avatar import Avatar
 
 from .color import parse_color, random_color, render_color
 from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
-from .process import (Flip, GrayScale, ImageProcessor, Reflect, Reverse,
-                      ShouldIAlways, FlipFlop)
+from .process import (Flip, FlipFlop, GrayScale, ImageProcessor, Reflect,
+                      Reverse, Rotate, ShouldIAlways)
 
 logger = logger_wrapper("Image")
 driver = get_driver()
@@ -71,6 +71,8 @@ async def register_process():
         "向下反射": Reflect("T2B"),
         "要我一直": ShouldIAlways(),
         "左右横跳": FlipFlop("horizontal"),
+        "大风车": Rotate("clockwise"),
+        "反向大风车": Rotate("counterclockwise"),
     }
     for name, processor in processors.items():
         if isinstance(name, str):
@@ -78,10 +80,12 @@ async def register_process():
 
         rule = ratelimit("IMAGE_" + name[0], type="group", seconds=5)
         reply_matcher = on_reply(name, rule=rule, block=True)
-        cmd_matcher = on_command(name[0],
-                                 aliases=set(name[1:]),
-                                 rule=rule,
-                                 block=True)
+        cmd_matcher = on_command(
+            name[0],
+            aliases=set(name[1:]),
+            priority=2,  # lower than reply
+            rule=rule,
+            block=True)
 
         def fn(name: str, proc: ImageProcessor):
             """Create a closure to keep the processor."""

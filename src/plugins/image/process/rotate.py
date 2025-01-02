@@ -7,61 +7,70 @@ from PIL import Image
 from .processor import ImageProcessor
 
 
-class FlipFlop(ImageProcessor):
+class Rotate(ImageProcessor):
     """Flip the image back and forth to create a GIF."""
 
     TRANS = {
-        "horizontal": Image.Transpose.FLIP_LEFT_RIGHT,
-        "vertical": Image.Transpose.FLIP_TOP_BOTTOM,
+        "clockwise": Image.Transpose.ROTATE_90,
+        "counterclockwise": Image.Transpose.ROTATE_270,
     }
 
     def __init__(
         self,
-        direction: Literal["horizontal", "vertical"],
-        flip_per_sec: int = 6,
+        direction: Literal["clockwise", "counterclockwise"],
+        rot_per_sec: int = 4,
     ) -> None:
         self.direction = direction
-        self.flip_per_sec = flip_per_sec
+        self.rot_per_sec = rot_per_sec
 
         parser = ArgumentParser()
-        parser.add_argument("flip_per_sec", type=float, nargs="?")
-        parser.add_argument("--fps", type=float, required=False)
+        parser.add_argument("rot_per_sec", type=float, nargs="?")
+        parser.add_argument("--rps", type=float, default=None)
+        parser.add_argument("--mode", type=str, default=None)
         self.parser = parser
 
     def process(self, image: Image.Image, *args, **kwargs) -> BytesIO:
         try:
             args = self.parser.parse_args(args[1:])
-            fps = args.flip_per_sec or args.fps or self.flip_per_sec
+            rps = args.rot_per_sec or args.rps or self.rot_per_sec
+            mode = (args.mode or "crop").lower()
         except KeyboardInterrupt:
             raise
         except:
-            fps = self.flip_per_sec
-        fps = min(max(0.5, fps), 40)
-        state_duration = round(1000 / fps)
+            rps = self.rot_per_sec
+            mode = "crop"
+        rps = min(max(0.5, rps), 40)
+        mode = "crop" if mode not in ["crop", "pad"] else mode
+        state_duration = round(1000 / rps)
         if self.is_gif(image):
             durations, frames = [], []
             current_duration = 0
             current_state = 0
-            flips = 0
+            rotates = 0
             while 1:
                 for frame in self.gif_iter(image):
                     duration = frame.info["duration"]
                     durations.append(duration)
+                    frame = self.to_square(frame, mode=mode)  # type: ignore
                     if current_duration > state_duration:
-                        current_state = 1 - current_state
+                        current_state = (current_state + 1) % 4
                         current_duration -= state_duration
-                        flips += 1
-                    if current_state:
-                        frame = frame.transpose(self.TRANS[self.direction])
+                        rotates += 1
+                    if current_state > 0:
+                        for _ in range(current_state):
+                            frame = frame.transpose(self.TRANS[self.direction])
                     current_duration += duration
                     frames.append(frame)
-                if flips >= 2:
+                if rotates >= 4:
                     break
         else:
-            # 2 frames: original and flipped
-            has_flipped = image.transpose(self.TRANS[self.direction])
-            frames = [image, has_flipped]
-            durations = state_duration
+            # 4 frames: 0, 90, 180, 270
+            image = self.to_square(image, mode=mode)  # type: ignore
+            frames = [image]
+            durations = [state_duration] * 4
+            for _ in range(3):
+                image = image.transpose(self.TRANS[self.direction])
+                frames.append(image)
         io = BytesIO()
         frames[0].save(io,
                        format="GIF",
