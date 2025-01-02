@@ -335,36 +335,3 @@ class Text(RenderObject):
                 return size
         raise ValueError(
             "Unable to find a font size that fits the given size.")
-
-
-class FontSizeAdaptableText(Text):
-
-    @classmethod
-    def of(cls,
-           text: str,
-           font: PathLike,
-           font_range: tuple[int, int],
-           max_size: tuple[int, int] | None = None,
-           alignment: Alignment = Alignment.START,
-           color: Color | None = None,
-           stroke_width: int = 0,
-           stroke_color: Color | None = None,
-           line_spacing: int = 0,
-           hyphenation: bool = True,
-           text_decoration: TextDecoration = TextDecoration.NONE,
-           text_decoration_thickness: int = -1,
-           shading: Color = Palette.TRANSPARENT,
-           **kwargs: Unpack[BaseStyle]) -> Text:
-        if not max_size:
-            max_width = None
-            font_size = font_range[1]
-        else:
-            max_width, _ = max_size
-            font_size = Text.get_max_fitting_font_size(
-                text, font, font_range, max_size, alignment, color,
-                stroke_width, stroke_color, line_spacing, hyphenation,
-                text_decoration, text_decoration_thickness, shading, **kwargs)
-        return Text.of(text, font, font_size, max_width, alignment, color,
-                       stroke_width, stroke_color, line_spacing, hyphenation,
-                       text_decoration, text_decoration_thickness, shading,
-                       **kwargs)

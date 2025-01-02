@@ -4,13 +4,12 @@ from .image import Image
 from .relative import RelativeContainer
 from .spacer import Spacer
 from .stack import Stack
-from .text import FontSizeAdaptableText, StyledText, Text, TextStyle
+from .text import StyledText, Text, TextStyle
 
 __all__ = [
     "BarChart",
     "Container",
     "FixedContainer",
-    "FontSizeAdaptableText",
     "Image",
     "JustifyContent",
     "RelativeContainer",

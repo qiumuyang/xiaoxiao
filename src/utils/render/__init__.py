@@ -30,7 +30,6 @@ __all__ = [
     "BarChart",
     "Container",
     "FixedContainer",
-    "FontSizeAdaptableText",
     "Image",
     "JustifyContent",
     "RelativeContainer",
