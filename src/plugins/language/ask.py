@@ -102,7 +102,7 @@ class Ask:
         if not filtered:
             return s  # as is
         i, message = random.choice(filtered)
-        self.replacement = True
+        self.replacement = len(filtered) > 1
         # if not first choice, add a pseudo "问"
         return message if i == 0 else Message(
             [MessageSegment.text("问"), *message])
@@ -111,6 +111,7 @@ class Ask:
         self.bot = bot
         self.group_id = group_id
         self.question = question
+        self.replacement = False
 
     async def answer(self) -> Message | None:
         bot = self.bot
