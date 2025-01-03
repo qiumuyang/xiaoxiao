@@ -1,4 +1,12 @@
+import random
+import string
+import time
+
+import pytest
+
 from src.plugins.idiom.data import Diff, Idiom
+from src.plugins.idiom.guess.game import RenderAttemptData, Status
+from src.plugins.idiom.guess.render import GuessRender
 
 
 def test_idiom_syllable():
@@ -41,3 +49,29 @@ def test_idiom_diff():
     t = [1, 2, 3, 4, 5]
     p = [5, 1, 2, 3, 4]
     assert Idiom.diff(t, p) == [E, E, E, E, E]
+
+
+@pytest.mark.asyncio
+async def test_idiom_render():
+    target = "xianlaihoudao"
+    attempts = []
+    for _ in range(4):
+        provided = "".join(
+            random.choices(string.ascii_lowercase, k=len(target)))
+        diff = Idiom.diff(target, provided)
+        attempts.append(
+            RenderAttemptData(
+                user_id=0,
+                syllables=[
+                    provided[0:4], provided[4:7], provided[7:10], provided[10:]
+                ],
+                diffs=diff,
+            ))
+    start = time.time()
+    obj = await GuessRender.render(attempts, [4, 3, 3, 3],
+                                   key_state={"a": Status.EXACT},
+                                   answer=None)
+    im = obj.render()
+    end = time.time()
+    assert end - start < 0.2
+    im.save("idiom_render.png")
