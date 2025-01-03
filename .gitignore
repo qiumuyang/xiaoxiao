@@ -1,8 +1,14 @@
+.vscode/
+
+# non-assets
 data/dynamic
 legacy/
 
+# for bot kick notify
 email.ini
-.vscode/
+
+# config
+.env*
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
