@@ -9,7 +9,8 @@ from nonebot.adapters.onebot.v11 import Bot, Message
 
 from src.ext import MessageSegment, logger_wrapper
 
-from .corpus import Corpus, Entry, deserialize
+from .corpus import Corpus, Entry
+from .corpus_pool import CorpusPool
 
 logger = logger_wrapper(__name__)
 
@@ -58,11 +59,6 @@ class Ask:
 
     LENGTH_CHECK_ATTEMP = 5
     MIN_WHAT, MAX_WHAT = 2, 10
-
-    # (group_id, length, startswith) -> list[Entry]
-    _cache_key = tuple[int, int | tuple[int, int] | None, str]
-    _cache: dict[_cache_key, list[Entry]] = {}
-    FETCH_BATCH = 256
 
     @classmethod
     def is_question(cls, s: str) -> bool:
@@ -168,22 +164,12 @@ class Ask:
         startswith: str = "",
         sample: int = 2,
     ) -> list[Entry]:
-        key = (self.group_id, length, startswith)
-        if (cached := self._cache.get(key)) and len(cached) >= sample:
-            result, self._cache[key] = cached[:sample], cached[sample:]
-            return result
-        cursor = Corpus.find(group_id=self.group_id,
-                             length=length,
-                             sample=max(Ask.FETCH_BATCH, sample),
-                             filter={"text": {
-                                 "$regex": f"^{startswith}"
-                             }} if startswith else None)
-        result = await cursor.to_list(length=sample)
-        entries = [deserialize(doc) for doc in result]
-        self._cache.setdefault(key, []).extend(entries)
-        if not entries:
-            raise ValueError
-        result, self._cache[key] = entries[:sample], entries[sample:]
+        result = await CorpusPool.fetch(group_id=self.group_id,
+                                        length=length,
+                                        startswith=startswith,
+                                        count=sample)
+        if not result:
+            raise ValueError("No corpus found")
         return result
 
     async def random_what_entry(self, **kwargs) -> Entry:
