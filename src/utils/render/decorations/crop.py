@@ -59,11 +59,11 @@ class CircleCrop(Crop):
             mask,
             (im.width // 2, im.height // 2),
             radius,
-            255,
+            (255, ),
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
-        return mask
+        return mask.astype(np.uint8)
 
 
 class RectCrop(Crop):
@@ -112,10 +112,10 @@ class RectCrop(Crop):
                 mask,
                 (start_x, start_y),
                 (start_x + width, start_y + height),
-                255,
+                (255, ),
                 thickness=-1,
                 lineType=cv2.LINE_AA,
-            )
+            ).astype(np.uint8)
 
         if self.border_radius > min(width, height) // 2:
             border_radius = min(width, height) // 2
@@ -134,7 +134,7 @@ class RectCrop(Crop):
                 mask,
                 corner,
                 border_radius,
-                255,
+                (255, ),
                 thickness=-1,
                 lineType=cv2.LINE_AA,
             )
@@ -142,7 +142,7 @@ class RectCrop(Crop):
             mask,
             (start_x, start_y + border_radius),
             (start_x + width, start_y + height - border_radius),
-            255,
+            (255, ),
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
@@ -150,8 +150,8 @@ class RectCrop(Crop):
             mask,
             (start_x + border_radius, start_y),
             (start_x + width - border_radius, start_y + height),
-            255,
+            (255, ),
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
-        return mask
+        return mask.astype(np.uint8)
