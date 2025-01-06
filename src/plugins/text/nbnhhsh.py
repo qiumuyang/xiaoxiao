@@ -112,7 +112,11 @@ async def _(
     abbr = abbr.removeprefix("翻译缩写").strip()
     if is_cmd and abbr.startswith(("+", "-")):
         await config_abbr(matcher, event, abbr)
-        return
+    if is_cmd and abbr in ("开", "关"):
+        await toggle_abbr(matcher, event, abbr == "开")
+    if not is_cmd and not cfg.enabled:
+        # only disable implicit call by msg
+        await matcher.finish()
     translation = await AbbreviationTranslate.query(abbr, cfg.includes,
                                                     cfg.excludes)
     if not translation or not ratelimiter.try_acquire():
@@ -171,3 +175,18 @@ async def config_abbr(
         lines.append(line)
     if lines:
         await matcher.finish("\n".join(lines))
+    await matcher.finish()
+
+
+async def toggle_abbr(
+    matcher: Matcher,
+    event: GroupMessageEvent,
+    enabled: bool,
+):
+    cfg = await ConfigManager.get_group(event.group_id, AbbrTranslateConfig)
+    inform = cfg.enabled != enabled
+    cfg.enabled = enabled
+    await ConfigManager.set_group(event.group_id, cfg)
+    if inform:
+        await matcher.finish(f"翻译缩写已{'开启' if enabled else '关闭'}")
+    await matcher.finish()
