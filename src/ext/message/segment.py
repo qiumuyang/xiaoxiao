@@ -71,7 +71,7 @@ class MessageSegment(_MessageSegment):
     @classmethod
     def equals(cls, seg1: _MessageSegment, seg2: _MessageSegment) -> bool:
         """Fixed version of comparing image segments."""
-        if seg1 == seg2:
+        if _MessageSegment.__eq__(seg1, seg2):
             return True
         if seg1.type == "image" and seg2.type == "image":
             if not "url" in seg1.data or not "url" in seg2.data:
