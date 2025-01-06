@@ -1,3 +1,4 @@
+import itertools
 import random
 import re
 from functools import partial
@@ -21,6 +22,7 @@ jieba.add_word("几块钱", tag="m")
 punctuation_en = r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
 punctuation_cn = r"""！“”‘’（），。：；《》？【】……"""
 punctuation = punctuation_en + punctuation_cn
+punctuation_choice_stop = r"""，。：；？！,:;?!"""
 
 
 def cut_before_first_punctuation(s: str) -> str:
@@ -69,39 +71,45 @@ class Ask:
         return False
 
     def preprocess_choice(self, s: Message) -> Message:
-        choices: list[list[MessageSegment]] = []
-        current: list[MessageSegment] = []
+        # first convert all non-text segments to private use area characters
+        # for uniform processing
+        private_use_area = 0xE000
+        non_text_mapping = {}
+        text = ""
         for ob_seg in s:
             seg = MessageSegment.from_onebot(ob_seg)
-            if seg.is_text():
-                text = seg.extract_text()
-                parts = text.split("还是")
-                if len(parts) == 1:
-                    current.append(seg)
-                else:
-                    current.append(MessageSegment.text(parts[0]))
-                    choices.append(current)
-                    for part in parts[1:-1]:
-                        choices.append([MessageSegment.text(part)])
-                    current = [MessageSegment.text(parts[-1])]
+            if not seg.is_text():
+                char = chr(private_use_area + len(non_text_mapping))
+                non_text_mapping[char] = seg
+                text += char
             else:
-                current.append(seg)
-        choices.append(current)
-        filtered: list[tuple[int, Message]] = []
-        for i, choice in enumerate(choices):
-            if not choice:
-                continue
-            if (len(choice) == 1 and choice[0].is_text()
-                    and choice[0].is_empty()):
-                continue
-            filtered.append((i, Message(choice)))
-        if not filtered:
-            return s  # as is
-        i, message = random.choice(filtered)
-        self.replacement = len(filtered) > 1
-        # if not first choice, add a pseudo "问"
-        return message if i == 0 else Message(
-            [MessageSegment.text("问"), *message])
+                text += seg.extract_text()
+        text = text.removeprefix("问")
+        # then split the replaced text by "还是"
+        parts = re.split(f"([{re.escape(punctuation_choice_stop)}])", text)
+        sentences, punctuation = parts[::2], parts[1::2]
+        for i, sentence in enumerate(sentences):
+            choices = list(filter(None, sentence.split("还是")))
+            if choices:
+                sentences[i] = random.choice(choices)
+                self.replacement = len(choices) > 1
+            # else as is
+        text = "问" + "".join(s + p for s, p in itertools.zip_longest(
+            sentences, punctuation, fillvalue=""))
+        # finally replace the private use area characters back
+        current_text = ""
+        segments = []
+        for char in text:
+            if char in non_text_mapping:
+                if current_text:
+                    segments.append(MessageSegment.text(current_text))
+                    current_text = ""
+                segments.append(non_text_mapping[char])
+            else:
+                current_text += char
+        if current_text:
+            segments.append(MessageSegment.text(current_text))
+        return Message(segments)
 
     def __init__(self, bot: Bot, group_id: int, question: Message) -> None:
         self.bot = bot
