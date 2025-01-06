@@ -22,7 +22,7 @@ jieba.add_word("几块钱", tag="m")
 punctuation_en = r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
 punctuation_cn = r"""！“”‘’（），。：；《》？【】……"""
 punctuation = punctuation_en + punctuation_cn
-punctuation_choice_stop = r"""，。：；？！,:;?!/"""
+punctuation_choice_stop = r"""，。：；？！,:;?!/()"""
 
 
 def cut_before_first_punctuation(s: str) -> str:
@@ -48,6 +48,8 @@ def endswith_num_and_char(s: str, chars: str, range_: tuple[int, int]):
 
 
 class Ask:
+
+    # TODO: add capture group () and replace with \d+
 
     PERSON = {"你": "我", "我": "你", "你们": "我们", "我们": "你们"}
 
@@ -86,7 +88,9 @@ class Ask:
                 text += seg.extract_text()
         text = text.removeprefix("问")
         # then split the replaced text by "还是"
-        parts = re.split(f"([{re.escape(punctuation_choice_stop)}])", text)
+        parts = re.split(f"([{re.escape(punctuation_choice_stop)}\n])",
+                         text,
+                         flags=re.M)
         sentences, punctuation = parts[::2], parts[1::2]
         for i, sentence in enumerate(sentences):
             choices = list(filter(None, sentence.split("还是")))

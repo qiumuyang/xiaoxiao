@@ -110,6 +110,8 @@ def test_ask_preprocess():
     test_once("问XXYYZZ", False, lambda s: s == "问XXYYZZ")
     test_once("问", False, lambda s: s == "问")
     test_once("问还是还是还是", False, lambda s: s == "问还是还是还是")
+    test_once("问a还是b,\nc还是d", True,
+              lambda s: s in ["问a,\nc", "问a\nd", "问b,\nc", "问b\nd"])
     test_once(
         "问XZC是/火还是水还是风还是雷还是水还是冰还是岩/属性角色", True, lambda s: s in [
             "问XZC是/火/属性角色",
