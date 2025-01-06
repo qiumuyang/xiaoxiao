@@ -22,7 +22,7 @@ jieba.add_word("几块钱", tag="m")
 punctuation_en = r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
 punctuation_cn = r"""！“”‘’（），。：；《》？【】……"""
 punctuation = punctuation_en + punctuation_cn
-punctuation_choice_stop = r"""，。：；？！,:;?!"""
+punctuation_choice_stop = r"""，。：；？！,:;?!/"""
 
 
 def cut_before_first_punctuation(s: str) -> str:
@@ -92,7 +92,7 @@ class Ask:
             choices = list(filter(None, sentence.split("还是")))
             if choices:
                 sentences[i] = random.choice(choices)
-                self.replacement = len(choices) > 1
+                self.replacement = self.replacement or len(choices) > 1
             # else as is
         text = "问" + "".join(s + p for s, p in itertools.zip_longest(
             sentences, punctuation, fillvalue=""))
@@ -132,7 +132,6 @@ class Ask:
             member["card"] or member["nickname"] for member in members
         ] + ["你", "我"]
 
-        self.replacement = False
         processed_message = Message()
         for i, ob_seg in enumerate(self.preprocess_choice(question)):
             seg = MessageSegment.from_onebot(ob_seg)
