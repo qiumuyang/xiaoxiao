@@ -45,9 +45,11 @@ class FlipFlop(ImageProcessor):
             flips = 0
             while 1:
                 for frame in self.gif_iter(image):
-                    duration = frame.info["duration"]
+                    # in some cases, the duration is 0,
+                    # which causes the loop to run forever
+                    duration = frame.info["duration"] or 100
                     durations.append(duration)
-                    if current_duration > state_duration:
+                    if current_duration >= state_duration:
                         current_state = 1 - current_state
                         current_duration -= state_duration
                         flips += 1

@@ -49,7 +49,7 @@ class Rotate(ImageProcessor):
             rotates = 0
             while 1:
                 for frame in self.gif_iter(image):
-                    duration = frame.info["duration"]
+                    duration = frame.info["duration"] or 100
                     durations.append(duration)
                     frame = self.to_square(frame, mode=mode)  # type: ignore
                     if current_duration > state_duration:
