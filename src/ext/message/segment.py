@@ -1,14 +1,12 @@
 from io import BytesIO
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import orjson
 from nonebot import get_bot
 from nonebot.adapters.onebot.utils import b2s, f2s
 from nonebot.adapters.onebot.v11 import Bot, Message
 from nonebot.adapters.onebot.v11 import MessageSegment as _MessageSegment
-from nonebot.log import logger
 from PIL import Image
 from typing_extensions import override
 
@@ -70,24 +68,11 @@ class MessageSegment(_MessageSegment):
 
     @classmethod
     def equals(cls, seg1: _MessageSegment, seg2: _MessageSegment) -> bool:
-        """Fixed version of comparing image segments."""
+        """Add extra comparison for image segments."""
         if _MessageSegment.__eq__(seg1, seg2):
             return True
         if seg1.type == "image" and seg2.type == "image":
-            if not "url" in seg1.data or not "url" in seg2.data:
-                return False
-            url1 = urlparse(seg1.data["url"])
-            url2 = urlparse(seg2.data["url"])
-            # http://gchat.qpic.cn/gchatpic_new/<uid>/aaa-bbb-ccc/0?term=255
-            path1 = url1.path.split("/")
-            path2 = url2.path.split("/")
-            if path1[-1] != "0" or path2[-1] != "0":
-                logger.warning("Unexpected image url format: %s, %s", url1,
-                               url2)
-                return False
-            cmp1 = path1[-2].split("-")[-1]
-            cmp2 = path2[-2].split("-")[-1]
-            return cmp1 == cmp2
+            return seg1.data.get("filename") == seg2.data.get("filename")
         return False
 
     @classmethod
