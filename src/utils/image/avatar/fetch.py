@@ -148,7 +148,10 @@ class Fetcher:
                     cls.LOCAL_FALLBACK_DIR) / template.format(id=user_id)
                 if file.exists():
                     file.unlink()
-                return UpdateStatus.REMOVE_CACHE if template == cls.USER_PATH else UpdateStatus.REMOVE_CUSTOM
+                    if template == cls.USER_CUSTOM_PATH:
+                        return UpdateStatus.REMOVE_CUSTOM
+                    return UpdateStatus.REMOVE_CACHE
+            # if neither exists, fall through to FAIL
         else:
             file = Path(cls.LOCAL_FALLBACK_DIR) / cls.USER_CUSTOM_PATH.format(
                 id=user_id)
