@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from nonebot.adapters.onebot.v11 import Bot, Message
 
-from src.ext.message import MessageSegment
+from src.ext import MessageSegment, get_group_member_name
 from src.utils.env import inject_env
 from src.utils.message.receive import MessageData as ReceiveMessageData
 from src.utils.message.receive import ReceivedMessageTracker as RMT
@@ -41,9 +41,8 @@ class History:
 
         user_id = (selected.user_id if isinstance(selected, ReceiveMessageData)
                    else int(bot.self_id))
-        member = await bot.get_group_member_info(group_id=group_id,
-                                                 user_id=user_id)
-        nickname = (member["card"] or member["nickname"] or str(user_id))
+        nickname = await get_group_member_name(group_id=group_id,
+                                               user_id=user_id)
 
         # forward and longmsg
         content = selected.content
@@ -147,13 +146,10 @@ class History:
         if "bot" in accept_types:
             user_ids.add(int(bot.self_id))
 
-        members = await asyncio.gather(
-            *(bot.get_group_member_info(group_id=group_id, user_id=user_id)
+        member_names = await asyncio.gather(
+            *(get_group_member_name(group_id=group_id, user_id=user_id)
               for user_id in user_ids))
-        uin_to_nicknames = {
-            int(member["user_id"]): member["card"] or member["nickname"]
-            for member in members
-        }
+        uin_to_nicknames = dict(zip(user_ids, member_names))
 
         # Reference:
         # https://lagrangedev.github.io/Lagrange.Doc/Lagrange.OneBot/API/Extend/#发送合并转发-群聊

@@ -7,7 +7,7 @@ from nonebot import CommandGroup, get_driver
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot.permission import SUPERUSER
 
-from src.ext import ratelimit
+from src.ext import get_group_member_name, ratelimit
 from src.utils.message import ReceivedMessageTracker as RMT
 from src.utils.message import SentMessageTracker as SMT
 
@@ -73,9 +73,8 @@ stat_all = stat.command("all", force_whitespace=True, permission=SUPERUSER)
 @stat_overview.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
     st = await Checker.status()
-    mem = await bot.get_group_member_info(group_id=event.group_id,
-                                          user_id=int(bot.self_id))
-    name = mem["card"] or mem["nickname"]
+    name = await get_group_member_name(group_id=event.group_id,
+                                       user_id=int(bot.self_id))
     prefix = f"[{name}]\n"
     await stat_overview.finish(prefix + Checker.format(st))
 
@@ -83,10 +82,9 @@ async def _(bot: Bot, event: GroupMessageEvent):
 @stat_this.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
     st = await Checker.status(event.group_id)
-    mem = await bot.get_group_member_info(group_id=event.group_id,
-                                          user_id=int(bot.self_id))
     group = await bot.get_group_info(group_id=event.group_id)
-    name = mem["card"] or mem["nickname"]
+    name = await get_group_member_name(group_id=event.group_id,
+                                       user_id=int(bot.self_id))
     prefix = f"[{name}] ({group['group_name']})\n"
     await stat_this.finish(prefix + Checker.format(st))
 

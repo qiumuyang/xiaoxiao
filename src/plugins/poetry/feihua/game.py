@@ -1,9 +1,7 @@
 import asyncio
 import random
 
-from nonebot import get_bot
-
-from src.ext import MessageSegment
+from src.ext import MessageSegment, get_group_member_name
 
 from ..data import Poetry
 from .data import KEYWORDS, FeiHuaData
@@ -49,23 +47,14 @@ class FeiHua:
         group = await FeiHuaData.get(self.group_id)
         if not group.in_progress or not group.score:
             return
-        bot = get_bot()
         score = dict(
             sorted(group.score.items(), key=lambda x: x[1], reverse=True))
         members = await asyncio.gather(*[
-            bot.get_group_member_info(group_id=self.group_id, user_id=user_id)
+            get_group_member_name(group_id=self.group_id, user_id=user_id)
             for user_id in score
         ])
-        # temporary fix for the member name problem
-        prefix = "\x08%ĀĀ\x07Ñ\n\x08\x12\x06"
-        suffix = "\x10\x00"
-
-        def make_name(member: dict):
-            name = member["card"] or member["nickname"]
-            return name.strip().removeprefix(prefix).removesuffix(suffix)
-
         ranking = "\n".join(
-            f"第{i}名 {make_name(member)} {sc}分"
+            f"第{i}名 {member} {sc}分"
             for i, (member, sc) in enumerate(zip(members, score.values()), 1))
 
         group.stop()

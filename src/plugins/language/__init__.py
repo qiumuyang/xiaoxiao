@@ -11,7 +11,7 @@ from nonebot.adapters.onebot.v11.event import PokeNotifyEvent, Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
-from src.ext.message import MessageSegment
+from src.ext import MessageSegment, get_group_member_name
 from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import RateLimit, RateLimiter, enabled, ratelimit, reply
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
@@ -182,29 +182,20 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
                                           no_cache=True)
     group_name = group_info["group_name"]
     date = today.strftime("%m-%d")
-    result = f"{group_name} {date} 发言排行\n"
     if not user_messages:
         await message_rank.finish("今天还没有人发言哦")
     # top = min(10, group_info["member_count"] // 2)
     # member_count seems problematic for now
+    result = f"{group_name} {date} 发言排行\n"
     top = 10
     top_uid, top_messages = zip(*user_messages[:top])
-    tasks = [
-        bot.get_group_member_info(group_id=event.group_id, user_id=user_id)
+    names = await asyncio.gather(*[
+        get_group_member_name(group_id=event.group_id, user_id=user_id)
         for user_id in top_uid
-    ]
-    members = await asyncio.gather(*tasks)
-    # temporary fix for the member name problem
-    prefix = "\x08%ĀĀ\x07Ñ\n\x08\x12\x06"
-    suffix = "\x10\x00"
-
-    def make_name(member: dict):
-        name = member["card"] or member["nickname"]
-        return name.strip().removeprefix(prefix).removesuffix(suffix)
-
+    ])
     ranking = "\n".join(
-        f"{i}. {make_name(member)} {count}"
-        for i, (member, count) in enumerate(zip(members, top_messages), 1))
+        f"{i}. {member} {count}"
+        for i, (member, count) in enumerate(zip(names, top_messages), 1))
     await message_rank.finish(result + ranking)
 
 

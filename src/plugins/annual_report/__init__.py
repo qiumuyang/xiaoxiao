@@ -2,7 +2,7 @@ from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message
 from nonebot.params import CommandArg
 
-from src.ext import MessageSegment
+from src.ext import MessageSegment, get_group_member_name
 
 from .render import AnnualReportRenderer
 from .statistics import AnnualStatistics
@@ -23,12 +23,8 @@ async def _(bot: Bot, event: GroupMessageEvent, arg_: Message = CommandArg()):
             break
     statistics = await AnnualStatistics.user(user_id=user_id,
                                              group_id=event.group_id)
-    try:
-        mem = await bot.get_group_member_info(group_id=event.group_id,
-                                              user_id=user_id)
-        name = mem["card"] or mem["nickname"]
-    except:
-        name = f"用户{user_id}"
+    name = await get_group_member_name(group_id=event.group_id,
+                                       user_id=user_id)
     result = await AnnualReportRenderer.render_user(statistics, user_id, name,
                                                     event.group_id)
     await annual_report.finish(MessageSegment.image(result.render().to_pil()))

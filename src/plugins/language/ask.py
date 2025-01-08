@@ -8,7 +8,8 @@ import jieba
 import jieba.posseg as pseg
 from nonebot.adapters.onebot.v11 import Bot, Message
 
-from src.ext import MessageSegment, logger_wrapper
+from src.ext import (MessageSegment, get_group_member_name,
+                     list_group_member_names, logger_wrapper)
 
 from .corpus import Corpus, Entry
 from .corpus_pool import CorpusPool
@@ -122,7 +123,6 @@ class Ask:
         self.replacement = False
 
     async def answer(self) -> Message | None:
-        bot = self.bot
         group_id = self.group_id
         question = self.question
         if not question:
@@ -131,10 +131,8 @@ class Ask:
                 question[0].data["text"]):
             return
 
-        members = await bot.get_group_member_list(group_id=group_id)
-        member_names = [
-            member["card"] or member["nickname"] for member in members
-        ] + ["你", "我"]
+        member_names = await list_group_member_names(group_id=group_id)
+        member_names.extend(["你", "我"])
 
         processed_message = Message()
         for i, ob_seg in enumerate(self.preprocess_choice(question)):
@@ -142,10 +140,8 @@ class Ask:
             append_seg = None
             if seg.is_at():
                 # convert to plain text
-                member = await bot.get_group_member_info(
+                member_name = await get_group_member_name(
                     group_id=group_id, user_id=seg.extract_at())
-                member_name = (member["card"] or member["nickname"]
-                               or str(seg.extract_at()))
                 append_seg = MessageSegment.text("@" + member_name)
             elif not seg.is_text():
                 # as is

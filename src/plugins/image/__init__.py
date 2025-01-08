@@ -10,7 +10,8 @@ from nonebot.params import CommandArg
 from nonebot.typing import T_State
 from PIL import Image
 
-from src.ext import MessageSegment, logger_wrapper, ratelimit
+from src.ext import (MessageSegment, get_group_member_name, logger_wrapper,
+                     ratelimit)
 from src.ext.on import on_reply
 from src.utils.image.avatar import Avatar, UpdateStatus
 
@@ -119,9 +120,8 @@ async def response_avatar(
         if event.is_tome():
             user_id = int(bot.self_id)
 
-    member = await bot.get_group_member_info(group_id=event.group_id,
-                                             user_id=user_id)
-    nickname = member["card"] or member["nickname"]
+    nickname = await get_group_member_name(group_id=event.group_id,
+                                           user_id=user_id)
     result = await avatar.render(user_id=user_id, nickname=nickname)
     await matcher.finish(MessageSegment.image(result))
 

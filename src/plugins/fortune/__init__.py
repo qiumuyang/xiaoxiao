@@ -1,9 +1,9 @@
 from nonebot import on_command
 from nonebot.adapters import Message
-from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot.params import CommandArg
 
-from src.ext import MessageSegment
+from src.ext import MessageSegment, get_user_name
 from src.ext.config import ConfigManager
 
 from .config import FortuneConfig, RenderBackground
@@ -24,13 +24,7 @@ set_bg = on_command("今日运势.背景",
 async def _(bot: Bot, event: MessageEvent):
     user_id = event.user_id
     bg = (await ConfigManager.get_user(user_id, FortuneConfig)).render_bg
-    if isinstance(event, GroupMessageEvent):
-        member = await bot.get_group_member_info(group_id=event.group_id,
-                                                 user_id=user_id,
-                                                 no_cache=True)
-        user_name = member["card"] or member["nickname"] or str(user_id)
-    else:
-        user_name = event.sender.card or event.sender.nickname or str(user_id)
+    user_name = await get_user_name(event)
     fortune = get_fortune(user_id, user_name)
     image = await FortuneRender.render(fortune, background=bg)
     await matcher.finish(MessageSegment.image(image))
