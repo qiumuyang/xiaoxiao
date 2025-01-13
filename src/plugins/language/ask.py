@@ -89,9 +89,11 @@ class Ask:
                 text += seg.extract_text()
         text = text.removeprefix("问")
         # then split the replaced text by "还是"
-        parts = re.split(f"([{re.escape(punctuation_choice_stop)}\n])",
-                         text,
-                         flags=re.M)
+        parts = re.split(
+            # if punctuation is escaped, it is not a split point
+            f"(?<!\\\\)([{re.escape(punctuation_choice_stop)}\n])",
+            text,
+            flags=re.M)
         sentences, punctuation = parts[::2], parts[1::2]
         for i, sentence in enumerate(sentences):
             choices = list(filter(None, sentence.split("还是")))

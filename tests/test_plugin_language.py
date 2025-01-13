@@ -90,6 +90,9 @@ async def test_ask_process():
                     lambda s: s.startswith("因为") and "所以" not in s)
     await test_once("为什么什么", True, lambda s: s.startswith("因为") and "所以" in s)
     await test_once("abcdef", False, lambda s: s == "abcdef")
+    await test_once("\\什么什么3", True,
+                    lambda s: s[:2] == "什么" and s[2:] in text[3])
+    await test_once("\\什么\\什么", False, lambda s: s == "什么什么")
 
 
 def test_ask_preprocess():
@@ -102,25 +105,28 @@ def test_ask_preprocess():
     ):
         ask.replacement = False
         result = ask.preprocess_choice(Message(question)).extract_plain_text()
-        assert expected(result)
+        assert expected(result), f"{question=}, {result=}"
         assert replacement == ask.replacement, \
                 f"{question=}, {result=}, {ask.replacement=}"
 
-    test_once("问A还是B", True, lambda s: s in ["问A", "问B"])
     test_once("问XXYYZZ", False, lambda s: s == "问XXYYZZ")
     test_once("问", False, lambda s: s == "问")
     test_once("问还是还是还是", False, lambda s: s == "问还是还是还是")
-    test_once("问a还是b,\nc还是d", True,
-              lambda s: s in ["问a,\nc", "问a\nd", "问b,\nc", "问b\nd"])
-    test_once(
-        "问XZC是/火还是水还是风还是雷还是水还是冰还是岩/属性角色", True, lambda s: s in [
-            "问XZC是/火/属性角色",
-            "问XZC是/水/属性角色",
-            "问XZC是/风/属性角色",
-            "问XZC是/雷/属性角色",
-            "问XZC是/冰/属性角色",
-            "问XZC是/岩/属性角色",
-        ])
+    for _ in range(10):
+        test_once("问A还是B", True, lambda s: s in ["问A", "问B"])
+        test_once("问a还是b,\nc还是d", True,
+                  lambda s: s in ["问a,\nc", "问a,\nd", "问b,\nc", "问b,\nd"])
+        test_once(
+            "问XZC是/火还是水还是风还是雷还是水还是冰还是岩/属性角色", True, lambda s: s in [
+                "问XZC是/火/属性角色",
+                "问XZC是/水/属性角色",
+                "问XZC是/风/属性角色",
+                "问XZC是/雷/属性角色",
+                "问XZC是/冰/属性角色",
+                "问XZC是/岩/属性角色",
+            ])
+        test_once(r"问11:59之后是/12\:00还是00\:00", True,
+                  lambda s: s in [r"问11:59之后是/12\:00", r"问11:59之后是/00\:00"])
 
     # more complex cases
     ask_ = MessageSegment.text("问")
