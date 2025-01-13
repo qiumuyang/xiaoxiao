@@ -21,6 +21,7 @@ class MessageSegment(_MessageSegment):
         cls,
         image: str | bytes | BytesIO | Path | Image.Image,
         type_: str | None = None,
+        summary: str | None = None,
         cache: bool = True,
         proxy: bool = True,
         timeout: int | None = None,
@@ -32,14 +33,16 @@ class MessageSegment(_MessageSegment):
             file = io
         else:
             file = image
-        return cls(type="image",
-                   data={
-                       "file": f2s(file),
-                       "type": type_,
-                       "cache": b2s(cache),
-                       "proxy": b2s(proxy),
-                       "timeout": timeout,
-                   })
+        data = {
+            "file": f2s(file),
+            "type": type_,
+            "cache": b2s(cache),
+            "proxy": b2s(proxy),
+            "timeout": timeout,
+        }
+        if summary:
+            data["summary"] = f"[{summary}]"
+        return cls(type="image", data=data)
 
     @classmethod
     def serialize(cls, message: Message) -> list[dict[str, Any]]:

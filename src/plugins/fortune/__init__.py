@@ -27,7 +27,7 @@ async def _(bot: Bot, event: MessageEvent):
     user_name = await get_user_name(event)
     fortune = get_fortune(user_id, user_name)
     image = await FortuneRender.render(fortune, background=bg)
-    await matcher.finish(MessageSegment.image(image))
+    await matcher.finish(MessageSegment.image(image, summary="今日运势"))
 
 
 @set_bg.handle()

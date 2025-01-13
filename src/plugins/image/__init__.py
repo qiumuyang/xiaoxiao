@@ -25,6 +25,7 @@ driver = get_driver()
 
 
 async def process_image_message(
+    name: str,
     processor: ImageProcessor,
     matcher: Matcher,
     event: MessageEvent,
@@ -55,7 +56,8 @@ async def process_image_message(
                     continue
                 result = processor.process(image, *args)
                 if result is not None:
-                    await matcher.finish(MessageSegment.image(result))
+                    await matcher.finish(
+                        MessageSegment.image(result, summary=name))
 
 
 @driver.on_startup
@@ -92,7 +94,7 @@ async def register_process():
             """Create a closure to keep the processor."""
 
             async def _(matcher: Matcher, event: MessageEvent, state: T_State):
-                await process_image_message(proc, matcher, event, state,
+                await process_image_message(name, proc, matcher, event, state,
                                             session)
 
             return _
@@ -104,6 +106,7 @@ async def register_process():
 
 
 async def response_avatar(
+    name: str,
     avatar: type[GroupMemberAvatar],
     *,
     bot: Bot,
@@ -123,7 +126,7 @@ async def response_avatar(
     nickname = await get_group_member_name(group_id=event.group_id,
                                            user_id=user_id)
     result = await avatar.render(user_id=user_id, nickname=nickname)
-    await matcher.finish(MessageSegment.image(result))
+    await matcher.finish(MessageSegment.image(result, summary=name))
 
 
 @driver.on_startup
@@ -144,7 +147,8 @@ async def register_avatar():
             """Create a closure to keep the avatar."""
 
             async def _(bot: Bot, matcher: Matcher, event: GroupMessageEvent):
-                await response_avatar(avatar,
+                await response_avatar(name,
+                                      avatar,
                                       bot=bot,
                                       matcher=matcher,
                                       event=event)
