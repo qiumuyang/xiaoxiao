@@ -11,8 +11,8 @@ class Rotate(ImageProcessor):
     """Flip the image back and forth to create a GIF."""
 
     TRANS = {
-        "clockwise": Image.Transpose.ROTATE_90,
-        "counterclockwise": Image.Transpose.ROTATE_270,
+        "clockwise": Image.Transpose.ROTATE_270,
+        "counterclockwise": Image.Transpose.ROTATE_90,
     }
 
     def __init__(

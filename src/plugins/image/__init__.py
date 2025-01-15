@@ -69,13 +69,13 @@ async def register_process():
         "翻转": Flip("vertical"),
         "镜像": Flip("horizontal"),
         "向左反射": Reflect("R2L"),
-        ("向右反射", "憋不不憋"): Reflect("L2R"),
+        ("憋不不憋", "向右反射"): Reflect("L2R"),
         "向上反射": Reflect("B2T"),
         "向下反射": Reflect("T2B"),
         "要我一直": ShouldIAlways(),
         "左右横跳": FlipFlop("horizontal"),
-        ("顺时针旋转", "大风车"): Rotate("clockwise"),
-        ("逆时针旋转", "反向大风车"): Rotate("counterclockwise"),
+        ("大风车", "逆时针旋转"): Rotate("counterclockwise"),
+        ("反向大风车", "顺时针旋转"): Rotate("clockwise"),
     }
     for name, processor in processors.items():
         if isinstance(name, str):
