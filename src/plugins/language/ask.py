@@ -11,6 +11,7 @@ from nonebot.adapters.onebot.v11 import Bot, Message
 from src.ext import (MessageSegment, get_group_member_name,
                      list_group_member_names, logger_wrapper)
 
+from .capture_group import expand_capture_group_references
 from .corpus import Corpus, Entry
 from .corpus_pool import CorpusPool
 
@@ -139,12 +140,12 @@ class Ask:
         processed_message = Message()
         for i, ob_seg in enumerate(self.preprocess_choice(question)):
             seg = MessageSegment.from_onebot(ob_seg)
-            append_seg = None
+            append_seg: str | MessageSegment | None = None
             if seg.is_at():
                 # convert to plain text
                 member_name = await get_group_member_name(
                     group_id=group_id, user_id=seg.extract_at())
-                append_seg = MessageSegment.text("@" + member_name)
+                append_seg = "@" + member_name
             elif not seg.is_text():
                 # as is
                 append_seg = seg
@@ -161,7 +162,12 @@ class Ask:
                     logger.warning("Empty corpus")
                     return
                 if result:
-                    append_seg = MessageSegment.text(result)
+                    try:
+                        result = expand_capture_group_references(result)
+                    except ValueError:
+                        processed_message.append("[由于循环引用，展开终止]")
+                        return processed_message
+                    append_seg = result
             if append_seg is not None:
                 processed_message.append(append_seg)
         if self.replacement:
