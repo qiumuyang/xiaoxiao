@@ -1,3 +1,4 @@
+import re
 from collections import OrderedDict
 
 from src.utils.env import inject_env
@@ -51,6 +52,7 @@ class CorpusPool:
         startswith: str,
         count: int,
     ) -> list[Entry]:
+        startswith = re.escape(startswith)
         cursor = Corpus.find(group_id=group_id,
                              length=length,
                              sample=count,

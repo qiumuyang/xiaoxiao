@@ -163,11 +163,11 @@ class Ask:
                     return
                 if result:
                     try:
-                        result = expand_capture_group_references(result)
+                        expanded = expand_capture_group_references(result)
                     except ValueError:
                         processed_message.append("[由于循环引用，展开终止]")
                         return processed_message
-                    append_seg = result
+                    append_seg = expanded
             if append_seg is not None:
                 processed_message.append(append_seg)
         if self.replacement:
@@ -313,8 +313,12 @@ class Ask:
             word, pos = next(pseg.cut(remain, use_paddle=True))
             next_remain = remain[len(word):]
             if word == "\\":
-                # special symbol "\" indicates the next character should be responded
-                yield output(word if not next_remain else next_remain[0])
+                # special symbol "\" indicates the next character is yielded as is
+                # except \\\d, which is a reference to capture group
+                if next_remain[:1].isdigit():
+                    yield output(word + next_remain[0])
+                else:
+                    yield output(word if not next_remain else next_remain[0])
                 remain = next_remain[1:]
                 prev_in, prev_in_pos = word, pos
                 continue
