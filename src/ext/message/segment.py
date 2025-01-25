@@ -204,6 +204,13 @@ class MessageExtension:
         keyboard: ButtonGroup | None = None,
         bot: Bot | None = None,
     ) -> Message:
+        """
+        Example:
+        ```python
+            message = await MessageExtension.markdown(...)
+            await bot.send_group_forward_msg(group_id=..., messages=message)
+        ```
+        """
         bot = bot or cls.get_bot()
         markdown = MessageSegment.markdown(content)
         if keyboard:
@@ -214,4 +221,10 @@ class MessageExtension:
         node = MessageSegment.node_lagrange(user_id, nickname, message)
         forward_id = await bot.call_api("send_forward_msg",
                                         messages=Message(node))
-        return Message(MessageSegment.longmsg(id_=forward_id))
+        # return Message(MessageSegment.longmsg(id_=forward_id))
+        return Message(
+            MessageSegment.node_lagrange(
+                user_id=user_id,
+                nickname=nickname,
+                content=Message(MessageSegment.forward(id_=forward_id)),
+            ))
