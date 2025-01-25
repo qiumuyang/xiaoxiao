@@ -31,7 +31,7 @@ class RandomResponse:
         KW_CORPUS_SAMPLES: num of corpus to sample
         KW_SIM_THRESHOLD: similarity threshold for keyword response
     """
-    RECENT_MESSAGE_PERIOD = timedelta(seconds=90)
+    RECENT_MESSAGE_WINDOW_SECONDS: int
     RECENT_MIN_RECV_MESSAGE = 3
     # min interval between last response and now (in messages)
     RECENT_MIN_INTERVAL_MUTE: int
@@ -60,7 +60,8 @@ class RandomResponse:
 
     @classmethod
     async def response(cls, group_id: int, message: Message) -> Message | None:
-        since = datetime.now() - cls.RECENT_MESSAGE_PERIOD
+        since = datetime.now() - timedelta(
+            seconds=cls.RECENT_MESSAGE_WINDOW_SECONDS)
         received_messages = await RMT.find(group_id=group_id,
                                            handled=False,
                                            since=since)
