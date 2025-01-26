@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <remote_host>"
+    echo "Usage: $0 <user>@<remote_host>"
     exit 1
 fi
 
@@ -14,8 +14,8 @@ BACKUP_DIR="xiao_db"
 mkdir -p $BACKUP_DIR
 
 # Remote host information
-REMOTE_HOST=$1
-REMOTE_USER="ubuntu"
+REMOTE_USER=$(echo $1 | cut -d'@' -f1)
+REMOTE_HOST=$(echo $1 | cut -d'@' -f2)
 REMOTE_PORT="22"
 REMOTE_DB_NAME=$LOCAL_DB_NAME
 REMOTE_DB_HOST="localhost"
@@ -26,6 +26,8 @@ mongodump --host $LOCAL_DB_HOST --port $LOCAL_DB_PORT --db $LOCAL_DB_NAME --out 
 
 # Transfer backup to remote host
 scp -P $REMOTE_PORT -r $BACKUP_DIR $REMOTE_USER@$REMOTE_HOST:~/
+
+rm -r $BACKUP_DIR
 
 # Manual Import on Remote Host:
 echo "Backup transferred to remote host. Now manually import the database using the following command:"
