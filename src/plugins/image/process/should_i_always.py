@@ -9,7 +9,7 @@ from .processor import ImageProcessor
 
 class ShouldIAlways(ImageProcessor):
 
-    NotoSansHansRegular = "data/static/fonts/NotoSansHans-Regular.ttf"
+    NotoSansHansBold = "data/static/fonts/NotoSansHans-Bold.otf"
 
     MIN_WIDTH = 128
     MAX_WIDTH = 512
@@ -35,12 +35,12 @@ class ShouldIAlways(ImageProcessor):
                 Container.from_children(
                     [
                         Text.of("要我一直",
-                                font=self.NotoSansHansRegular,
+                                font=self.NotoSansHansBold,
                                 size=font_size,
                                 color=Palette.BLACK),
                         image_small,
                         Text.of("吗",
-                                font=self.NotoSansHansRegular,
+                                font=self.NotoSansHansBold,
                                 size=font_size,
                                 color=Palette.BLACK),
                     ],
@@ -52,6 +52,6 @@ class ShouldIAlways(ImageProcessor):
             alignment=Alignment.CENTER,
             direction=Direction.VERTICAL,
             spacing=ver_spacing,
-            padding=Space.of_side(10, 0),  # no vertical padding
+            padding=Space.of(0, 0, 0, 10),
             background=Palette.WHITE,
         ).render().to_pil()
