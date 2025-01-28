@@ -313,9 +313,11 @@ class Ask:
             word, pos = next(pseg.cut(remain, use_paddle=True))
             next_remain = remain[len(word):]
             if word == "\\":
-                # special symbol "\" indicates the next character is yielded as is
-                # except \\\d, which is a reference to capture group
-                if next_remain[:1].isdigit():
+                # special symbol "\" indicates the next char is yielded as is
+                # except:
+                #   - \d, which is a reference to capture group
+                #   - (), which indicates a capture group, capture handles this
+                if next_remain[:1].isdigit() or next_remain[:1] in "()":
                     yield output(word + next_remain[0])
                 else:
                     yield output(word if not next_remain else next_remain[0])
