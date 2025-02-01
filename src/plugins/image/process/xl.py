@@ -6,6 +6,7 @@ from PIL import Image
 
 from src.utils.render import Color, Container, Direction
 from src.utils.render import Image as RImage
+from src.utils.render import Palette
 
 from .processor import ImageProcessor
 
@@ -21,12 +22,18 @@ class FourColorGrid(ImageProcessor):
     RED = "#f6070a"
     BLUE = "#0d24b2"
     COLORS = [[YELLOW, RED], [BLUE, GREEN]]
+    BRIGHTNESS_FACTOR = {
+        YELLOW: -0.6,
+        RED: 0.3,
+        BLUE: 0.3,
+        GREEN: -0.6,
+    }
 
     @classmethod
     def adjust_tint(cls,
                     image: Image.Image,
-                    target_rgb: tuple[int, int, int],
-                    saturation: int = 255) -> Image.Image:
+                    color: tuple[int, int, int],
+                    original_factor: float = 0.15) -> Image.Image:
         """
         将图像整体色调调整为任意 RGB 目标颜色。
 
@@ -34,11 +41,9 @@ class FourColorGrid(ImageProcessor):
             saturation (int): 调整后的饱和度（0-255），默认最大
         """
         # 将目标 RGB 颜色转换为 HSV 颜色空间
-        target_hsv = colorsys.rgb_to_hsv(*[x / 255.0 for x in target_rgb])
+        target_hsv = colorsys.rgb_to_hsv(*[x / 255.0 for x in color])
         target_hue = int(target_hsv[0] * 179)
-
-        # Ensure saturation is within valid range
-        saturation = np.clip(saturation, 0, 255)
+        target_value = int(target_hsv[2] * 255)
 
         # Extract alpha channel if present
         a = image.getchannel("A") if "A" in image.getbands() else None
@@ -50,7 +55,12 @@ class FourColorGrid(ImageProcessor):
 
         # Modify hue and saturation
         h[:] = target_hue
-        s[:] = saturation
+        s[:] = 255
+        t = 0.4
+        v = np.clip(
+            v * (1 - t) + target_value * t,  # type: ignore
+            0,
+            255).astype(np.uint8)
 
         # Merge channels and convert back to RGB
         adjusted_hsv = cv2.merge([h, s, v])
@@ -58,6 +68,8 @@ class FourColorGrid(ImageProcessor):
 
         # Convert back to PIL image
         result = Image.fromarray(adjusted_rgb, "RGB").convert("RGBA")
+        result = Image.blend(result, image.convert("RGBA"), original_factor)
+
         if a is not None:
             result.putalpha(a)
 
@@ -70,7 +82,14 @@ class FourColorGrid(ImageProcessor):
         for row in self.COLORS:
             cols = []
             for color_hex in row:
-                color = Color.from_hex(color_hex).to_rgb()
+                factor = self.BRIGHTNESS_FACTOR[color_hex]
+                color = Color.from_hex(color_hex)
+                if factor > 0:
+                    color = Palette.natural_blend(Palette.WHITE, color,
+                                                  factor).to_rgb()
+                else:
+                    color = Palette.natural_blend(Palette.BLACK, color,
+                                                  -factor).to_rgb()
                 cols.append(RImage.from_image(self.adjust_tint(image, color)))
             rows.append(
                 Container.from_children(cols, direction=Direction.HORIZONTAL))
