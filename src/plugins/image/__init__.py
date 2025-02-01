@@ -17,8 +17,8 @@ from src.utils.image.avatar import Avatar, UpdateStatus
 
 from .color import parse_color, random_color, render_color
 from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
-from .process import (Flip, FlipFlop, GrayScale, ImageProcessor, Reflect,
-                      Reverse, Rotate, ShouldIAlways)
+from .process import (Flip, FlipFlop, FourColorGrid, GrayScale, ImageProcessor,
+                      Reflect, Reverse, Rotate, ShouldIAlways)
 
 logger = logger_wrapper("Image")
 driver = get_driver()
@@ -76,6 +76,7 @@ async def register_process():
         "左右横跳": FlipFlop("horizontal"),
         ("大风车", "逆时针旋转"): Rotate("counterclockwise"),
         ("反向大风车", "顺时针旋转"): Rotate("clockwise"),
+        "特大": FourColorGrid(),
     }
     for name, processor in processors.items():
         if isinstance(name, str):

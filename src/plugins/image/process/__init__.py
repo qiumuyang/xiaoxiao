@@ -3,10 +3,12 @@ from .processor import ImageProcessor
 from .rotate import Rotate
 from .should_i_always import ShouldIAlways
 from .simple import Flip, GrayScale, Reflect, Reverse
+from .xl import FourColorGrid
 
 __all__ = [
     "Flip",
     "FlipFlop",
+    "FourColorGrid",
     "GrayScale",
     "ImageProcessor",
     "Reflect",
