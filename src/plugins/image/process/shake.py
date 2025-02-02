@@ -28,7 +28,7 @@ class Shake(ImageProcessor):
         self.blur = blur
 
     @classmethod
-    def generate_random_shake(cls, num_frames=10, amplitude=5):
+    def generate_shake_offsets(cls, num_frames: int, amplitude: int):
         """
         Generate random (dx, dy) offsets for a jittery shake effect.
         """
@@ -36,65 +36,33 @@ class Shake(ImageProcessor):
                  np.random.randint(-amplitude, amplitude + 1))
                 for _ in range(num_frames)]
 
-    @classmethod
-    def generate_smooth_shake(cls, num_frames=10, amplitude=5, frequency=2):
-        """
-        Generate smooth oscillating (dx, dy) offsets using a sine wave.
-        """
-        t = np.linspace(0, 2 * np.pi * frequency, num_frames)
-        dx = (amplitude * np.sin(t)).astype(int)
-        dy = (amplitude * np.cos(t)).astype(int)
-        return list(zip(dx, dy))
-
-    @classmethod
-    def generate_perlin_shake(cls, num_frames=10, scale=0.1, amplitude=5):
-        """
-        Generate smooth, random shake offsets using Perlin noise.
-        """
-        from perlin_noise import PerlinNoise
-        noise = PerlinNoise(octaves=1)
-        t = np.linspace(0, num_frames * scale, num_frames)
-        dx = (amplitude * np.array([noise(x) for x in t])).astype(int)
-        dy = (amplitude * np.array([noise(x + 100)
-                                    for x in t])).astype(int)  # Offset Y noise
-        return list(zip(dx, dy))
-
     @staticmethod
-    def create_motion_blur_kernel(angle, kernel_size=30):
+    def create_motion_blur_kernel(angle: float,
+                                  kernel_size: int) -> np.ndarray:
         """
-        Create a motion blur kernel in the given direction.
-
-        angle: Motion direction in degrees.
-        kernel_size: Strength of motion blur.
+        Create a motion blur kernel for a given angle and kernel size.
         """
         kernel = np.zeros((kernel_size, kernel_size))
-
-        # Convert angle to radians
         theta = np.deg2rad(angle)
-
-        # Compute start and end points of motion blur
         x0, y0 = kernel_size // 2, kernel_size // 2
         x1 = int(x0 + np.cos(theta) * (kernel_size // 2))
         y1 = int(y0 + np.sin(theta) * (kernel_size // 2))
-
         cv2.line(kernel, (x0, y0), (x1, y1), (1, ), thickness=1)
-        kernel /= np.sum(kernel)  # Normalize
-
-        return kernel
+        return kernel / np.sum(kernel)
 
     @staticmethod
-    def apply_directional_blur(image, prev_offset, cur_offset, max_blur=5):
+    def apply_directional_blur(
+        image: Image.Image,
+        prev_offset: tuple[int, int],
+        cur_offset: tuple[int, int],
+        max_blur: int = 5,
+    ) -> Image.Image:
         """
-        Apply motion blur in the direction of movement.
-
-        prev_offset: (dx_prev, dy_prev)
-        cur_offset: (dx_cur, dy_cur)
-        max_blur: Maximum blur intensity.
+        Apply motion blur in the direction of the shake movement.
         """
         dx_prev, dy_prev = prev_offset
         dx_cur, dy_cur = cur_offset
 
-        # Compute motion direction
         delta_dx = dx_cur - dx_prev
         delta_dy = dy_cur - dy_prev
         motion_magnitude = np.hypot(delta_dx, delta_dy)
@@ -102,70 +70,71 @@ class Shake(ImageProcessor):
         if motion_magnitude == 0:
             return image  # No motion, no blur
 
-        # Compute angle in degrees
         angle = math.degrees(math.atan2(delta_dy, delta_dx))
-
-        # Generate motion blur kernel
         blur_kernel = Shake.create_motion_blur_kernel(
             angle, kernel_size=int(motion_magnitude * max_blur / 10) + 1)
 
-        # Apply blur using OpenCV
-        blurred_image = cv2.filter2D(np.array(image), -1, blur_kernel)
+        # Apply blur
+        a = image.getchannel("A") if "A" in image.getbands() else None
+        blurred_image = cv2.filter2D(np.array(image.convert("RGB")), -1,
+                                     blur_kernel)
+        blurred = Image.fromarray(blurred_image).convert("RGBA")
+        if a:
+            blurred.putalpha(a)
+        return blurred
 
-        return Image.fromarray(blurred_image)
-
-    @classmethod
-    def apply_shake_with_blur(cls, image: Image.Image, offsets, index,
-                              blur_intensity):
+    def apply_shake_with_blur(
+        self,
+        image: Image.Image,
+        offsets: list[tuple[int, int]],
+        index: int,
+        blur_intensity: int,
+    ) -> Image.Image:
         """
-        Apply a series of (dx, dy) offsets to an image.
+        Apply a series of (dx, dy) offsets and blur to an image.
         """
-        fill = (255, 255, 255, 0) if image.mode == "RGBA" else (255, 255, 255)
-        # translate
         offset = offsets[index]
+        fill = (255, 255, 255, 0) if image.mode == "RGBA" else (255, 255, 255)
         image = image.transform(image.size,
                                 Image.Transform.AFFINE,
                                 (1, 0, offset[0], 0, 1, offset[1]),
                                 fillcolor=fill)
-        # blur
+
+        # Apply blur if necessary
         if index > 0 and blur_intensity > 0:
-            image = cls.apply_directional_blur(image,
+            return self.apply_directional_blur(image,
                                                offsets[index - 1],
                                                offset,
                                                max_blur=blur_intensity)
         return image
 
     def process(self, image: Image.Image, *args, **kwargs) -> BytesIO:
-        method = self.generate_random_shake
         min_frames = 15
         default_frame_duration = 150
         if self.is_gif(image):
-            durations, frames = [], []
+            frames, durations = [], []
             while len(frames) < min_frames:
                 for frame in self.gif_iter(image):
-                    duration = frame.info["duration"] or default_frame_duration
-                    durations.append(duration)
-                    frames.append(frame)
+                    durations.append(frame.info["duration"]
+                                     or default_frame_duration)
+                    frames.append(frame.convert("RGBA"))
         else:
+            frames = [image.convert("RGBA")] * min_frames
             durations = [default_frame_duration] * min_frames
-            frames = [image] * min_frames
 
-        shake_offsets = method(num_frames=len(frames) - 2,
-                               amplitude=max(image.size) // 10)
-        for i, _ in enumerate(shake_offsets, 1):
+        shake_offsets = self.generate_shake_offsets(
+            num_frames=len(frames) - 2, amplitude=max(image.size) // 10)
+        for i in range(1, len(shake_offsets)):
             frames[i] = self.apply_shake_with_blur(frames[i], shake_offsets,
                                                    i - 1, self.blur)
-        # TODO: fix crop still gets blank areas
         if self.mode == "crop":
             w, h = image.size
-            lefts = [dx if dx > 0 else 0 for dx, _ in shake_offsets]
-            rights = [w + dx if dx < 0 else w for dx, _ in shake_offsets]
-            tops = [dy if dy > 0 else 0 for _, dy in shake_offsets]
-            bottoms = [h + dy if dy < 0 else h for _, dy in shake_offsets]
-            sx_min = max(lefts)
-            sx_max = min(rights)
-            sy_min = max(tops)
-            sy_max = min(bottoms)
+            lefts = [max(dx, 0) for dx, _ in shake_offsets]
+            rights = [min(w + dx, w) for dx, _ in shake_offsets]
+            tops = [max(dy, 0) for _, dy in shake_offsets]
+            bottoms = [min(h + dy, h) for _, dy in shake_offsets]
+            sx_min, sx_max = max(lefts), min(rights)
+            sy_min, sy_max = max(tops), min(bottoms)
             if sx_min < sx_max and sy_min < sy_max:
                 frames = [
                     frame.crop((sx_min, sy_min, sx_max, sy_max))
