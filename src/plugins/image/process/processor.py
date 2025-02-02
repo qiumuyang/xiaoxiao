@@ -37,6 +37,7 @@ class ImageProcessor(ABC):
         if max_size:
             im = image.copy()
             im.thumbnail(max_size, resample)
+            return im
         return image
 
     @classmethod
