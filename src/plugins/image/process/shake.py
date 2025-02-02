@@ -137,23 +137,41 @@ class Shake(ImageProcessor):
 
     def process(self, image: Image.Image, *args, **kwargs) -> BytesIO:
         method = self.generate_random_shake
+        min_frames = 15
+        default_frame_duration = 150
         if self.is_gif(image):
             durations, frames = [], []
-            for frame in self.gif_iter(image):
-                duration = frame.info["duration"] or 100
-                durations.append(duration)
-                frames.append(frame)
+            while len(frames) < min_frames:
+                for frame in self.gif_iter(image):
+                    duration = frame.info["duration"] or default_frame_duration
+                    durations.append(duration)
+                    frames.append(frame)
         else:
-            n_frames = 15
-            durations = [100] * n_frames
-            frames = [image] * n_frames
+            durations = [default_frame_duration] * min_frames
+            frames = [image] * min_frames
 
         shake_offsets = method(num_frames=len(frames) - 2,
                                amplitude=max(image.size) // 10)
         for i, _ in enumerate(shake_offsets, 1):
             frames[i] = self.apply_shake_with_blur(frames[i], shake_offsets,
                                                    i - 1, self.blur)
-        # TODO: crop out of canvas
+        # TODO: fix crop still gets blank areas
+        if self.mode == "crop":
+            w, h = image.size
+            lefts = [dx if dx > 0 else 0 for dx, _ in shake_offsets]
+            rights = [w + dx if dx < 0 else w for dx, _ in shake_offsets]
+            tops = [dy if dy > 0 else 0 for _, dy in shake_offsets]
+            bottoms = [h + dy if dy < 0 else h for _, dy in shake_offsets]
+            sx_min = max(lefts)
+            sx_max = min(rights)
+            sy_min = max(tops)
+            sy_max = min(bottoms)
+            if sx_min < sx_max and sy_min < sy_max:
+                frames = [
+                    frame.crop((sx_min, sy_min, sx_max, sy_max))
+                    for frame in frames
+                ]
+
         io = BytesIO()
         frames[0].save(io,
                        format="GIF",
