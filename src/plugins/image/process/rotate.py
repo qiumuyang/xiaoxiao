@@ -1,13 +1,14 @@
-from argparse import ArgumentParser
 from io import BytesIO
 from typing import Literal
 
 from PIL import Image
 
+from src.utils.auto_arg import Argument
+
 from .processor import ImageProcessor
 
 
-class Rotate(ImageProcessor):
+class MultiRotate(ImageProcessor):
     """Flip the image back and forth to create a GIF."""
 
     TRANS = {
@@ -15,32 +16,20 @@ class Rotate(ImageProcessor):
         "counterclockwise": Image.Transpose.ROTATE_90,
     }
 
-    def __init__(
-        self,
-        direction: Literal["clockwise", "counterclockwise"],
-        rot_per_sec: int = 4,
-    ) -> None:
+    rps = Argument(4.0, range=(0.5, 40), positional=True)
+    mode = Argument("crop", choices=["crop", "pad"], positional=True)
+
+    def __init__(self, direction: Literal["clockwise",
+                                          "counterclockwise"]) -> None:
+        super().__init__()
         self.direction = direction
-        self.rot_per_sec = rot_per_sec
 
-        parser = ArgumentParser()
-        parser.add_argument("rot_per_sec", type=float, nargs="?")
-        parser.add_argument("--rps", type=float, default=None)
-        parser.add_argument("--mode", type=str, default=None)
-        self.parser = parser
-
-    def process(self, image: Image.Image, *args, **kwargs) -> BytesIO:
-        try:
-            args = self.parser.parse_args(args[1:])
-            rps = args.rot_per_sec or args.rps or self.rot_per_sec
-            mode = (args.mode or "crop").lower()
-        except KeyboardInterrupt:
-            raise
-        except:
-            rps = self.rot_per_sec
-            mode = "crop"
-        rps = min(max(0.5, rps), 40)
-        mode = "crop" if mode not in ["crop", "pad"] else mode
+    def process(
+        self,
+        image: Image.Image,
+        rps: float,
+        mode: Literal["crop", "pad"],
+    ) -> BytesIO:
         state_duration = round(1000 / rps)
         if self.is_gif(image):
             durations, frames = [], []

@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from src.utils.auto_arg import Argument
+
 from .processor import ImageProcessor
 
 
@@ -14,18 +16,10 @@ class Shake(ImageProcessor):
     A class to generate and apply shake effects on an image.
     """
 
-    AMP_RANGE = (0.05, 0.2)
-    BLUR_RANGE = (0, 10)
-
-    def __init__(
-        self,
-        amplitude: float = 0.1,
-        mode: Literal["crop", "pad"] = "pad",
-        blur: int = 5,
-    ):
-        self.amplitude = amplitude
-        self.mode = mode
-        self.blur = blur
+    amp = Argument(0.1, range=(0.05, 0.2), positional=True)
+    mode = Argument("pad", choices=["crop", "pad"], positional=True)
+    blur = Argument(5, range=(0, 10))
+    duration = Argument(2, range=(0.5, 5))
 
     @classmethod
     def generate_shake_offsets(cls, num_frames: int, amplitude: int):
@@ -108,9 +102,16 @@ class Shake(ImageProcessor):
                                                max_blur=blur_intensity)
         return image
 
-    def process(self, image: Image.Image, *args, **kwargs) -> BytesIO:
+    def process(
+        self,
+        image: Image.Image,
+        amp: float,
+        mode: Literal["crop", "pad"],
+        blur: int,
+        duration: float,
+    ) -> BytesIO:
         min_frames = 15
-        default_frame_duration = 150
+        default_frame_duration = int(duration * 1000 / min_frames)
         if self.is_gif(image):
             frames, durations = [], []
             while len(frames) < min_frames:
@@ -123,11 +124,13 @@ class Shake(ImageProcessor):
             durations = [default_frame_duration] * min_frames
 
         shake_offsets = self.generate_shake_offsets(
-            num_frames=len(frames) - 2, amplitude=max(image.size) // 10)
+            num_frames=len(frames) - 2,
+            amplitude=round(max(image.size) * amp),
+        )
         for i in range(1, len(shake_offsets)):
             frames[i] = self.apply_shake_with_blur(frames[i], shake_offsets,
-                                                   i - 1, self.blur)
-        if self.mode == "crop":
+                                                   i - 1, blur)
+        if mode == "crop":
             w, h = image.size
             lefts = [max(dx, 0) for dx, _ in shake_offsets]
             rights = [min(w + dx, w) for dx, _ in shake_offsets]

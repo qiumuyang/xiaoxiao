@@ -1,11 +1,28 @@
+import inspect
 from abc import ABC, abstractmethod
 from io import BytesIO
 from typing import Iterable, Literal
 
 from PIL import Image
 
+from src.utils.auto_arg import AutoArgumentParser, AutoArgumentParserMixin
 
-class ImageProcessor(ABC):
+
+class ImageProcessor(ABC, AutoArgumentParserMixin):
+
+    def __init__(self) -> None:
+        self._parser = AutoArgumentParser.from_class(self.__class__)
+        # check parser arguments match process signature
+        params = inspect.signature(self.process).parameters
+        params = [
+            p for p in inspect.signature(self.process).parameters
+            if p not in ["self", "image", "args", "kwargs"]
+        ]
+        if set(params) != set(self._parser.dests):
+            raise ValueError(f"{self.__class__.__name__} arguments do not "
+                             f"match process signature: \n"
+                             f"  - {sorted(params)}\n"
+                             f"  - {sorted(self._parser.dests)}")
 
     @classmethod
     def is_gif(cls, image: Image.Image) -> bool:
@@ -63,6 +80,10 @@ class ImageProcessor(ABC):
             im.paste(image, (left, top))
             return im
         raise ValueError(f"Invalid mode {mode}")
+
+    def __call__(self, image: Image.Image, *args, **kwargs):
+        args = self._parser.parse_args(args[1:])
+        return self.process(image, **vars(args))
 
     def process(self, image: Image.Image, *args,
                 **kwargs) -> BytesIO | Image.Image | None:

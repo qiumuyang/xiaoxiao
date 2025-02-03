@@ -1,8 +1,9 @@
-from argparse import ArgumentParser
 from io import BytesIO
 from typing import Literal
 
 from PIL import Image
+
+from src.utils.auto_arg import Argument
 
 from .processor import ImageProcessor
 
@@ -15,27 +16,13 @@ class FlipFlop(ImageProcessor):
         "vertical": Image.Transpose.FLIP_TOP_BOTTOM,
     }
 
-    def __init__(
-        self,
-        direction: Literal["horizontal", "vertical"],
-        flip_per_sec: int = 6,
-    ) -> None:
+    fps = Argument(6.0, range=(0.5, 40), positional=True)
+
+    def __init__(self, direction: Literal["horizontal", "vertical"]) -> None:
+        super().__init__()
         self.direction = direction
-        self.flip_per_sec = flip_per_sec
 
-        parser = ArgumentParser()
-        parser.add_argument("flip_per_sec", type=float, nargs="?")
-        parser.add_argument("--fps", type=float, required=False)
-        self.parser = parser
-
-    def process(self, image: Image.Image, *args, **kwargs) -> BytesIO:
-        try:
-            args = self.parser.parse_args(args[1:])
-            fps = args.flip_per_sec or args.fps or self.flip_per_sec
-        except KeyboardInterrupt:
-            raise
-        except:
-            fps = self.flip_per_sec
+    def process(self, image: Image.Image, fps: float) -> BytesIO:
         fps = min(max(0.5, fps), 40)
         state_duration = round(1000 / fps)
         if self.is_gif(image):

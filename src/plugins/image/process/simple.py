@@ -24,6 +24,7 @@ class Reflect(ImageProcessor):
     }
 
     def __init__(self, direction: Literal["L2R", "R2L", "T2B", "B2T"]) -> None:
+        super().__init__()
         self.source = direction[0]
 
     def process_frame(self, image: Image.Image, *args,
@@ -77,6 +78,7 @@ class Flip(ImageProcessor):
     """Flip the image."""
 
     def __init__(self, direction: Literal["horizontal", "vertical"]) -> None:
+        super().__init__()
         if direction == "horizontal":
             self.method = Image.Transpose.FLIP_LEFT_RIGHT
         else:

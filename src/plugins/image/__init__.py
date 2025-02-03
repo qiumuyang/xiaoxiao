@@ -18,7 +18,7 @@ from src.utils.image.avatar import Avatar, UpdateStatus
 from .color import parse_color, random_color, render_color
 from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
 from .process import (Flip, FlipFlop, FourColorGrid, GrayScale, ImageProcessor,
-                      Reflect, Reverse, Rotate, Shake, ShouldIAlways)
+                      MultiRotate, Reflect, Reverse, Shake, ShouldIAlways)
 
 logger = logger_wrapper("Image")
 driver = get_driver()
@@ -54,7 +54,7 @@ async def process_image_message(
                 image = Image.open(BytesIO(await resp.read()))
                 if not processor.supports(image):
                     continue
-                result = processor.process(image, *args)
+                result = processor(image, *args)
                 if result is not None:
                     await matcher.finish(
                         MessageSegment.image(result, summary=name))
@@ -74,8 +74,8 @@ async def register_process():
         "向下反射": Reflect("T2B"),
         "要我一直": ShouldIAlways(),
         "左右横跳": FlipFlop("horizontal"),
-        ("大风车", "逆时针旋转"): Rotate("counterclockwise"),
-        ("反向大风车", "顺时针旋转"): Rotate("clockwise"),
+        ("大风车", "逆时针旋转"): MultiRotate("counterclockwise"),
+        ("反向大风车", "顺时针旋转"): MultiRotate("clockwise"),
         "特大": FourColorGrid(),
         "震动": Shake(),
     }
