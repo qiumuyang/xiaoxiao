@@ -106,7 +106,6 @@ class AutoArgumentParserMixin:
                     action = parser.add_argument(f"--{var_name}",
                                                  type=var_value.parser_type,
                                                  default=var_value.default)
-                    print(action.dest)
                     if var_value.positional:
                         parser.add_argument(action.dest,
                                             type=var_value.parser_type,
