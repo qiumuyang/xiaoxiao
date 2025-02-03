@@ -96,14 +96,24 @@ class AutoArgumentParserMixin:
         for var_name, var_value in cls.__dict__.items():
             if isinstance(var_value, Argument):
                 arg_type = var_value.get_type()
-                var_name = var_name.replace("_", "-")
+                dash_name = var_name.replace("_", "-")
                 if arg_type == bool:
                     # bool cannot be positional
-                    parser.add_argument(f"--{var_name}",
-                                        action="store_true",
-                                        default=var_value.default)
+                    if var_value.positional:
+                        raise ValueError(
+                            f"Cannot have positional argument of type bool: "
+                            f"{dash_name}")
+                    if var_value.default:
+                        parser.add_argument(f"--no-{dash_name}",
+                                            action="store_false",
+                                            dest=var_name,
+                                            default=var_value.default)
+                    else:
+                        parser.add_argument(f"--{dash_name}",
+                                            action="store_true",
+                                            default=var_value.default)
                 else:
-                    action = parser.add_argument(f"--{var_name}",
+                    action = parser.add_argument(f"--{dash_name}",
                                                  type=var_value.parser_type,
                                                  default=var_value.default)
                     if var_value.positional:

@@ -25,6 +25,7 @@ class TestClassMixture(AutoArgumentParserMixin):
     pos_arg = Argument("positional", positional=True)
     pos_arg2 = Argument(100, choices=[100, 150, 200], positional=True)
     opt_arg = Argument("optional_default")
+    bool_arg = Argument(True)
 
 
 @pytest.fixture
@@ -175,3 +176,7 @@ class TestPositionalWithOptional:
         # 验证原有参数和新参数
         assert args.pos_arg == "only_pos1"  # 来自原有类
         assert args.pos_arg2 == 100  # 新参数默认值
+
+    def test_default_true_bool(self, mixture_parser: AutoArgumentParser):
+        args = mixture_parser.parse_args(["--no-bool-arg"])
+        assert args.bool_arg is False
