@@ -14,34 +14,28 @@ matcher = on_command("今日运势",
                      aliases={"jrys"},
                      block=True,
                      force_whitespace=True)
-set_bg = on_command("今日运势.背景",
-                    aliases={"jrys.bg", "今日运势.bg", "jrys.背景"},
-                    block=True,
-                    force_whitespace=True)
 
 
 @matcher.handle()
-async def _(bot: Bot, event: MessageEvent):
+async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
     user_id = event.user_id
-    bg = (await ConfigManager.get_user(user_id, FortuneConfig)).render_bg
+    color = arg.extract_plain_text().strip()
+    cfg = await ConfigManager.get_user(user_id, FortuneConfig)
+
+    if color:
+        mapping = {
+            "白": RenderBackground.WHITE,
+            "黑": RenderBackground.BLACK,
+            "透明": RenderBackground.TRANSPARENT,
+            "自动": RenderBackground.AUTO,
+        }
+        if color not in mapping:
+            await matcher.finish("可选背景色：自动/白/黑/透明")
+        cfg.render_bg = mapping[color]
+        await ConfigManager.set_user(user_id, cfg)
+
+    bg = cfg.render_bg
     user_name = await get_user_name(event)
     fortune = get_fortune(user_id, user_name)
     image = await FortuneRender.render(fortune, background=bg)
     await matcher.finish(MessageSegment.image(image, summary="今日运势"))
-
-
-@set_bg.handle()
-async def _(event: MessageEvent, arg: Message = CommandArg()):
-    color = arg.extract_plain_text().strip()
-    user_id = event.user_id
-    cfg = await ConfigManager.get_user(user_id, FortuneConfig)
-    mapping = {
-        "白": RenderBackground.WHITE,
-        "黑": RenderBackground.BLACK,
-        "透明": RenderBackground.TRANSPARENT,
-        "自动": RenderBackground.AUTO,
-    }
-    if color not in mapping:
-        await set_bg.finish("可选背景色：自动/白/黑/透明")
-    cfg.render_bg = mapping[color]
-    await ConfigManager.set_user(user_id, cfg)
