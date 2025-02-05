@@ -9,6 +9,7 @@ from PIL import Image as PILImage
 from src.utils.env import inject_env
 from src.utils.image.avatar import Avatar
 from src.utils.render import *
+from src.utils.render_ext.data_graph import BarChart
 
 from .statistics import GroupStatistics, UserStatistics
 

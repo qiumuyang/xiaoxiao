@@ -4,10 +4,11 @@ from typing import Any, Callable, NamedTuple
 from PIL import Image, ImageDraw
 from typing_extensions import Unpack
 
-from ...base import (BaseStyle, Color, Direction, Palette, RenderImage,
-                     RenderObject, cached)
-from ..image import Image as ImageObject
-from ..relative import RelativeContainer
+from src.utils.render import BaseStyle, Color, Direction
+from src.utils.render import Image as ImageObject
+from src.utils.render import (Palette, RelativeContainer, RenderImage,
+                              RenderObject, cached)
+
 from .base import ColorPolicy, DataGraph
 
 

@@ -2,7 +2,7 @@ from typing import Any, Protocol
 
 from typing_extensions import Unpack
 
-from ...base import BaseStyle, Color, RenderObject
+from src.utils.render import BaseStyle, Color, RenderObject
 
 
 class DataGraph(RenderObject):
