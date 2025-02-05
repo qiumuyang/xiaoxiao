@@ -2,6 +2,7 @@ import asyncio
 import random
 import string
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -52,8 +53,11 @@ async def test_fortune_render_fuzzy():
             "event_good": good,
             "event_bad": bad,
             "fortune": "大吉",
-            "lucky_color": (255, 255, 255),
+            "lucky_color": (128, 255, 255),
         })
         coros.append(coro)
 
-    await asyncio.gather(*coros)
+    results = await asyncio.gather(*coros)
+    out = Path("render-test/fortune")
+    out.mkdir(parents=True, exist_ok=True)
+    results[0].save(out / "fortune_render.png")

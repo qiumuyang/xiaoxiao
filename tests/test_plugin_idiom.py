@@ -1,6 +1,7 @@
 import random
 import string
 import time
+from pathlib import Path
 
 import pytest
 
@@ -74,4 +75,6 @@ async def test_idiom_render():
     im = obj.render()
     end = time.time()
     assert end - start < 0.2
-    im.save("idiom_render.png")
+    out = Path("render-test/idiom")
+    out.mkdir(parents=True, exist_ok=True)
+    im.save(out / "idiom_render.png")
