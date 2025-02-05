@@ -49,20 +49,25 @@ class CircleCrop(Crop):
 
     @override
     def get_mask(self, im: RenderImage) -> ImageMask:
+        temp_width = im.width // 2 * 2 + 1
+        temp_height = im.height // 2 * 2 + 1
+
         if self.radius is None:
-            radius = min(im.height, im.width) // 2
+            radius = min(temp_width, temp_height) // 2 - 1
         else:
             radius = self.radius
 
-        mask = np.zeros((im.height, im.width), dtype=np.uint8)
+        mask = np.zeros((temp_width, temp_height), dtype=np.uint8)
         mask = cv2.circle(
             mask,
-            (im.width // 2, im.height // 2),
+            (temp_width // 2, temp_height // 2),
             radius,
             (255, ),
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
+        mask = cv2.resize(mask, (im.width, im.height),
+                          interpolation=cv2.INTER_AREA)
         return mask.astype(np.uint8)
 
 
