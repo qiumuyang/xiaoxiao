@@ -139,10 +139,10 @@ class CommandMeta:
             f"## {self.name}",
             self.description,
         ]
-        if self.special:
-            parts.append(f"> {self.special}")
+        if (_ := self.special) and (sp := _.strip()):
+            parts.append(f"> *{sp}*")
         if self.usage:
-            tbl = [["输入", "说明"], ["---", "---"]]
+            tbl = [["输入", "描述"], ["---", "---"]]
             norm = []
             for line in self.usage:
                 tokens = line.split(" - ", 1)

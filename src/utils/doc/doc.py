@@ -22,6 +22,8 @@ class DocManager:
             meta.aliases = set(aliases)
             meta.visible_in_overview = visible_in_overview
             cls._commands[name] = meta
+            for alias in aliases:
+                cls._commands[alias] = meta
             return fn
 
         return decorator
