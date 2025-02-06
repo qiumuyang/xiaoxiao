@@ -37,7 +37,10 @@ class RenderText(Cacheable):
         embedded_color: whether to use embedded color in the font.
         ymin_correction: whether to use yMin in font metrics
             for baseline correction.
+        italic: whether to simulate italic by shearing the text.
     """
+
+    SHEAR = 0.2
 
     def __init__(
         self,
@@ -52,6 +55,7 @@ class RenderText(Cacheable):
         shading: Color = Palette.TRANSPARENT,
         embedded_color: bool = False,
         ymin_correction: bool = False,
+        italic: bool = False,
     ) -> None:
         super().__init__()
         with volatile(self):
@@ -66,6 +70,7 @@ class RenderText(Cacheable):
             self.shading = shading
             self.embedded_color = embedded_color
             self.ymin_correction = ymin_correction
+            self.italic = italic
 
     @classmethod
     def of(
@@ -73,6 +78,7 @@ class RenderText(Cacheable):
         text: str,
         font: PathLike,
         size: int = 12,
+        *,
         color: Color | None = None,
         stroke_width: int = 0,
         stroke_color: Color | None = None,
@@ -82,6 +88,7 @@ class RenderText(Cacheable):
         background: Color = Palette.TRANSPARENT,
         embedded_color: bool = False,
         ymin_correction: bool = False,
+        italic: bool = False,
     ) -> Self:
         """Create a `RenderText` instance with default values.
 
@@ -98,7 +105,7 @@ class RenderText(Cacheable):
             decoration_thickness = max(size // 10, 1)
         return cls(text, font, size, color, stroke_width, stroke_color,
                    decoration, decoration_thickness, shading, embedded_color,
-                   ymin_correction)
+                   ymin_correction, italic)
 
     @cached
     def render(self) -> RenderImage:
@@ -110,19 +117,21 @@ class RenderText(Cacheable):
                                   stroke_width=self.stroke_width,
                                   anchor="ls")
         metrics = TextFont.get_metrics(str(self.font), self.size)
+        pad_b = TextFont.get_padding(str(self.font), self.size)
+        pad_t = math.ceil(-metrics.y_min) if self.ymin_correction else 0
         # ascent: distance from the top to the baseline
         # descent: distance from the baseline to the bottom
         #          (normally negative, but in Pillow it is positive)
-        pad_b = TextFont.get_padding(str(self.font), self.size)
-        pad_t = math.ceil(-metrics.y_min) if self.ymin_correction else 0
         ascent, descent = font.getmetrics()
         width = math.ceil(r - l)
         height = ascent + descent + self.stroke_width * 2 + pad_t + pad_b
+        # add padding to avoid overflow
+        pad_l = int(self.SHEAR * height) if self.italic else 0
         # 2. draw text
-        im = Image.new("RGBA", (width, height), color=self.shading)
+        im = Image.new("RGBA", (width + pad_l, height), color=self.shading)
         draw = ImageDraw.Draw(im)
         draw.text(
-            xy=(self.stroke_width, self.stroke_width + pad_t),
+            xy=(self.stroke_width + pad_l, self.stroke_width + pad_t),
             text=self.text,
             fill=self.color,
             font=font,
@@ -143,9 +152,18 @@ class RenderText(Cacheable):
             y_coords.append(height // 2 + half_thick)
         for y in y_coords:
             draw.line(
-                xy=[(0, y), (width, y)],
+                xy=[(pad_l, y), (width, y)],
                 fill=self.color,
                 width=thick,
+            )
+        # 4. shear the image to simulate italic
+        if self.italic:
+            im = im.transform(
+                (im.width, im.height),
+                Image.Transform.AFFINE,
+                (1, self.SHEAR, 0, 0, 1, 0),
+                resample=Image.Resampling.BILINEAR,
+                fillcolor=self.shading,
             )
         return RenderImage.from_pil(im)
 
@@ -162,16 +180,39 @@ class RenderText(Cacheable):
     @property
     @cached
     def width(self) -> int:
-        font = ImageFont.truetype(str(self.font), self.size)
-        l, _, r, _ = font.getbbox(self.text, stroke_width=self.stroke_width)
-        return math.ceil(r - l)
+        return self.calculate_size(self.font, self.size, self.text,
+                                   self.stroke_width, self.italic,
+                                   self.ymin_correction)[0]
 
     @property
     @cached
     def height(self) -> int:
-        font = ImageFont.truetype(str(self.font), self.size)
-        ascent, descent = font.getmetrics()
-        metrics = TextFont.get_metrics(str(self.font), self.size)
-        pad_t = math.ceil(-metrics.y_min) if self.ymin_correction else 0
-        pad_b = TextFont.get_padding(str(self.font), self.size)
-        return ascent + descent + self.stroke_width * 2 + pad_t + pad_b
+        return self.calculate_size(self.font, self.size, self.text,
+                                   self.stroke_width, self.italic,
+                                   self.ymin_correction)[1]
+
+    @classmethod
+    def calculate_size(
+        cls,
+        font: PathLike,
+        size: int,
+        text: str,
+        stroke: int,
+        italic: bool,
+        ymin_correction: bool = False,
+    ) -> tuple[int, int]:
+        font_ = ImageFont.truetype(str(font), size)
+        # https://pillow.readthedocs.io/en/stable/handbook/text-anchors.html
+        l, _, r, _ = font_.getbbox(text,
+                                   mode="RGBA",
+                                   stroke_width=stroke,
+                                   anchor="ls")
+        metrics = TextFont.get_metrics(str(font), size)
+        pad_b = TextFont.get_padding(str(font), size)
+        pad_t = math.ceil(-metrics.y_min) if ymin_correction else 0
+        ascent, descent = font_.getmetrics()
+        width = math.ceil(r - l)
+        height = ascent + descent + stroke * 2 + pad_t + pad_b
+        # add padding to avoid overflow
+        pad_l = int(cls.SHEAR * height) if italic else 0
+        return width + pad_l, height
