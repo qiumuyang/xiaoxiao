@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 import PIL.Image as PILImage
+from cv2.typing import MatLike
 from typing_extensions import Concatenate, Literal, ParamSpec, Self
 
 from ..utils import ImageMask, PathLike, cast
@@ -16,7 +17,7 @@ from .properties import Alignment, Border, Direction, Interpolation
 _P = ParamSpec("_P")
 
 
-def check_writeable(
+def check_writable(
     func: Callable[Concatenate[RenderImage, _P], RenderImage]
 ) -> Callable[Concatenate[RenderImage, _P], RenderImage]:
 
@@ -39,7 +40,7 @@ class RenderImage:
         base_im: The image matrix (RGBA, uint8).
     """
 
-    def __init__(self, base_im: cv2.Mat) -> None:
+    def __init__(self, base_im: MatLike) -> None:
         self.base_im = base_im
 
     @classmethod
@@ -69,7 +70,7 @@ class RenderImage:
         return cls.empty(im.width, im.height, color)
 
     @classmethod
-    def from_raw(cls, im: cv2.Mat, bgr: bool = False) -> Self:
+    def from_raw(cls, im: MatLike, bgr: bool = False) -> Self:
         """Converts an image matrix to RenderImage.
 
         Args:
@@ -172,7 +173,7 @@ class RenderImage:
     def height(self) -> int:
         return self.base_im.shape[0]
 
-    @check_writeable
+    @check_writable
     def paste(self, x: int, y: int, im: Self) -> Self:
         """Pastes the image onto this image at the given coordinates.
         Considering alpha channels of both images.
@@ -184,7 +185,7 @@ class RenderImage:
         self.base_im = np.array(im_self)
         return self
 
-    @check_writeable
+    @check_writable
     def cover(self, x: int, y: int, im: Self) -> Self:
         """Pastes the image onto this image at the given coordinates
         only where the cover image is not transparent.
@@ -203,7 +204,7 @@ class RenderImage:
                      max(l, 0):min(r, self.width)][mask] = im_cropped[mask]
         return self
 
-    @check_writeable
+    @check_writable
     def overlay(self, x: int, y: int, im: Self) -> Self:
         """Pastes the image onto this image at the given coordinates
         no matter what the alpha channel is."""
@@ -216,7 +217,7 @@ class RenderImage:
                      max(l, 0):min(r, self.width)] = im_cropped
         return self
 
-    @check_writeable
+    @check_writable
     def set_transparency(
         self,
         start: Color = Palette.WHITE,
@@ -267,7 +268,7 @@ class RenderImage:
 
         return self
 
-    @check_writeable
+    @check_writable
     def draw_border(
         self,
         x: int,
@@ -288,7 +289,7 @@ class RenderImage:
         )
         return self
 
-    @check_writeable
+    @check_writable
     def resize(
         self,
         width: int = -1,
@@ -325,12 +326,12 @@ class RenderImage:
         )
         return self
 
-    @check_writeable
+    @check_writable
     def rescale(
         self,
         scale: float,
         interpolation: Interpolation = Interpolation.BILINEAR,
-    ) -> Self:
+    ) -> RenderImage:
         """Resizes the image by the given scale inplace.
 
         Args:
@@ -343,13 +344,13 @@ class RenderImage:
             interpolation=interpolation,
         )
 
-    @check_writeable
+    @check_writable
     def thumbnail(
         self,
         max_width: int = -1,
         max_height: int = -1,
         interpolation: Interpolation = Interpolation.BILINEAR,
-    ) -> Self:
+    ) -> RenderImage:
         """Resizes the image to fit within the given dimensions inplace.
 
         If dimension is not specified, original dimension is used.
@@ -379,7 +380,7 @@ class RenderImage:
         """
         return self.__class__(self.base_im.copy())
 
-    @check_writeable
+    @check_writable
     def fill(
         self,
         x: int,
@@ -391,7 +392,7 @@ class RenderImage:
         self.base_im[y:y + height, x:x + width] = color
         return self
 
-    @check_writeable
+    @check_writable
     def mask(self, mask: ImageMask) -> Self:
         """Apply mask to image inplace.
 
