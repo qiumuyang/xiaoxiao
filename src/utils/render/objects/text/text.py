@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import string
 from functools import lru_cache
 from typing import Sequence
@@ -14,12 +13,12 @@ from ...base import (Alignment, BaseStyle, Color, Direction, Palette,
                      RenderImage, RenderObject, RenderText, TextDecoration,
                      cached, volatile)
 from ...utils import PathLike, Undefined, bisect_right
-from .style import TextStyle
+from .style import FontFamily, TextStyle
 
 
 class Text(RenderObject):
 
-    MARKS = set("；：。，！？、.,!?”》;:")
+    PUNCTUATIONS = set("；：。，！？、.,!?”》;:")
     _dict = pyphen.Pyphen(lang="en_US")
 
     def __init__(
@@ -37,6 +36,7 @@ class Text(RenderObject):
         text_decoration: TextDecoration,
         text_decoration_thickness: int,
         shading: Color,
+        italic: bool,
         **kwargs: Unpack[BaseStyle],
     ) -> None:
         super().__init__(**kwargs)
@@ -54,12 +54,14 @@ class Text(RenderObject):
             self.text_decoration = text_decoration
             self.text_decoration_thickness = text_decoration_thickness
             self.shading = shading
+            self.italic = italic
 
     @staticmethod
     @lru_cache()
-    def _calculate_width(font: FreeTypeFont, text: str, stroke: int) -> int:
-        l, _, r, _ = font.getbbox(text, stroke_width=stroke)
-        return math.ceil(r - l)
+    def _calculate_width(font: FreeTypeFont, text: str, stroke: int,
+                         italic: bool) -> int:
+        return RenderText.calculate_size(str(font.path), int(font.size), text,
+                                         stroke, italic)[0]
 
     @classmethod
     def split_font_unsupported(
@@ -101,9 +103,11 @@ class Text(RenderObject):
         cls,
         font: FreeTypeFont,
         text: str,
+        *,
         stroke_width: int,
         max_width: int | None,
         hyphenation: bool,
+        italic: bool,
     ) -> tuple[str, str, bool]:
         bad_split = False
         if max_width is None:
@@ -112,9 +116,11 @@ class Text(RenderObject):
         bound = bisect_right(
             indices,
             max_width,
-            key=lambda k: cls._calculate_width(font, text[:k], stroke_width),
+            key=lambda k: cls._calculate_width(font, text[:k], stroke_width,
+                                               italic),
         )
-        if cls._calculate_width(font, text[:bound], stroke_width) > max_width:
+        if cls._calculate_width(font, text[:bound], stroke_width,
+                                italic) > max_width:
             bound -= 1
         if bound <= 0:
             raise ValueError(f"Text is too long to fit in the given width: "
@@ -138,13 +144,17 @@ class Text(RenderObject):
                     # simply put the whole word in the next line
                     bound = prev
                 else:
-                    first, second = cls._split_word(
-                        font, word, stroke_width,
-                        max_width - cls._calculate_width(
-                            font,
-                            text[:prev],
-                            stroke_width,
-                        ))
+                    first, second = cls._split_word(font,
+                                                    word,
+                                                    stroke_width=stroke_width,
+                                                    max_width=max_width -
+                                                    cls._calculate_width(
+                                                        font,
+                                                        text[:prev],
+                                                        stroke_width,
+                                                        italic,
+                                                    ),
+                                                    italic=italic)
                     if not first:
                         # no possible cut, put the whole word in the next line
                         bound = prev
@@ -153,9 +163,9 @@ class Text(RenderObject):
                             next:], bad_split
 
         # try not to leave a mark at the beginning of the next line
-        if text[bound] in cls.MARKS:
-            if cls._calculate_width(font, text[:bound + 1],
-                                    stroke_width) <= max_width:
+        if text[bound] in cls.PUNCTUATIONS:
+            if cls._calculate_width(font, text[:bound + 1], stroke_width,
+                                    italic) <= max_width:
                 bound += 1
             else:
                 prev = bound - 1
@@ -175,15 +185,21 @@ class Text(RenderObject):
         cls,
         font: FreeTypeFont,
         text: str,
+        *,
         stroke_width: int,
         max_width: int,
         hyphenation: bool,
+        italic: bool = False,
     ) -> Sequence[str]:
         split_lines: list[str] = []
         while text:
             # ignore bad_split flag
-            line, remain, _ = cls.split_once(font, text, stroke_width,
-                                             max_width, hyphenation)
+            line, remain, _ = cls.split_once(font,
+                                             text,
+                                             stroke_width=stroke_width,
+                                             max_width=max_width,
+                                             hyphenation=hyphenation,
+                                             italic=italic)
             if line:
                 split_lines.append(line.rstrip(" "))
             text = remain.lstrip(" ")
@@ -194,15 +210,21 @@ class Text(RenderObject):
         cls,
         font: FreeTypeFont,
         word: str,
+        *,
         stroke_width: int,
         max_width: int,
+        italic: bool,
     ) -> tuple[str, str]:
         cuts = list(cls._dict.iterate(word))
         cuts.sort(key=lambda k: len(k[0]))
         cut_bound = bisect_right(range(len(cuts)),
                                  max_width,
                                  key=lambda k: cls._calculate_width(
-                                     font, cuts[k][0] + "-", stroke_width))
+                                     font,
+                                     cuts[k][0] + "-",
+                                     stroke_width,
+                                     italic,
+                                 ))
         if cut_bound == 0 or not cuts:
             return "", word
         return cuts[cut_bound - 1][0] + "-", cuts[cut_bound - 1][1]
@@ -215,8 +237,12 @@ class Text(RenderObject):
         font = truetype(str(self.font), self.size)
         res: list[str] = []
         for line in lines:
-            splits = self.split_lines(font, line, self.stroke_width,
-                                      self.max_width, self.hyphenation)
+            splits = self.split_lines(font,
+                                      line,
+                                      stroke_width=self.stroke_width,
+                                      max_width=self.max_width,
+                                      hyphenation=self.hyphenation,
+                                      italic=self.italic)
             res.extend(splits)
         return res
 
@@ -226,6 +252,8 @@ class Text(RenderObject):
         text: str,
         font: PathLike,
         size: int = 12,
+        *,
+        italic: bool = False,
         max_width: int | None = None,
         alignment: Alignment = Alignment.START,
         color: Color | None = None,
@@ -240,7 +268,7 @@ class Text(RenderObject):
     ) -> Self:
         return cls(text, font, size, max_width, alignment, color, stroke_width,
                    stroke_color, line_spacing, hyphenation, text_decoration,
-                   text_decoration_thickness, shading, **kwargs)
+                   text_decoration_thickness, shading, italic, **kwargs)
 
     @classmethod
     def from_style(
@@ -252,8 +280,21 @@ class Text(RenderObject):
         line_spacing: int = 0,
         **kwargs: Unpack[BaseStyle],
     ) -> Self:
+        italic = Undefined.default(style.italic, False)
+        bold = Undefined.default(style.bold, False)
         font = Undefined.default(style.font, "")
+        if isinstance(font, Undefined):
+            raise ValueError("Font is not specified.")
+        elif isinstance(font, FontFamily):
+            font_path, pseudo_italic = font.select(bold, italic)
+        else:
+            font_path = font
+            pseudo_italic = italic
+            if bold:
+                raise ValueError("Font family required for bold")
         font_size = Undefined.default(style.size, 0)
+        if type(font_size) is float:
+            raise ValueError("Unexpected relative font size.")
         color = Undefined.default(style.color, None)
         stroke_width = Undefined.default(style.stroke_width, 0)
         stroke_color = Undefined.default(style.stroke_color, None)
@@ -261,9 +302,20 @@ class Text(RenderObject):
         decoration = Undefined.default(style.decoration, TextDecoration.NONE)
         thick = Undefined.default(style.decoration_thickness, -1)
         shading = Undefined.default(style.shading, None)
-        return cls.of(text, font, font_size, max_width, alignment, color,
-                      stroke_width, stroke_color, line_spacing, hyphenation,
-                      decoration, thick, shading or Palette.TRANSPARENT,
+        return cls.of(text,
+                      font_path,
+                      int(font_size),
+                      italic=pseudo_italic,
+                      max_width=max_width,
+                      alignment=alignment,
+                      color=color,
+                      stroke_width=stroke_width,
+                      stroke_color=stroke_color,
+                      line_spacing=line_spacing,
+                      hyphenation=hyphenation,
+                      text_decoration=decoration,
+                      text_decoration_thickness=thick,
+                      shading=shading or Palette.TRANSPARENT,
                       **kwargs)
 
     @property
@@ -285,12 +337,13 @@ class Text(RenderObject):
             RenderText.of(line,
                           self.font,
                           self.size,
-                          self.color,
-                          self.stroke_width,
-                          self.stroke_color,
-                          self.text_decoration,
-                          self.text_decoration_thickness,
+                          color=self.color,
+                          stroke_width=self.stroke_width,
+                          stroke_color=self.stroke_color,
+                          decoration=self.text_decoration,
+                          decoration_thickness=self.text_decoration_thickness,
                           shading=self.shading,
+                          italic=self.italic,
                           background=self.background).render()
             for line in self.cut()
         ]
@@ -324,10 +377,20 @@ class Text(RenderObject):
         if start > end:
             start, end = end, start
         for size in range(end, start - 1, -1):
-            temp = Text.of(text, font, size, max_width, alignment, color,
-                           stroke_width, stroke_color, line_spacing,
-                           hyphenation, text_decoration,
-                           text_decoration_thickness, shading, **kwargs)
+            temp = Text.of(text,
+                           font,
+                           size,
+                           max_width=max_width,
+                           alignment=alignment,
+                           color=color,
+                           stroke_width=stroke_width,
+                           stroke_color=stroke_color,
+                           line_spacing=line_spacing,
+                           hyphenation=hyphenation,
+                           text_decoration=text_decoration,
+                           text_decoration_thickness=text_decoration_thickness,
+                           shading=shading,
+                           **kwargs)
             if temp.height <= max_height:
                 return size
         raise ValueError(

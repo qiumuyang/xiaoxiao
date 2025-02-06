@@ -1,11 +1,29 @@
 from __future__ import annotations
 
-from typing import Generator
+from typing import Generator, NamedTuple
 
 from typing_extensions import Self
 
 from ...base import Cacheable, Color, TextDecoration, volatile
 from ...utils import PathLike, Undefined, undefined
+
+SIM_ITALIC = bool
+
+
+class FontFamily(NamedTuple):
+    regular: PathLike
+    bold: PathLike
+    italic: PathLike | None = None
+    bold_italic: PathLike | None = None
+
+    def select(self, bold: bool, italic: bool) -> tuple[PathLike, SIM_ITALIC]:
+        if bold and italic:
+            return self.bold_italic or self.bold, self.bold_italic is None
+        if bold:
+            return self.bold, False
+        if italic:
+            return self.italic or self.regular, self.italic is None
+        return self.regular, False
 
 
 class TextStyle(Cacheable):
@@ -19,7 +37,7 @@ class TextStyle(Cacheable):
 
     def __init__(
         self,
-        font: PathLike | Undefined,
+        font: PathLike | FontFamily | Undefined,
         size: float | Undefined,
         color: Color | None | Undefined,
         stroke_width: int | Undefined,
@@ -30,6 +48,8 @@ class TextStyle(Cacheable):
         decoration_thickness: int | Undefined,
         embedded_color: bool | Undefined,
         ymin_correction: bool | Undefined,
+        italic: bool | Undefined,
+        bold: bool | Undefined,
     ) -> None:
         super().__init__()
         with volatile(self):
@@ -44,12 +64,17 @@ class TextStyle(Cacheable):
             self.decoration_thickness = decoration_thickness
             self.embedded_color = embedded_color
             self.ymin_correction = ymin_correction
+            self.italic = italic
+            self.bold = bold
 
     @classmethod
     def of(
         cls,
-        font: PathLike | Undefined = undefined,
+        font: PathLike | FontFamily | Undefined = undefined,
         size: float | Undefined = undefined,
+        *,
+        bold: bool | Undefined = undefined,
+        italic: bool | Undefined = undefined,
         color: Color | None | Undefined = undefined,
         stroke_width: int | Undefined = undefined,
         stroke_color: Color | None | Undefined = undefined,
@@ -72,6 +97,8 @@ class TextStyle(Cacheable):
             decoration_thickness,
             embedded_color,
             ymin_correction,
+            italic,
+            bold,
         )
 
     def items(self) -> Generator[tuple[str, object], None, None]:

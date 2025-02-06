@@ -10,7 +10,7 @@ from typing_extensions import Self, Unpack, override
 from ...base import (Alignment, BaseStyle, Palette, RenderImage, RenderObject,
                      RenderText, TextDecoration, cached, volatile)
 from ...utils import Undefined, undefined
-from .style import TextStyle
+from .style import FontFamily, TextStyle
 from .text import Text
 
 
@@ -24,7 +24,8 @@ class NestedTextStyle:
         if type(style.size) is float:
             style = deepcopy(style)
             out = self.query()
-            assert out.size is not undefined
+            assert not isinstance(out.size, Undefined)
+            assert not isinstance(style.size, Undefined)
             style.size = style.size * out.size
         self.stack.append((name, style))
 
@@ -166,15 +167,24 @@ class StyledText(RenderObject):
         line_buffer: list[RenderText] = []
         for block, style in blocks:
             # load style properties
-            if style.font is undefined:
-                font = ImageFont.load_default()
+            font_size = Undefined.default(style.size, 0)
+            font_size = round(font_size)
+            italic = Undefined.default(style.italic, False)
+            bold = Undefined.default(style.bold, False)
+            pseudo_italic = False
+            if isinstance(style.font, Undefined):
+                font_path = ""
+            elif isinstance(style.font, FontFamily):
+                font_path, pseudo_italic = style.font.select(bold, italic)
             else:
                 font_path = Undefined.default(str(style.font), "")
-                font_size = Undefined.default(style.size, 0)
-                # if type(font_size) is float:
-                #     font_size = round(font_size * default_style.size)
-                font_size = round(font_size)
+                pseudo_italic = italic
+                if bold:
+                    raise ValueError("Font family required for bold")
+            if font_path:
                 font = ImageFont.truetype(font_path, font_size)
+            else:
+                font = ImageFont.load_default()
             color = Undefined.default(style.color, None)
             stroke_width = Undefined.default(style.stroke_width, 0)
             stroke_color = Undefined.default(style.stroke_color, None)
@@ -190,36 +200,55 @@ class StyledText(RenderObject):
             lines = block.split('\n')
             for lineno, line in enumerate(lines):
                 while line:
+                    # check font here instead of nest-parse stage
+                    # so default style can leave font undefined if not used
+                    if not isinstance(font, ImageFont.FreeTypeFont):
+                        raise ValueError("Font required")
+                    if not font_path:
+                        raise ValueError("Font required")
                     try:
                         split, remain, bad = Text.split_once(
-                            font, line, stroke_width, current_width(),
-                            hyphenation)
+                            font,
+                            line,
+                            stroke_width=stroke_width,
+                            max_width=current_width(),
+                            hyphenation=hyphenation,
+                            italic=pseudo_italic)
                     except ValueError:
                         # too long to fit, flush the line and try again
                         yield from flush(line_buffer)
                         split, remain, bad = Text.split_once(
-                            font, line, stroke_width, current_width(),
-                            hyphenation)
+                            font,
+                            line,
+                            stroke_width=stroke_width,
+                            max_width=current_width(),
+                            hyphenation=hyphenation,
+                            italic=pseudo_italic)
                     if line_buffer and bad:
                         # flush the line and try again
                         yield from flush(line_buffer)
                         split, remain, _ = Text.split_once(
-                            font, line, stroke_width, current_width(),
-                            hyphenation)
+                            font,
+                            line,
+                            stroke_width=stroke_width,
+                            max_width=current_width(),
+                            hyphenation=hyphenation,
+                            italic=pseudo_italic)
                     line_buffer.append(
                         RenderText.of(
                             split.lstrip(" ") if not line_buffer else split,
                             font_path,
                             font_size,
-                            color,
-                            stroke_width,
-                            stroke_color,
-                            decoration,
-                            thick,
+                            color=color,
+                            stroke_width=stroke_width,
+                            stroke_color=stroke_color,
+                            decoration=decoration,
+                            decoration_thickness=thick,
                             shading=shading or Palette.TRANSPARENT,
                             background=self.background,
                             embedded_color=embedded_color,
                             ymin_correction=ymin_correction,
+                            italic=pseudo_italic,
                         ))
                     line = remain
                 # end of natural line
