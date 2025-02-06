@@ -10,6 +10,7 @@ ImageMask = Union[npt.NDArray[np.uint8], npt.NDArray[np.bool_]]
 PathLike = Union[str, Path]
 
 T = TypeVar("T")
+D = TypeVar("D")
 
 
 class Undefined:
@@ -21,13 +22,12 @@ class Undefined:
             cls._inst = super().__new__(cls)
         return cls._inst
 
-    @classmethod
-    def __repr__(cls) -> str:
+    def __repr__(self) -> str:
         return "Undefined"
 
-    @classmethod
-    def default(cls, value: Any, default: T) -> T:
-        if value is undefined:
+    @staticmethod
+    def default(value: T | Undefined, default: D) -> T | D:
+        if isinstance(value, Undefined):
             return default
         return value
 
