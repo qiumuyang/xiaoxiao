@@ -41,7 +41,7 @@ class Image(RenderObject):
 
     @classmethod
     def empty(cls, width: int, height: int, color: Color,
-              **kwargs: Unpack[BaseStyle]) -> Self:
+              **kwargs: Unpack[BaseStyle]) -> Image:
         return cls.from_image(RenderImage.empty(width, height, color),
                               **kwargs)
 
@@ -51,7 +51,7 @@ class Image(RenderObject):
         path: PathLike,
         resize: float | tuple[int, int] | None = None,
         **kwargs: Unpack[BaseStyle],
-    ) -> Self:
+    ) -> Image:
         im = RenderImage.from_file(path)
         if resize is not None:
             if isinstance(resize, tuple):
@@ -66,7 +66,7 @@ class Image(RenderObject):
         url: str,
         resize: float | tuple[int, int] | None = None,
         **kwargs: Unpack[BaseStyle],
-    ) -> Self:
+    ) -> Image:
         im = RenderImage.from_url(url)
         if resize is not None:
             if isinstance(resize, tuple):
@@ -77,7 +77,7 @@ class Image(RenderObject):
 
     @classmethod
     def from_image(cls, im: RenderImage | PILImage.Image,
-                   **kwargs: Unpack[BaseStyle]) -> Self:
+                   **kwargs: Unpack[BaseStyle]) -> Image:
         """Create a new Image from an existing RenderImage.
 
         Note:
@@ -89,7 +89,7 @@ class Image(RenderObject):
 
     @classmethod
     def from_color(cls, width: int, height: int, color: Color,
-                   **kwargs: Unpack[BaseStyle]) -> Self:
+                   **kwargs: Unpack[BaseStyle]) -> Image:
         return Image(RenderImage.empty(width, height, color), **kwargs)
 
     @property

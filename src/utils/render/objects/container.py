@@ -134,7 +134,7 @@ class FixedContainer(Container):
         return self.fixed_height
 
     @classmethod
-    def from_children(
+    def from_children(  # type: ignore
         cls,
         width: int,
         height: int,
