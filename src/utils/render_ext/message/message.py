@@ -1,15 +1,16 @@
 from typing import Literal
 
 from PIL import Image
+from typing_extensions import Unpack
 
-from src.utils.render import (Alignment, BoxSizing, CircleCrop, Color,
-                              Container, Decorations, Direction)
+from src.utils.render import (Alignment, BaseStyle, BoxSizing, CircleCrop,
+                              Color, Container, Decorations, Direction)
 from src.utils.render import Image as ImageObject
-from src.utils.render import (Palette, RectCrop, RenderObject, Space, Spacer,
-                              Text, TextStyle)
+from src.utils.render import (Palette, RectCrop, RenderImage, RenderObject,
+                              Space, Spacer, Text, TextStyle, cached, volatile)
 
 
-class Message:
+class MessageRender:
 
     AVATAR_RADIUS = 28
     AVATAR_SIZE = 2 * AVATAR_RADIUS
@@ -23,8 +24,8 @@ class Message:
     STYLE_NICKNAME = TextStyle.of(font=FONT, size=18, color=COLOR_NICKNAME)
     STYLE_CONTENT = TextStyle.of(font=FONT, size=24, color=COLOR_CONTENT)
 
-    MAX_WIDTH = 500
-    MAX_HEIGHT = 550
+    MAX_WIDTH = 400
+    MAX_HEIGHT = 500
     SPACE_AVATAR_CONTENT = 10
     SPACE_NAME_CONTENT = 6
     CONTENT_ROUND_RADIUS = 11
@@ -34,67 +35,89 @@ class Message:
                     box_sizing=BoxSizing.BORDER_BOX))
     PADDING = Space.of_side(26, 17)
 
-    def __init__(self,
-                 avatar: Image.Image,
-                 content: str | Image.Image,
-                 nickname: str = "",
-                 alignment: Alignment
-                 | Literal["start", "end"] = Alignment.START):
-        self.avatar = avatar
-        self.content = content
-        self.nickname = nickname
-        match alignment:
-            case "start":
-                self.alignment = Alignment.START
-            case "end":
-                self.alignment = Alignment.END
-            case _:
-                assert isinstance(alignment, Alignment)
-                self.alignment = alignment
-
-    def create(self) -> RenderObject:
-        avatar = ImageObject.from_image(
-            self.avatar,
-            decorations=[CircleCrop.of()],
-        ).resize(self.AVATAR_SIZE, self.AVATAR_SIZE)
-        nickname = None
-        if self.nickname:
-            nickname = Text.from_style(self.nickname,
-                                       style=self.STYLE_NICKNAME)
-        if isinstance(self.content, str):
-            content = Text.from_style(self.content,
-                                      style=self.STYLE_CONTENT,
-                                      max_width=self.MAX_WIDTH,
-                                      line_spacing=8,
-                                      background=Palette.WHITE,
-                                      padding=self.CONTENT_PADDING,
-                                      decorations=self.CONTENT_DECO)
-        else:
-            content = ImageObject.from_image(
-                self.content,
-                decorations=self.CONTENT_DECO,
-            ).rescale(0.6).thumbnail(self.MAX_WIDTH, self.MAX_HEIGHT)
-        # assemble
-        if nickname:
-            content_components = [
-                nickname,
-                Spacer.of(height=self.SPACE_NAME_CONTENT), content
-            ]
-        else:
-            content_components = [content]
-        name_with_content = Container.from_children(
-            content_components,
-            alignment=self.alignment,
-            direction=Direction.VERTICAL)
-        items = [
+    @classmethod
+    def create(cls,
+               avatar: Image.Image,
+               content: str | Image.Image,
+               nickname: str = "",
+               alignment: Alignment = Alignment.START) -> RenderObject:
+        avatar_ = ImageObject.from_image(
             avatar,
-            Spacer.of(width=self.SPACE_AVATAR_CONTENT), name_with_content
+            decorations=[CircleCrop.of()],
+        ).resize(cls.AVATAR_SIZE, cls.AVATAR_SIZE)
+        nickname_ = None
+        if nickname:
+            nickname_ = Text.from_style(nickname, style=cls.STYLE_NICKNAME)
+        if isinstance(content, str):
+            content_ = Text.from_style(content,
+                                       style=cls.STYLE_CONTENT,
+                                       max_width=cls.MAX_WIDTH,
+                                       line_spacing=8,
+                                       background=Palette.WHITE,
+                                       padding=cls.CONTENT_PADDING,
+                                       decorations=cls.CONTENT_DECO)
+        else:
+            content_ = ImageObject.from_image(
+                content,
+                decorations=cls.CONTENT_DECO,
+            ).rescale(0.6).thumbnail(cls.MAX_WIDTH, cls.MAX_HEIGHT)
+        # assemble
+        if nickname_:
+            spacer = Spacer.of(height=cls.SPACE_NAME_CONTENT)
+            components = [nickname_, spacer, content_]
+        else:
+            components = [content_]
+        name_with_content = Container.from_children(
+            components, alignment=alignment, direction=Direction.VERTICAL)
+        items = [
+            avatar_,
+            Spacer.of(width=cls.SPACE_AVATAR_CONTENT), name_with_content
         ]
-        if self.alignment is Alignment.END:
+        if alignment is Alignment.END:
             items.reverse()
         return Container.from_children(
             items,
             alignment=Alignment.START,  # align top
             direction=Direction.HORIZONTAL,
-            background=self.COLOR_BG,
-            padding=self.PADDING)
+            background=cls.COLOR_BG,
+            padding=cls.PADDING)
+
+
+class Message(RenderObject):
+
+    def __init__(self,
+                 avatar: Image.Image,
+                 content: str | Image.Image,
+                 nickname: str = "",
+                 alignment: Alignment
+                 | Literal["start", "end"] = Alignment.START,
+                 **kwargs: Unpack[BaseStyle]):
+        super().__init__(**kwargs)
+        with volatile(self):
+            self.avatar_obj = avatar
+            self.content = content
+            self.nickname_obj = nickname
+            match alignment:
+                case "start":
+                    self.alignment = Alignment.START
+                case "end":
+                    self.alignment = Alignment.END
+                case _:
+                    assert isinstance(alignment, Alignment)
+                    self.alignment = alignment
+
+    @property
+    @cached
+    def content_width(self) -> int:
+        return self.render_content().width
+
+    @property
+    @cached
+    def content_height(self) -> int:
+        return self.render_content().height
+
+    @cached
+    def render_content(self) -> RenderImage:
+        return MessageRender.create(self.avatar_obj, self.content,
+                                    self.nickname_obj,
+                                    self.alignment).render()

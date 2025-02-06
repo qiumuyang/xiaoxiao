@@ -4,7 +4,10 @@ from pathlib import Path
 import requests
 from PIL import Image
 
+from src.utils.render import (Container, Direction, FixedContainer,
+                              JustifyContent)
 from src.utils.render_ext.message import Message
+from src.utils.render_ext.message.message import MessageRender
 
 
 def placeholder(width: int, height: int) -> Image.Image:
@@ -29,9 +32,21 @@ def test_render_message():
         (placeholder(200, 600), "这里是一个很长很长很长很长的昵称", "start", "200x600"),
     ]
 
+    width = 1000
+    messages = []
     for content, nickname, alignment, name in testcases:
         message = Message(avatar=avatar,
                           content=content,
                           nickname=nickname,
                           alignment=alignment)
-        message.create().render().save(out / f"{name}.png")
+        message.render().save(out / f"{name}.png")
+        messages.append(
+            FixedContainer.from_children(width,
+                                         message.height, [message],
+                                         JustifyContent.START if alignment
+                                         == "start" else JustifyContent.END,
+                                         direction=Direction.HORIZONTAL))
+    Container.from_children(messages,
+                            direction=Direction.VERTICAL,
+                            background=MessageRender.COLOR_BG).render().save(
+                                out / "all.png")
