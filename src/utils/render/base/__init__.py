@@ -6,7 +6,7 @@ from .image import ImageMask, RenderImage
 from .object import BaseStyle, RenderObject
 from .properties import (Alignment, Border, BoundingBox, Direction,
                          Interpolation, Space)
-from .text import RenderText, TextDecoration
+from .text import RenderText, TextDecoration, TextShading
 from .textfont import TextFont
 
 __all__ = [
@@ -31,6 +31,7 @@ __all__ = [
     "Space",
     "TextDecoration",
     "TextFont",
+    "TextShading",
     "cached",
     "volatile",
 ]

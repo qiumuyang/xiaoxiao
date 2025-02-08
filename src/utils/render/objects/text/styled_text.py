@@ -1,62 +1,28 @@
 from __future__ import annotations
 
-import re
 from copy import deepcopy
-from typing import Generator, Iterable
+from typing import Any, Generator, Iterable
 
 from PIL import ImageFont
 from typing_extensions import Self, Unpack, override
 
+from src.utils.render.base.text import TextShading
+
 from ...base import (Alignment, BaseStyle, Palette, RenderImage, RenderObject,
                      RenderText, TextDecoration, cached, volatile)
-from ...utils import Undefined, undefined
+from ...utils import Undefined
 from .style import FontFamily, TextStyle
+from .style_utils import LineBuffer, TagParser
 from .text import Text
 
 
-class NestedTextStyle:
-    """A stack of text styles for nested style scopes."""
-
-    def __init__(self) -> None:
-        self.stack: list[tuple[str, TextStyle]] = []
-
-    def push(self, name: str, style: TextStyle) -> None:
-        if type(style.size) is float:
-            style = deepcopy(style)
-            out = self.query()
-            assert not isinstance(out.size, Undefined)
-            assert not isinstance(style.size, Undefined)
-            style.size = style.size * out.size
-        self.stack.append((name, style))
-
-    def pop(self, name: str) -> TextStyle:
-        if not self.stack:
-            raise ValueError(f"Expected tag: {name}")
-        pop, style = self.stack.pop()
-        if pop != name:
-            raise ValueError(f"Unmatched tag: expected {pop}, got {name}")
-        return style
-
-    def query(self) -> TextStyle:
-        """Get the style of the current scope.
-
-        If a style is not defined in the current scope, it will be inherited
-        from the outer scope.
-        """
-        style = TextStyle.of()
-        for _, outer_style in reversed(self.stack):
-            for k, v in outer_style.items():
-                if getattr(style, k) is undefined:
-                    setattr(style, k, v)
-        return style
-
-
 class StyledText(RenderObject):
-    """A text object with multiple styles."""
+    """Render multi-styled text with HTML-like tags.
 
-    tag_begin = re.compile(r"<(\w+)>")
-    tag_end = re.compile(r"</(\w+)>")
-    tag_any = re.compile(r"</?(\w+)>")
+    Note:
+        If the original text contains raw content like <something>,
+        it should be escaped using the `escape` method.
+    """
 
     def __init__(
         self,
@@ -68,13 +34,16 @@ class StyledText(RenderObject):
         **kwargs: Unpack[BaseStyle],
     ) -> None:
         super().__init__(**kwargs)
-
         with volatile(self) as vlt:
             self.text = text
             self.styles = vlt.dict(styles)
             self.alignment = alignment
             self.line_spacing = line_spacing
             self.max_width = max_width
+
+    @classmethod
+    def escape(cls, text: str) -> str:
+        return TagParser.escape(text)
 
     @property
     @cached
@@ -101,175 +70,175 @@ class StyledText(RenderObject):
         )
 
     def _cut_blocks(self) -> Generator[tuple[str, TextStyle], None, None]:
-        text = self.text
-        styles = self.styles
+        """Yield successive (text_block, style) tuples from the tag parser."""
+        parser = TagParser(self.text, self.styles)
+        yield from parser.parse()
 
-        style = NestedTextStyle()
-        style.push("default", self.styles["default"])
+    def _load_style_properties(self, style: TextStyle) -> dict[str, Any]:
+        """
+        Extract font and style properties from a TextStyle.
 
-        index = 0
-        while index < len(text):
-            # search for tag begin,
-            # if found, push the style referenced by the tag
-            match = self.tag_begin.match(text, index)
-            if match:
-                name = match.group(1)
-                if name not in styles:
-                    raise ValueError(f"Style used but not defined: {name}")
-                style.push(name, styles[name])
-                index = match.end()
-                continue
-            # search for tag end,
-            # if found, pop the style referenced by the tag
-            match = self.tag_end.match(text, index)
-            if match:
-                name = match.group(1)
-                try:
-                    style.pop(name)
-                except ValueError as e:
-                    raise ValueError(str(e) + " in " + repr(text)) from e
-                index = match.end()
-                continue
-            # search for text from current index to next tag
-            # next_tag = text.find("<", index)
-            match = self.tag_any.search(text, index)
-            next_tag = match.start() if match else -1
-            if next_tag == -1:
-                next_tag = len(text)
-            plain_text = text[index:next_tag]
-            if plain_text:
-                yield plain_text, style.query()
-            index = next_tag
+        Returns a dictionary containing:
+            - 'font': An ImageFont instance.
+            - 'font_path': The path used to load the font.
+            - 'font_size': The size of the font.
+            - 'pseudo_italic': Whether to simulate italics.
+            - 'color', 'stroke_width', 'stroke_color', 'hyphenation',
+              'decoration', 'thickness', 'shading', 'embedded_color',
+              'ymin_correction': Various text style settings.
+        """
+        font_size = round(Undefined.default(style.size, 0))
+        italic = Undefined.default(style.italic, False)
+        bold = Undefined.default(style.bold, False)
+        pseudo_italic = False
 
-        if len(style.stack) > 1:  # check if all tags are closed
-            raise ValueError(f"Unclosed tag: {style.stack[-1][0]}")
+        if isinstance(style.font, Undefined):
+            font_path = ""
+        elif isinstance(style.font, FontFamily):
+            font_path, pseudo_italic = style.font.select(bold, italic)
+        else:
+            font_path = Undefined.default(str(style.font), "")
+            pseudo_italic = italic
+            if bold:
+                raise ValueError("Font family required for bold")
 
-    def cut(self) -> Generator[list[RenderText], None, None]:
-        """Cut the text into lines. Each line is a list of RenderTexts."""
+        if font_path:
+            font = ImageFont.truetype(str(font_path), font_size)
+        else:
+            font = ImageFont.load_default()
 
-        def current_width() -> int | None:
-            """Return the current acceptable width of the line."""
-            if max_width is None:
-                return None
-            return max_width - sum(t.width for t in line_buffer)
+        return {
+            "font": font,
+            "font_path": font_path,
+            "font_size": font_size,
+            "pseudo_italic": pseudo_italic,
+            "color": Undefined.default(style.color, None),
+            "stroke_width": Undefined.default(style.stroke_width, 0),
+            "stroke_color": Undefined.default(style.stroke_color, None),
+            "hyphenation": Undefined.default(style.hyphenation, True),
+            "decoration": Undefined.default(style.decoration,
+                                            TextDecoration.NONE),
+            "thickness": Undefined.default(style.decoration_thickness, -1),
+            "shading": Undefined.default(style.shading, TextShading()),
+            "embedded_color": Undefined.default(style.embedded_color, False),
+            "ymin_correction": Undefined.default(style.ymin_correction, False),
+        }
 
-        def flush(
-            buffer: list[RenderText]
-        ) -> Generator[list[RenderText], None, None]:
-            """Yield the current line and clear the buffer."""
-            if buffer:
-                buffer[-1].text = buffer[-1].text.rstrip(" ")
-            yield buffer
-            buffer.clear()
+    def cut(self) -> Iterable[list[RenderText]]:
+        """
+        Cut the text into lines.
 
-        max_width = self.max_width
-        blocks = self._cut_blocks()
-        line_buffer: list[RenderText] = []
-        for block, style in blocks:
-            # load style properties
-            font_size = Undefined.default(style.size, 0)
-            font_size = round(font_size)
-            italic = Undefined.default(style.italic, False)
-            bold = Undefined.default(style.bold, False)
-            pseudo_italic = False
-            if isinstance(style.font, Undefined):
-                font_path = ""
-            elif isinstance(style.font, FontFamily):
-                font_path, pseudo_italic = style.font.select(bold, italic)
-            else:
-                font_path = Undefined.default(str(style.font), "")
-                pseudo_italic = italic
-                if bold:
-                    raise ValueError("Font family required for bold")
-            if font_path:
-                font = ImageFont.truetype(font_path, font_size)
-            else:
-                font = ImageFont.load_default()
-            color = Undefined.default(style.color, None)
-            stroke_width = Undefined.default(style.stroke_width, 0)
-            stroke_color = Undefined.default(style.stroke_color, None)
-            hyphenation = Undefined.default(style.hyphenation, True)
-            decoration = Undefined.default(style.decoration,
-                                           TextDecoration.NONE)
-            thick = Undefined.default(style.decoration_thickness, -1)
-            shading = Undefined.default(style.shading, None)
-            embedded_color = Undefined.default(style.embedded_color, False)
-            ymin_correction = Undefined.default(style.ymin_correction, False)
+        Each line is represented as a list of RenderText objects.
+        """
+        buffer = LineBuffer(self.max_width)
+        for text_block, style in self._cut_blocks():
+            props = self._load_style_properties(style)
+            font = props["font"]
+            font_path = props["font_path"]
+            pseudo_italic = props["pseudo_italic"]
+            stroke_width = props["stroke_width"]
+            hyphenation = props["hyphenation"]
+            color = props["color"]
+            stroke_color = props["stroke_color"]
+            decoration = props["decoration"]
+            thickness = props["thickness"]
+            shading = props["shading"]
+            embedded_color = props["embedded_color"]
+            ymin_correction = props["ymin_correction"]
 
-            line_break_at_end = block.endswith('\n')
-            lines = block.split('\n')
-            for lineno, line in enumerate(lines):
-                while line:
-                    # check font here instead of nest-parse stage
-                    # so default style can leave font undefined if not used
-                    if not isinstance(font, ImageFont.FreeTypeFont):
+            # Process the text block split by natural newline characters.
+            line_break_at_end = text_block.endswith("\n")
+            natural_lines = text_block.split("\n")
+
+            for lineno, natural_line in enumerate(natural_lines):
+                current_line = natural_line
+                first_segment = True
+                while current_line:
+                    # Ensure a valid font is set.
+                    if not isinstance(font,
+                                      ImageFont.FreeTypeFont) or not font_path:
                         raise ValueError("Font required")
-                    if not font_path:
-                        raise ValueError("Font required")
+
                     try:
-                        split, remain, bad = Text.split_once(
+                        split_text, remaining, bad_split = Text.split_once(
                             font,
-                            line,
+                            current_line,
                             stroke_width=stroke_width,
-                            max_width=current_width(),
+                            max_width=buffer.remaining_width,
                             hyphenation=hyphenation,
-                            italic=pseudo_italic)
+                            italic=pseudo_italic,
+                            shading=shading,
+                        )
                     except ValueError:
-                        # too long to fit, flush the line and try again
-                        yield from flush(line_buffer)
-                        split, remain, bad = Text.split_once(
+                        # If splitting fails due to width, flush the buffer and retry.
+                        yield from buffer.flush()
+                        split_text, remaining, bad_split = Text.split_once(
                             font,
-                            line,
+                            current_line,
                             stroke_width=stroke_width,
-                            max_width=current_width(),
+                            max_width=buffer.remaining_width,
                             hyphenation=hyphenation,
-                            italic=pseudo_italic)
-                    if line_buffer and bad:
-                        # flush the line and try again
-                        yield from flush(line_buffer)
-                        split, remain, _ = Text.split_once(
+                            italic=pseudo_italic,
+                            shading=shading,
+                        )
+
+                    if buffer and bad_split:
+                        # Flush buffer if the split part doesn't fit well.
+                        yield from buffer.flush()
+                        split_text, remaining, _ = Text.split_once(
                             font,
-                            line,
+                            current_line,
                             stroke_width=stroke_width,
-                            max_width=current_width(),
+                            max_width=buffer.remaining_width,
                             hyphenation=hyphenation,
-                            italic=pseudo_italic)
-                    line_buffer.append(
+                            italic=pseudo_italic,
+                            shading=shading,
+                        )
+
+                    if not buffer and not first_segment:
+                        # newline, remove leading spaces
+                        split_text = split_text.lstrip(" ")
+
+                    first_segment = False
+                    buffer.append(
                         RenderText.of(
-                            split.lstrip(" ") if not line_buffer else split,
+                            split_text,
                             font_path,
-                            font_size,
+                            props["font_size"],
                             color=color,
                             stroke_width=stroke_width,
                             stroke_color=stroke_color,
                             decoration=decoration,
-                            decoration_thickness=thick,
+                            decoration_thickness=thickness,
                             shading=shading or Palette.TRANSPARENT,
                             background=self.background,
                             embedded_color=embedded_color,
                             ymin_correction=ymin_correction,
                             italic=pseudo_italic,
                         ))
-                    line = remain
-                # end of natural line
-                if lineno != len(lines) - 1 or line_break_at_end:
-                    yield from flush(line_buffer)
-        # check buffer not empty
-        if line_buffer:
-            yield from flush(line_buffer)
+                    current_line = remaining
+
+                # Flush the buffer at the end of a natural line.
+                if lineno != len(natural_lines) - 1 or line_break_at_end:
+                    yield from buffer.flush()
+        yield from buffer.flush(non_empty=True)
 
     @staticmethod
-    def text_concat(text: Iterable[RenderText]) -> RenderImage:
-        rendered = [text.render() for text in text]
-        width = sum(text.width for text in rendered)
-        height = max(text.height for text in rendered)
-        baseline = max(text.baseline for text in text)
-        im = RenderImage.empty(width, height, Palette.TRANSPARENT)
-        x = 0
-        for obj, image in zip(text, rendered):
-            im = im.paste(x, baseline - obj.baseline, image)
-            x += image.width
-        return im
+    def text_concat(render_texts: Iterable[RenderText]) -> RenderImage:
+        """
+        Concatenate rendered texts horizontally into a single RenderImage.
+        """
+        rendered_images = [rt.render() for rt in render_texts]
+        total_width = sum(img.width for img in rendered_images)
+        max_height = max(img.height for img in rendered_images)
+        baseline = max(rt.baseline for rt in render_texts)
+
+        image = RenderImage.empty(total_width, max_height, Palette.TRANSPARENT)
+        x_offset = 0
+        for rt, img in zip(render_texts, rendered_images):
+            image = image.paste(x_offset, baseline - rt.baseline, img)
+            x_offset += img.width
+        return image
 
     @classmethod
     def of(
@@ -283,18 +252,22 @@ class StyledText(RenderObject):
         line_spacing: int = 0,
         **kwargs: Unpack[BaseStyle],
     ) -> Self:
-        """Create a Text object from a string with tags.
+        """
+        Create a StyledText object from a string with embedded style tags.
 
         Args:
             text: Text to render, including tag strings to specify styles.
-            default: Default text style, i.e., no-tag style.
+            default: Default text style
+                (i.e., the style for content outside any tag).
             styles: Mapping of tag names to text styles.
             max_width: Maximum width of the text, or None for no limit.
-            alignment:
-            line_spacing:
+            alignment: Alignment of the rendered text.
+            line_spacing: Spacing between lines.
 
         Raises:
-            ValueError: If the default style is not correctly specified.
+            ValueError:
+                If the default style is specified twice or missing.
+                If a style is used but not defined.
 
         Example:
             >>> text = StyledText.of(
@@ -303,7 +276,6 @@ class StyledText(RenderObject):
             ...     styles={"b": TextStyle(color=Palette.BLUE)},
             ... )
         """
-
         if default is not None:
             if "default" in styles:
                 raise ValueError("Cannot specify default style twice")

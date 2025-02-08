@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import math
 from enum import Flag, auto
+from typing import NamedTuple
 
 from PIL import Image, ImageDraw, ImageFont
 from typing_extensions import Self
 
 from ..utils import PathLike
+from ..utils.squircle import draw_squircle
 from .cacheable import Cacheable, cached, volatile
 from .color import Color, Palette
 from .image import RenderImage
@@ -18,6 +20,12 @@ class TextDecoration(Flag):
     UNDERLINE = auto()
     OVERLINE = auto()
     LINE_THROUGH = auto()
+
+
+class TextShading(NamedTuple):
+    color: Color = Palette.TRANSPARENT
+    rounded: bool = False
+    padding: int | tuple[int, int] = 0
 
 
 class RenderText(Cacheable):
@@ -52,7 +60,7 @@ class RenderText(Cacheable):
         stroke_color: Color | None = None,
         decoration: TextDecoration = TextDecoration.NONE,
         decoration_thickness: int = -1,
-        shading: Color = Palette.TRANSPARENT,
+        shading: TextShading = TextShading(),
         embedded_color: bool = False,
         ymin_correction: bool = False,
         italic: bool = False,
@@ -84,7 +92,7 @@ class RenderText(Cacheable):
         stroke_color: Color | None = None,
         decoration: TextDecoration = TextDecoration.NONE,
         decoration_thickness: int = -1,
-        shading: Color = Palette.TRANSPARENT,
+        shading: Color | TextShading = Palette.TRANSPARENT,
         background: Color = Palette.TRANSPARENT,
         embedded_color: bool = False,
         ymin_correction: bool = False,
@@ -95,9 +103,11 @@ class RenderText(Cacheable):
         If `color` is not specified, it will be automatically chosen
         from BLACK or WHITE based on the background color luminance.
         """
+        if isinstance(shading, Color):
+            shading = TextShading(shading)
         if color is None:
             im_bg = RenderImage.empty(1, 1, background)
-            im_sd = RenderImage.empty(1, 1, shading)
+            im_sd = RenderImage.empty(1, 1, shading.color)
             r, g, b, _ = im_bg.paste(0, 0, im_sd).base_im[0, 0]
             luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
             color = Palette.WHITE if luminance < 128 else Palette.BLACK
@@ -123,15 +133,23 @@ class RenderText(Cacheable):
         # descent: distance from the baseline to the bottom
         #          (normally negative, but in Pillow it is positive)
         ascent, descent = font.getmetrics()
-        width = math.ceil(r - l)
-        height = ascent + descent + self.stroke_width * 2 + pad_t + pad_b
+        # shading padding
+        if isinstance(self.shading.padding, int):
+            shade_pad_h = shade_pad_v = self.shading.padding
+        else:
+            shade_pad_h, shade_pad_v = self.shading.padding
+        width = math.ceil(r - l) + 2 * shade_pad_h
+        height = (ascent + descent + self.stroke_width * 2 + pad_t + pad_b +
+                  2 * shade_pad_v)
         # add padding to avoid overflow
         pad_l = int(self.SHEAR * height) if self.italic else 0
         # 2. draw text
-        im = Image.new("RGBA", (width + pad_l, height), color=self.shading)
-        draw = ImageDraw.Draw(im)
+        text_canvas = Image.new("RGBA", (width + pad_l, height),
+                                color=Palette.TRANSPARENT)
+        draw = ImageDraw.Draw(text_canvas)
         draw.text(
-            xy=(self.stroke_width + pad_l, self.stroke_width + pad_t),
+            xy=(self.stroke_width + pad_l + shade_pad_h,
+                self.stroke_width + pad_t + shade_pad_v),
             text=self.text,
             fill=self.color,
             font=font,
@@ -146,7 +164,7 @@ class RenderText(Cacheable):
         if self.decoration & TextDecoration.UNDERLINE:
             y_coords.append(self.baseline + half_thick)
         if self.decoration & TextDecoration.OVERLINE:
-            y_coords.append(ascent + t - half_thick)  # t < 0
+            y_coords.append(ascent + t - half_thick + shade_pad_v)  # t < 0
         if self.decoration & TextDecoration.LINE_THROUGH:
             # deco_y.append((ascent + t + self.baseline) // 2 + half_thick)
             y_coords.append(height // 2 + half_thick)
@@ -158,14 +176,22 @@ class RenderText(Cacheable):
             )
         # 4. shear the image to simulate italic
         if self.italic:
-            im = im.transform(
-                (im.width, im.height),
+            text_canvas = text_canvas.transform(
+                (text_canvas.width, text_canvas.height),
                 Image.Transform.AFFINE,
                 (1, self.SHEAR, 0, 0, 1, 0),
                 resample=Image.Resampling.BILINEAR,
-                fillcolor=self.shading,
             )
-        return RenderImage.from_pil(im)
+        # 5. apply shading
+        if self.shading.color != Palette.TRANSPARENT:
+            if self.shading.rounded:
+                shading = draw_squircle(width, height, self.shading.color)
+            else:
+                shading = Image.new("RGBA", (width, height),
+                                    self.shading.color)
+            shading.alpha_composite(text_canvas)
+            text_canvas = shading
+        return RenderImage.from_pil(text_canvas)
 
     @property
     @cached
@@ -175,21 +201,23 @@ class RenderText(Cacheable):
         ascent, _ = font.getmetrics()
         metrics = TextFont.get_metrics(str(self.font), self.size)
         pad = math.ceil(-metrics.y_min) if self.ymin_correction else 0
-        return ascent + self.stroke_width + pad
+        shade_pad = self.shading.padding if isinstance(
+            self.shading.padding, int) else self.shading.padding[1]
+        return ascent + self.stroke_width + pad + shade_pad
 
     @property
     @cached
     def width(self) -> int:
         return self.calculate_size(self.font, self.size, self.text,
                                    self.stroke_width, self.italic,
-                                   self.ymin_correction)[0]
+                                   self.shading, self.ymin_correction)[0]
 
     @property
     @cached
     def height(self) -> int:
         return self.calculate_size(self.font, self.size, self.text,
                                    self.stroke_width, self.italic,
-                                   self.ymin_correction)[1]
+                                   self.shading, self.ymin_correction)[1]
 
     @classmethod
     def calculate_size(
@@ -199,6 +227,7 @@ class RenderText(Cacheable):
         text: str,
         stroke: int,
         italic: bool,
+        shading: TextShading,
         ymin_correction: bool = False,
     ) -> tuple[int, int]:
         font_ = ImageFont.truetype(str(font), size)
@@ -211,8 +240,12 @@ class RenderText(Cacheable):
         pad_b = TextFont.get_padding(str(font), size)
         pad_t = math.ceil(-metrics.y_min) if ymin_correction else 0
         ascent, descent = font_.getmetrics()
-        width = math.ceil(r - l)
-        height = ascent + descent + stroke * 2 + pad_t + pad_b
+        if isinstance(shading.padding, int):
+            shade_pad_v = shade_pad_h = shading.padding
+        else:
+            shade_pad_h, shade_pad_v = shading.padding
+        width = math.ceil(r - l) + 2 * shade_pad_h
+        height = ascent + descent + stroke * 2 + pad_t + pad_b + 2 * shade_pad_v
         # add padding to avoid overflow
         pad_l = int(cls.SHEAR * height) if italic else 0
         return width + pad_l, height

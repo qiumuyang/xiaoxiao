@@ -36,6 +36,7 @@ __all__ = [
     "Stack",
     "StyledText",
     "Text",
+    "TextShading",
     "TextStyle",
     # decorations
     "BaseCrop",

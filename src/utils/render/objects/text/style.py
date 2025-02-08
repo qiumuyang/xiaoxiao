@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Generator, NamedTuple
+import copy
+from typing import Iterable, NamedTuple
 
 from typing_extensions import Self
 
-from ...base import Cacheable, Color, TextDecoration, volatile
+from ...base import Cacheable, Color, TextDecoration, TextShading, volatile
 from ...utils import PathLike, Undefined, undefined
 
 SIM_ITALIC = bool
@@ -42,7 +43,7 @@ class TextStyle(Cacheable):
         color: Color | None | Undefined,
         stroke_width: int | Undefined,
         stroke_color: Color | None | Undefined,
-        shading: Color | Undefined,
+        shading: TextShading | Undefined,
         hyphenation: bool | Undefined,
         decoration: TextDecoration | Undefined,
         decoration_thickness: int | Undefined,
@@ -78,13 +79,15 @@ class TextStyle(Cacheable):
         color: Color | None | Undefined = undefined,
         stroke_width: int | Undefined = undefined,
         stroke_color: Color | None | Undefined = undefined,
-        background: Color | Undefined = undefined,
+        background: Color | TextShading | Undefined = undefined,
         hyphenation: bool | Undefined = undefined,
         decoration: TextDecoration | Undefined = undefined,
         decoration_thickness: int | Undefined = undefined,
         embedded_color: bool | Undefined = undefined,
         ymin_correction: bool | Undefined = undefined,
     ) -> Self:
+        if isinstance(background, Color):
+            background = TextShading(background)
         return cls(
             font,
             size,
@@ -101,7 +104,18 @@ class TextStyle(Cacheable):
             bold,
         )
 
-    def items(self) -> Generator[tuple[str, object], None, None]:
+    def with_color(self, color: Color) -> TextStyle:
+        obj = copy.copy(self)
+        obj.color = color
+        return obj
+
+    def items(self, strip: bool = False) -> Iterable[tuple[str, object]]:
         for key, value in self.__dict__.items():
-            if value is not undefined:
+            if value is not undefined and key not in self.SKIP_ATTRS:
+                if strip:
+                    key = key.strip("_")
                 yield key, value
+
+    def __str__(self) -> str:
+        var_str = ", ".join(f"{k}={v}" for k, v in self.items())
+        return f"TextStyle({var_str})"
