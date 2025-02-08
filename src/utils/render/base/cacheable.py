@@ -10,6 +10,7 @@ from typing_extensions import Literal, Self
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
+_T = TypeVar("_T")
 
 if sys.version_info < (3, 9):
     # Python 3.9+ has built-in support for generic collections.
@@ -39,6 +40,8 @@ class Cacheable:
         _cache_: Mapping from names to cached values.
         _cache_parent_: List of parent Cacheable objects.
     """
+
+    SKIP_ATTRS = {"_cache_", "_cache_parent_"}
 
     def __init__(self, *parent: Cacheable) -> None:
         self._cache_: dict[str, Any] = {}
@@ -219,7 +222,7 @@ class volatile:
     """
 
     @classmethod
-    def create_property(cls, obj: Cacheable, attr: str, initial: Any) -> None:
+    def create_property(cls, obj: Cacheable, attr: str, initial: _T) -> _T:
         """Create a property named `attr` on `obj.__class__` that is volatile.
 
         `property.getter` will return `obj._attr` and
@@ -231,8 +234,6 @@ class volatile:
 
         # if already a property, don't override
         if not isinstance(getattr(obj.__class__, attr, None), property):
-
-            _T = Type[type(initial)]
 
             def getter(self: Cacheable) -> _T:
                 return getattr(self, protected_attr)
