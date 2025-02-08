@@ -10,19 +10,25 @@ from src.utils.auto_arg import AutoArgumentParser, AutoArgumentParserMixin
 
 class ImageProcessor(ABC, AutoArgumentParserMixin):
 
+    _class_parsers: dict[type["ImageProcessor"], AutoArgumentParser] = {}
+
     def __init__(self) -> None:
-        self._parser = AutoArgumentParser.from_class(self.__class__)
-        # check parser arguments match process signature
-        params = inspect.signature(self.process).parameters
-        params = [
-            p for p in inspect.signature(self.process).parameters
-            if p not in ["self", "image", "args", "kwargs"]
-        ]
-        if set(params) != set(self._parser.dests):
-            raise ValueError(f"{self.__class__.__name__} arguments do not "
-                             f"match process signature: \n"
-                             f"  - {sorted(params)}\n"
-                             f"  - {sorted(self._parser.dests)}")
+        cls = self.__class__
+        if cls not in self._class_parsers:
+            parser = AutoArgumentParser.from_class(cls)
+            # check parser arguments match process signature
+            params = inspect.signature(self.process).parameters
+            params = [
+                p for p in inspect.signature(self.process).parameters
+                if p not in ["self", "image", "args", "kwargs"]
+            ]
+            if set(params) != set(parser.dests):
+                raise ValueError(f"{self.__class__.__name__} arguments do not "
+                                 f"match process signature: \n"
+                                 f"  - {sorted(params)}\n"
+                                 f"  - {sorted(parser.dests)}")
+            self._class_parsers[cls] = parser
+        self._parser = self._class_parsers[cls]
 
     @classmethod
     def is_gif(cls, image: Image.Image) -> bool:
@@ -116,3 +122,11 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
     def supports(cls, image: Image.Image) -> bool:
         """Check if an image is supported by this processor."""
         return True
+
+    @classmethod
+    def format_args(cls) -> str:
+        return cls._class_parsers[cls].format_args()
+
+    @classmethod
+    def format_example(cls, prefix: str = ">>> [引用] {cmd} ") -> str:
+        return prefix + cls._class_parsers[cls].format_example()
