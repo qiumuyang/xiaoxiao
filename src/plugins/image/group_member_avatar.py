@@ -1,5 +1,6 @@
 from enum import Enum
 
+from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar
 from src.utils.render import *
 
@@ -190,7 +191,14 @@ def text2(s: str) -> Text:
     )
 
 
+@command_doc("小天使", category=CommandCategory.IMAGE, visible_in_overview=False)
 class LittleAngel(GroupMemberAvatar):
+    """
+    非常可爱！简直就是小天使
+
+    Usage:
+        {cmd} `@用户`  - 让群友们都来看一下
+    """
 
     RENDER_LIST = [
         Item.TITLE,
@@ -204,7 +212,14 @@ class LittleAngel(GroupMemberAvatar):
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
 
 
+@command_doc("雌小鬼", category=CommandCategory.IMAGE, visible_in_overview=False)
 class Mesugaki(GroupMemberAvatar):
+    """
+    非常欠艹！简直就是雌小鬼
+
+    Usage:
+        {cmd} `@用户`  - 让群友们都来调教一下
+    """
 
     RENDER_LIST = [
         Item.TITLE,
@@ -218,7 +233,14 @@ class Mesugaki(GroupMemberAvatar):
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
 
 
+@command_doc("RBQ", category=CommandCategory.IMAGE, visible_in_overview=False)
 class RBQ(GroupMemberAvatar):
+    """
+    非常可爱！简直就是RBQ
+
+    Usage:
+        {cmd} `@用户`  - 让群友们都来玩一下
+    """
 
     RENDER_LIST = [
         Item.TITLE,

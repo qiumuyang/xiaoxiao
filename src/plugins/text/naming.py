@@ -1,8 +1,10 @@
-"""https://hs.ontheroadstore.com/create_name/index.html"""
+"""https://github.com/fzl666/fzl"""
 
 import random
 
 from nonebot import on_command
+
+from src.utils.doc import CommandCategory, command_doc
 
 
 class SubcultureNamingMachine:
@@ -44,5 +46,17 @@ naming = on_command("取名", block=True, force_whitespace=True)
 
 
 @naming.handle()
+@command_doc("取名", category=CommandCategory.FUN)
 async def _():
+    """
+    高科技亚文化取名机
+
+    Examples:
+        >>> {cmd}
+        绝望潮湿小猫咪
+
+    Notes:
+        - 来自[https://github.com/fzl666/fzl](https://github.com/fzl666/fzl)
+        - ~~永远缅怀wyrio~~
+    """
     await naming.finish(SubcultureNamingMachine.generate())

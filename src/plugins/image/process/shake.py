@@ -7,19 +7,36 @@ import numpy as np
 from PIL import Image
 
 from src.utils.auto_arg import Argument
+from src.utils.doc import CommandCategory, command_doc
 
 from .processor import ImageProcessor
 
 
+@command_doc("抖动",
+             aliases={"震动"},
+             category=CommandCategory.IMAGE,
+             visible_in_overview=False)
 class Shake(ImageProcessor):
     """
-    A class to generate and apply shake effects on an image.
+    生成**抖动**效果的动图
+
+    Special:
+        检测到数据流异常波动…系统已过载，启用罗德岛标准散热策略。
+
+    Usage:
+        {Shake.format_args()}
+
+    Examples:
+        {Shake.format_example()}
     """
 
-    amp = Argument(0.1, range=(0.05, 0.2), positional=True)
-    mode = Argument("pad", choices=["crop", "pad"], positional=True)
-    blur = Argument(5, range=(0, 10))
-    duration = Argument(2, range=(0.5, 5))
+    amp = Argument(0.1, range=(0.05, 0.2), positional=True, doc="抖动幅度")
+    mode = Argument("pad",
+                    choices=["crop", "pad"],
+                    positional=True,
+                    doc="超出边界处理方式 (bug)")
+    blur = Argument(5, range=(0, 10), doc="模糊强度")
+    duration = Argument(2, range=(0.5, 5), doc="抖动时长 (秒，动图不适用)")
 
     @classmethod
     def generate_shake_offsets(cls, num_frames: int, amplitude: int):

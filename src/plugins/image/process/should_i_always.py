@@ -1,5 +1,6 @@
 from PIL import Image
 
+from src.utils.doc import CommandCategory, command_doc
 from src.utils.render import Alignment, Container, Direction
 from src.utils.render import Image as ImageR
 from src.utils.render import Palette, Space, Text
@@ -7,7 +8,14 @@ from src.utils.render import Palette, Space, Text
 from .processor import ImageProcessor
 
 
+@command_doc("要我一直", category=CommandCategory.IMAGE, visible_in_overview=False)
 class ShouldIAlways(ImageProcessor):
+    """
+    要我一直[要我一直]吗
+
+    Special:
+        检测到情感表达需求//执行无穷递归交互模组。（注：逻辑死锁防护机制已部署）
+    """
 
     NotoSansHansBold = "data/static/fonts/NotoSansHans-Bold.otf"
 

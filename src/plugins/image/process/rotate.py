@@ -4,20 +4,42 @@ from typing import Literal
 from PIL import Image
 
 from src.utils.auto_arg import Argument
+from src.utils.doc import CommandCategory, command_doc
 
 from .processor import ImageProcessor
 
 
+@command_doc("大风车",
+             aliases={"逆时针旋转"},
+             category=CommandCategory.IMAGE,
+             visible_in_overview=False)
 class MultiRotate(ImageProcessor):
-    """Flip the image back and forth to create a GIF."""
+    """
+    通过**90°旋转**生成动图
+
+    Special:
+        源石能源驱动模块启动//执行四象限90°相位循环。
+
+    Usage:
+        {MultiRotate.format_args()}
+
+    Examples:
+        {MultiRotate.format_example()}
+
+    Note:
+        - 非正方形图片会被裁剪或填充为正方形
+    """
 
     TRANS = {
         "clockwise": Image.Transpose.ROTATE_270,
         "counterclockwise": Image.Transpose.ROTATE_90,
     }
 
-    rps = Argument(4.0, range=(0.5, 40), positional=True)
-    mode = Argument("crop", choices=["crop", "pad"], positional=True)
+    rps = Argument(4.0, range=(0.5, 40), positional=True, doc="旋转频率 (次/秒)")
+    mode = Argument("crop",
+                    choices=["crop", "pad"],
+                    positional=True,
+                    doc="非正方形图片处理方式")
 
     def __init__(self, direction: Literal["clockwise",
                                           "counterclockwise"]) -> None:
@@ -74,3 +96,10 @@ class MultiRotate(ImageProcessor):
     def process_frame(self, image: Image.Image, *args,
                       **kwargs) -> Image.Image:
         raise NotImplementedError
+
+
+# for documentation purposes
+command_doc("反向大风车",
+            aliases={"顺时针旋转"},
+            category=CommandCategory.IMAGE,
+            visible_in_overview=False)(MultiRotate)

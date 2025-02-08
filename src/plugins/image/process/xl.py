@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from src.utils.doc import CommandCategory, command_doc
 from src.utils.render import Color, Container, Direction
 from src.utils.render import Image as RImage
 from src.utils.render import Palette
@@ -11,10 +12,16 @@ from src.utils.render import Palette
 from .processor import ImageProcessor
 
 
+@command_doc("特大", category=CommandCategory.IMAGE, visible_in_overview=False)
 class FourColorGrid(ImageProcessor):
-    """Adjust image color to four colors to create a grid.
+    """
+    将图片调色并拼接为2×2的网格
 
-    Also known as "特大(XL)".
+    Special:
+        “无语，跟你说不下去，典型的特大男人思维”
+
+    Note:
+        - 特大一词来自于音游曲目《**XL** TECHNO -More Dance Remix-》
     """
 
     GREEN = "#0d8828"

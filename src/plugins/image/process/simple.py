@@ -4,11 +4,22 @@ from typing import Literal
 
 from PIL import Image
 
+from src.utils.doc import CommandCategory, command_doc
+
 from .processor import ImageProcessor
 
 
+@command_doc("憋不不憋",
+             aliases={"向右反射"},
+             category=CommandCategory.IMAGE,
+             visible_in_overview=False)
 class Reflect(ImageProcessor):
-    """Copy half of the image and flip it to the other half."""
+    """
+    将图片的一半复制并翻转到另一半
+
+    Special:
+        憋不住了 => 憋不不憋
+    """
 
     CROP = {
         "L": (0, 0, 0.5, 1),
@@ -39,8 +50,25 @@ class Reflect(ImageProcessor):
         return result
 
 
+command_doc("向左反射", category=CommandCategory.IMAGE,
+            visible_in_overview=False)(Reflect)
+command_doc("向上反射", category=CommandCategory.IMAGE,
+            visible_in_overview=False)(Reflect)
+command_doc("向下反射", category=CommandCategory.IMAGE,
+            visible_in_overview=False)(Reflect)
+
+
+@command_doc("倒放", category=CommandCategory.IMAGE, visible_in_overview=False)
 class Reverse(ImageProcessor):
-    """Reverse the gif."""
+    """
+    将动图**倒放**
+
+    Special:
+        激活时间轴逆向解析协议…脑啡肽正在回溯帧时间戳……重构完成度98.7%。
+
+    Note:
+        - 仅限动图 (GIF)
+    """
 
     @classmethod
     def supports(cls, image: Image.Image) -> bool:
@@ -65,8 +93,16 @@ class Reverse(ImageProcessor):
         return image
 
 
+@command_doc("灰度", category=CommandCategory.IMAGE, visible_in_overview=False)
 class GrayScale(ImageProcessor):
-    """Convert the image to grayscale."""
+    """
+    将图片转换为**灰度**图
+
+    Special:
+        启动单色光谱解析协议//正在抑制RGB通道
+
+        ……建议切换至医疗部门色觉诊断模式。
+    """
 
     def process_frame(self, image: Image.Image, *args,
                       **kwargs) -> Image.Image:
@@ -74,8 +110,14 @@ class GrayScale(ImageProcessor):
         return result
 
 
+@command_doc("翻转", category=CommandCategory.IMAGE, visible_in_overview=False)
 class Flip(ImageProcessor):
-    """Flip the image."""
+    """
+    将图片**{"水平" if cmd == "镜像" else "垂直"}**翻转
+
+    Special:
+        加载镜面反射协议//调用莱茵生命光学实验记录B-14。
+    """
 
     def __init__(self, direction: Literal["horizontal", "vertical"]) -> None:
         super().__init__()
@@ -87,3 +129,7 @@ class Flip(ImageProcessor):
     def process_frame(self, image: Image.Image, *args,
                       **kwargs) -> Image.Image:
         return image.transpose(self.method)
+
+
+command_doc("镜像", category=CommandCategory.IMAGE,
+            visible_in_overview=False)(Flip)

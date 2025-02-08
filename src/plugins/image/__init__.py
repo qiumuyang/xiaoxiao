@@ -13,6 +13,7 @@ from PIL import Image
 from src.ext import (MessageSegment, get_group_member_name, logger_wrapper,
                      ratelimit)
 from src.ext.on import on_reply
+from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar, UpdateStatus
 
 from .color import parse_color, random_color, render_color
@@ -23,7 +24,30 @@ from .process import (Flip, FlipFlop, FourColorGrid, GrayScale, ImageProcessor,
 logger = logger_wrapper("Image")
 driver = get_driver()
 
+image_procs = {
+    "灰度": GrayScale(),
+    "倒放": Reverse(),
+    "翻转": Flip("vertical"),
+    "镜像": Flip("horizontal"),
+    "向左反射": Reflect("R2L"),
+    ("憋不不憋", "向右反射"): Reflect("L2R"),
+    "向上反射": Reflect("B2T"),
+    "向下反射": Reflect("T2B"),
+    "要我一直": ShouldIAlways(),
+    "左右横跳": FlipFlop("horizontal"),
+    ("大风车", "逆时针旋转"): MultiRotate("counterclockwise"),
+    ("反向大风车", "顺时针旋转"): MultiRotate("clockwise"),
+    "特大": FourColorGrid(),
+    ("抖动", "震动"): Shake(),
+}
+avatar_procs = {
+    "小天使": LittleAngel,
+    "RBQ": RBQ,
+    "雌小鬼": Mesugaki,
+}
 
+
+@command_doc("图片处理", category=CommandCategory.IMAGE, is_command_group=True)
 async def process_image_message(
     name: str,
     processor: ImageProcessor,
@@ -32,7 +56,25 @@ async def process_image_message(
     state: T_State,
     session: ClientSession,
 ):
-    # extract text args
+    """
+    对图片进行预设操作
+
+    Special:
+        加载莱茵生命影像重构协议//载入源石技艺驱动图形接口…
+
+    Usage:
+        <操作> <图片> [<参数>]     - 对图片进行目标操作
+        [引用消息] <操作> [<参数>] - 对引用消息中包含的图片进行目标操作
+        可用的操作：{" | ".join(('`' + (x[0] if isinstance(x, tuple) else x) + '`')
+                                  for x in image_procs)}
+
+    Examples:
+        >>> [图片]
+        >>> [引用] {(lambda k: k[0] if isinstance(k, tuple) else k)(next(iter(image_procs)))}
+
+    Notes:
+        - 使用 `{cmdhelp} <操作>` 查看各操作的详细说明
+    """
     arg_message = event.message
     args = [
         s.extract_text_args() for seg in arg_message
@@ -63,23 +105,7 @@ async def process_image_message(
 @driver.on_startup
 async def register_process():
     session = ClientSession(timeout=ClientTimeout(total=10))
-    processors = {
-        "灰度": GrayScale(),
-        "倒放": Reverse(),
-        "翻转": Flip("vertical"),
-        "镜像": Flip("horizontal"),
-        "向左反射": Reflect("R2L"),
-        ("憋不不憋", "向右反射"): Reflect("L2R"),
-        "向上反射": Reflect("B2T"),
-        "向下反射": Reflect("T2B"),
-        "要我一直": ShouldIAlways(),
-        "左右横跳": FlipFlop("horizontal"),
-        ("大风车", "逆时针旋转"): MultiRotate("counterclockwise"),
-        ("反向大风车", "顺时针旋转"): MultiRotate("clockwise"),
-        "特大": FourColorGrid(),
-        "震动": Shake(),
-    }
-    for name, processor in processors.items():
+    for name, processor in image_procs.items():
         if isinstance(name, str):
             name = (name, )
 
@@ -107,6 +133,7 @@ async def register_process():
         logger.info(f"Registered image processor: {name}")
 
 
+@command_doc("群友头像", category=CommandCategory.IMAGE, is_command_group=True)
 async def response_avatar(
     name: str,
     avatar: type[GroupMemberAvatar],
@@ -115,6 +142,23 @@ async def response_avatar(
     matcher: Matcher,
     event: GroupMessageEvent,
 ):
+    """
+    基于群友头像生成图片
+
+    Special:
+        欢迎来到罗德岛基建会客室，请在此进行生物数据采集。
+
+        ——访客头像已记录。
+
+    Usage:
+        <操作>         - 以自己的头像生成图片
+        <操作> `@用户` - 以群友的头像生成图片
+        可用的操作：{" | ".join(('`' + _ + '`'
+                                  for _ in avatar_procs))}
+
+    Notes:
+        - 使用 `{cmdhelp} <操作>` 查看各操作的详细说明
+    """
     user_id = event.user_id
     for seg in event.message:
         segment = MessageSegment.from_onebot(seg)
@@ -161,9 +205,10 @@ async def register_avatar():
         logger.info(f"Registered group avatar: {name}")
 
 
-color_ = on_command("颜色", block=True, force_whitespace=True)
+color_ = on_command("颜色", aliases={"查看颜色"}, block=True, force_whitespace=True)
 image_url = on_reply(("链接", "url"), block=True)
 avatar_update = on_command("更新头像",
+                           aliases={"设置头像"},
                            block=True,
                            force_whitespace=True,
                            priority=2)
@@ -171,7 +216,20 @@ avatar_update_reply = on_reply("更新头像", block=True)
 
 
 @color_.handle()
+@command_doc("颜色", aliases={"查看颜色"}, category=CommandCategory.IMAGE)
 async def _(arg: Message = CommandArg()):
+    """
+    预览颜色及其色系
+
+    Special:
+        激活色彩预览接口…色谱采样数据流已启动…
+
+        色系演算中……博士，请观察渐变效果。
+
+    Usage:
+        {cmd}                - 随机生成颜色
+        {cmd} `<#RRGGBB>`... - 预览指定颜色
+    """
     colors = list(parse_color(arg.extract_plain_text()))
     if not colors:
         colors = list(random_color(3))
@@ -179,7 +237,21 @@ async def _(arg: Message = CommandArg()):
 
 
 @image_url.handle()
+@command_doc("链接", aliases={"url"}, category=CommandCategory.IMAGE)
 async def _(bot: Bot, event: MessageEvent, state: T_State):
+    """
+    提取图片下载链接
+
+    Special:
+        激活影像捕获协议…正在检索未加密网络地址……执行莱茵生命数据锚点定位程序。
+
+    Usage:
+        `[引用消息]` {cmd} - 提取*引用消息*中的图片链接
+
+    Notes:
+        - 支持提取部分大表情链接
+        - 如遇链接过期，可转发原消息重试
+    """
     reply: Reply | None = state.get("reply")
     if not reply:
         return
@@ -194,7 +266,26 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
 
 
 @avatar_update.handle()
+@command_doc("更新头像", aliases={"设置头像"}, category=CommandCategory.IMAGE)
 async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
+    """
+    设置自定义头像/清除头像缓存
+
+    Special:
+        申请覆盖博士面容数据库…拒绝访问。
+
+        执行备用方案：「伪装成伊芙利特的烤面包机维修报告」。
+
+    Usage:
+        {cmd}               - 清除自定义头像；不存在时清除头像缓存
+        {cmd} `<图片>`      - 设置自定义头像
+        `[引用消息]` {cmd}  - 设置自定义头像为*引用消息*中的图片
+
+    Notes:
+        - 由于QQ的头像接口不稳定，采取本地缓存策略以保证可用
+        - 若持续无法获取头像，可使用本指令手动设置头像
+        - 除非手动清除，自定义头像将持续有效
+    """
     for seg in arg:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image() or segment.is_mface():

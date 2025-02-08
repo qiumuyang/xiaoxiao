@@ -5,6 +5,7 @@ from nonebot.params import CommandArg
 
 from src.ext import MessageSegment, get_user_name
 from src.ext.config import ConfigManager
+from src.utils.doc import CommandCategory, command_doc
 
 from .config import FortuneConfig, RenderBackground
 from .fortune import get_fortune
@@ -17,7 +18,22 @@ matcher = on_command("今日运势",
 
 
 @matcher.handle()
+@command_doc("今日运势", aliases={"jrys"}, category=CommandCategory.FUN)
 async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
+    """
+    进行今天的赛博算命
+
+    Special:
+        启动罗德岛占卜协议，检测到源石能流扰动…占卜回路同步率74.5%//
+        多维运势参数采样中。
+
+    Usage:
+        {cmd}                    - 查看今日运势
+        {cmd} `白|黑|透明|自动` - 设置背景色
+
+    Notes:
+        - 运势仅供娱乐，不具有实际参考价值
+    """
     user_id = event.user_id
     color = arg.extract_plain_text().strip()
     cfg = await ConfigManager.get_user(user_id, FortuneConfig)

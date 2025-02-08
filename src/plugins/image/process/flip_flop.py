@@ -4,19 +4,32 @@ from typing import Literal
 from PIL import Image
 
 from src.utils.auto_arg import Argument
+from src.utils.doc import CommandCategory, command_doc
 
 from .processor import ImageProcessor
 
 
+@command_doc("左右横跳", category=CommandCategory.IMAGE, visible_in_overview=False)
 class FlipFlop(ImageProcessor):
-    """Flip the image back and forth to create a GIF."""
+    """
+    通过**水平翻转**生成动图
+
+    Special:
+        警告！激活水平镜像同步协议//载入光学实验设备日志……多普勒效应模拟中。
+
+    Usage:
+        {FlipFlop.format_args()}
+
+    Examples:
+        {FlipFlop.format_example()}
+    """
 
     TRANS = {
         "horizontal": Image.Transpose.FLIP_LEFT_RIGHT,
         "vertical": Image.Transpose.FLIP_TOP_BOTTOM,
     }
 
-    fps = Argument(6.0, range=(0.5, 40), positional=True)
+    fps = Argument(6.0, range=(0.5, 40), positional=True, doc="翻转频率 (次/秒)")
 
     def __init__(self, direction: Literal["horizontal", "vertical"]) -> None:
         super().__init__()

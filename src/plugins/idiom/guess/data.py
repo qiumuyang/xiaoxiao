@@ -6,6 +6,7 @@ from src.utils.persistence import Collection, Mongo
 MAX_GUESS = 6
 GLOBAL_HISTORY = 100  # should not repeat in the last 100
 UPDATE_INTERVAL = timedelta(minutes=10)
+UPDATE_INTERVAL_STR = "10分钟"
 
 
 @dataclass
@@ -34,6 +35,10 @@ class GroupData:
     group_id: int
     current: CurrentGuess | None = None
     history: list[Guess] = field(default_factory=list)
+
+    @property
+    def score(self) -> int:
+        return sum(1 for guess in self.history if guess.attempt > 0)
 
     @property
     def last_guess(self) -> Guess | None:
@@ -110,6 +115,11 @@ class GuessIdiomData:
             data,
             upsert=True,
         )
+
+    @classmethod
+    async def get_ranking(cls) -> list[GroupData]:
+        groups = [item async for item in cls.data.find_all({})]
+        return sorted(groups, key=lambda group: group.score, reverse=True)
 
     @classmethod
     async def get_global(cls) -> GroupData:
