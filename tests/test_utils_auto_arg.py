@@ -91,13 +91,13 @@ class TestValidationLogic:
         """测试范围约束"""
         # 低于最小值
         args = valid_parser.parse_args(["--int-arg=-10"])
-        assert args.int_arg == 42
+        assert args.int_arg == 0  # use lower bound
         # 在范围内
         args = valid_parser.parse_args(["--int-arg=50"])
         assert args.int_arg == 50
         # 超过最大值
         args = valid_parser.parse_args(["--int-arg=150"])
-        assert args.int_arg == 42
+        assert args.int_arg == 100  # use upper bound
 
     def test_choices_validation(self, valid_parser: AutoArgumentParser):
         """测试选项约束"""
