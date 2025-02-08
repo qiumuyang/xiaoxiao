@@ -92,6 +92,16 @@ class Image(RenderObject):
                    **kwargs: Unpack[BaseStyle]) -> Image:
         return Image(RenderImage.empty(width, height, color), **kwargs)
 
+    @classmethod
+    def horizontal_line(cls, length: int, width: int, color: Color,
+                        **kwargs: Unpack[BaseStyle]) -> Image:
+        return cls.from_color(length, width, color, **kwargs)
+
+    @classmethod
+    def vertical_line(cls, length: int, width: int, color: Color,
+                      **kwargs: Unpack[BaseStyle]) -> Image:
+        return cls.from_color(width, length, color, **kwargs)
+
     @property
     @override
     def content_width(self) -> int:

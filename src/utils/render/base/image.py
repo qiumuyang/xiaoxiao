@@ -418,6 +418,13 @@ class RenderImage:
         self.base_im[indices, 3] = self.base_im[indices, 3] * coef
         return self
 
+    @check_writable
+    def line(self, start: tuple[int, int], end: tuple[int, int], color: Color,
+             thickness: int) -> Self:
+        # TODO: fix thickness (line is placed center, may overflow)
+        self.base_im = cv2.line(self.base_im, start, end, color, thickness)
+        return self
+
     @property
     def red(self) -> ImageMask:
         return cast[ImageMask](self.base_im[:, :, 0])
@@ -437,7 +444,8 @@ class RenderImage:
     def save(self, path: PathLike) -> None:
         save_im = cv2.cvtColor(self.base_im, cv2.COLOR_RGBA2BGRA)
         if not cv2.imwrite(str(path), save_im):
-            raise IOError(f"Cannnot save image to {path!r}")
+            self.to_pil().save(path)
+            # raise IOError(f"Cannot save image to {path!r}")
 
     def show(self, lib: Literal["cv2", "PIL"] = "PIL") -> None:
         if lib == "PIL":
