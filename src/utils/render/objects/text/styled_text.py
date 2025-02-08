@@ -63,6 +63,8 @@ class StyledText(RenderObject):
         for line in self.cut():
             if line:
                 rendered_lines.append(self.text_concat(line))
+        if not rendered_lines:
+            return RenderImage.empty(0, 0, Palette.TRANSPARENT)
         return RenderImage.concat_vertical(
             rendered_lines,
             alignment=self.alignment,
