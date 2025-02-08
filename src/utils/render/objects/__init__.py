@@ -1,7 +1,7 @@
 from .container import Container, FixedContainer, JustifyContent
 from .image import Image
 from .relative import RelativeContainer
-from .spacer import Spacer
+from .spacer import Spacer, ZeroSpacingSpacer
 from .stack import Stack
 from .text import FontFamily, StyledText, Text, TextStyle
 
@@ -17,4 +17,5 @@ __all__ = [
     "StyledText",
     "Text",
     "TextStyle",
+    "ZeroSpacingSpacer",
 ]

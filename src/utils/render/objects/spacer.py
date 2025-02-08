@@ -31,3 +31,10 @@ class Spacer(RenderObject):
     @override
     def render_content(self) -> RenderImage:
         return RenderImage.empty(self.space_width, self.space_height)
+
+
+class ZeroSpacingSpacer(Spacer):
+    """Useful when we don't want spacing for Spacer.
+
+    Container implementation should be careful with it.
+    """

@@ -7,6 +7,7 @@ from typing_extensions import Self, Unpack, override
 
 from ..base import (Alignment, BaseStyle, Direction, RenderImage, RenderObject,
                     cached, volatile)
+from .spacer import Spacer, ZeroSpacingSpacer
 
 
 class Container(RenderObject):
@@ -49,8 +50,12 @@ class Container(RenderObject):
     @override
     def content_width(self) -> int:
         if self.direction == Direction.HORIZONTAL:
-            spacing = self.spacing * (len(self.children) - 1)
-            if not self.children:
+            children = [
+                child for child in self.children
+                if not isinstance(child, ZeroSpacingSpacer)
+            ]
+            spacing = self.spacing * (len(children) - 1)
+            if not children:
                 spacing = 0
             return sum(child.width for child in self.children) + spacing
         return max(child.width
@@ -63,8 +68,12 @@ class Container(RenderObject):
         if self.direction == Direction.HORIZONTAL:
             return max(child.height
                        for child in self.children) if self.children else 0
-        spacing = self.spacing * (len(self.children) - 1)
-        if not self.children:
+        children = [
+            child for child in self.children
+            if not isinstance(child, ZeroSpacingSpacer)
+        ]
+        spacing = self.spacing * (len(children) - 1)
+        if not children:
             spacing = 0
         return sum(child.height for child in self.children) + spacing
 
@@ -73,11 +82,26 @@ class Container(RenderObject):
     def render_content(self) -> RenderImage:
         if not self.children:
             return RenderImage.empty(0, 0)
-        rendered = map(lambda child: child.render(), self.children)
-        concat = RenderImage.concat(rendered,
-                                    self.direction,
-                                    self.alignment,
-                                    spacing=self.spacing)
+        # rendered = map(lambda child: child.render(), self.children)
+        # concat = RenderImage.concat(rendered,
+        #                             self.direction,
+        #                             self.alignment,
+        #                             spacing=self.spacing)
+        # manually add spacing to skip ZeroSpacingSpacer
+        if self.direction == Direction.HORIZONTAL:
+            spacer = Spacer.of(width=self.spacing)
+        else:
+            spacer = Spacer.of(height=self.spacing)
+        children = [self.children[0]]
+        for child in self.children[1:]:
+            if (isinstance(child, ZeroSpacingSpacer)
+                    or isinstance(children[-1], ZeroSpacingSpacer)):
+                children.append(child)
+                continue
+            children.append(spacer)
+            children.append(child)
+        rendered = list(map(lambda child: child.render(), children))
+        concat = RenderImage.concat(rendered, self.direction, self.alignment)
         return concat
 
 
