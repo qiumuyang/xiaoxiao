@@ -9,8 +9,7 @@ from src.utils.render.utils.squircle import draw_squircle
 
 from ..proto import Context
 from ..render import MarkdownRenderer
-from .builder import Box, Builder
-from .span import SpanRenderer
+from .builder import Builder
 from .syntax_highlight import tokenize_code
 
 

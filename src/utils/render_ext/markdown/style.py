@@ -105,7 +105,8 @@ class CodeBlock(NamedTuple):
     def style(self) -> TextStyle:
         return TextStyle.of(font=self.font,
                             size=self.size,
-                            color=Color.from_hex(self.color))
+                            color=Color.from_hex(self.color),
+                            hyphenation=False)
 
 
 class CodeInline(NamedTuple):
@@ -348,6 +349,7 @@ class MarkdownStyle(NamedTuple):
             T.Link: (self.link.style, "a"),
             T.Strikethrough:
             (TextStyle.of(decoration=TextDecoration.LINE_THROUGH), "s"),
+            T.EscapeSequence: (TextStyle.of(), "esc"),
         }
 
     @property
