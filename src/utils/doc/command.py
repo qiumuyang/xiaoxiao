@@ -2,6 +2,9 @@ import importlib
 import inspect
 import re
 from enum import Enum
+from textwrap import dedent
+
+from .table import Table
 
 
 class CommandCategory(Enum):
@@ -28,6 +31,7 @@ class CommandMeta:
     aliases: set[str]
     module: str
     visible_in_overview: bool
+    is_command_group: bool
 
     def __init__(self, **kwargs):
         self._meta = kwargs
@@ -39,7 +43,7 @@ class CommandMeta:
         if not doc:
             return cls()
 
-        lines = doc.strip().split("\n")
+        lines = dedent(doc.rstrip()).split("\n")
 
         sections: dict = {
             "description": [],
@@ -57,7 +61,7 @@ class CommandMeta:
                 section_name = section_match.group(1).lower()
                 section_name = cls.SECTION_ALIAS.get(section_name,
                                                      section_name)
-                content = section_match.group(2).strip()
+                content = section_match.group(2).rstrip()
                 if current_section != section_name:
                     current_section = section_name
                     sections.setdefault(current_section, [])
@@ -65,7 +69,7 @@ class CommandMeta:
                     sections[current_section].append(content)
                 continue
 
-            sections[current_section].append(line.strip())
+            sections[current_section].append(line.rstrip())
 
         for k, v in sections.items():
             sections[k] = "\n".join(v)
@@ -77,8 +81,8 @@ class CommandMeta:
 
     @property
     def examples(self) -> list[str]:
-        if examples := self.meta.get("examples"):
-            return [_ for ex in examples.split("\n\n") if (_ := ex.strip())]
+        if examples := dedent(self.meta.get("examples", "")):
+            return [_ for ex in examples.split("\n\n") if (_ := ex.rstrip())]
         return []
 
     @property
@@ -91,8 +95,8 @@ class CommandMeta:
     @property
     def usage(self) -> list[str]:
         return list(
-            filter(lambda x: x.strip(),
-                   self.meta.get("usage", "").splitlines()))
+            filter(lambda x: x.rstrip(),
+                   dedent(self.meta.get("usage", "")).splitlines()))
 
     @property
     def extra(self) -> dict[str, str]:
@@ -105,6 +109,12 @@ class CommandMeta:
     def __getattr__(self, name):
         if name.startswith("_"):
             return object.__getattribute__(self, name)
+        str_keys = {
+            key
+            for key, value in self._meta.items() if isinstance(value, str)
+        }
+        if name not in str_keys:
+            return self._meta.get(name)
         return self.meta.get(name)
 
     def __setattr__(self, name, value):
@@ -124,12 +134,14 @@ class CommandMeta:
 
         def sub(m):
             try:
-                return str(eval(m.group(1), globals_ | inner))
+                evaluated = str(eval(m.group(1), globals_ | inner))
+                # this 2-step replacement is to allow simple nested templates
+                return evaluated.replace("{cmd}", self._meta["name"])
             except Exception as e:
                 return m.group(0)
 
         return {
-            k: re.sub(r"\{(.+?)\}", sub, v)
+            k: re.sub(r"\{(.+?)\}", sub, v, flags=re.DOTALL)
             for k, v in self._meta.items() if isinstance(v, str)
         }
 
@@ -139,30 +151,47 @@ class CommandMeta:
             f"## {self.name}",
             self.description,
         ]
-        if (_ := self.special) and (sp := _.strip()):
-            parts.append(f"> *{sp}*")
-        if self.usage:
-            tbl = [["输入", "描述"], ["---", "---"]]
-            norm = []
-            for line in self.usage:
-                tokens = line.split(" - ", 1)
-                if len(tokens) > 1:
-                    tbl.append([_.strip() for _ in tokens])
+        if (_ := self.special) and (sp := dedent(_)):
+            lines = []
+            for line in sp.splitlines():
+                if not line.strip():
+                    lines.append("> ")
                 else:
-                    norm.append(line.strip())
+                    lines.append(f"> *{line}*")
+            parts.append("\n".join(lines))
+            if not sp.strip().endswith(("。", "？", "！", "…", "”", "）")):
+                print(self.name, "⚠️ no ending punctuation")
+        else:
+            print(self.name, "❓ no special")
+        if self.usage:
+            tbl_input = Table(["输入", "描述"])
+            tbl_param = Table(["参数", "描述", "范围"], ["`{}`", "{}", "`{}`"])
+            plain_text = []
+            for line in self.usage:
+                # :param <name>: <description> || <range>
+                if m := re.search(r":param\s+([^:]+?):\s*(.+)$", line):
+                    name, desc_range = m.groups()
+                    if " || " in desc_range:
+                        desc, range_ = desc_range.rsplit(" || ", 1)
+                    else:
+                        desc, range_ = desc_range, ""
+                    tbl_param.append([name, desc, range_])
+                elif " - " in line:
+                    input_, desc = line.rsplit(" - ", 1)
+                    tbl_input.append([input_, desc])
+                elif text := line.rstrip():
+                    plain_text.append(text)
             parts.append("### 用法")
-            if len(tbl) > 2:
-                escape = lambda x: x.replace("|", "\\|")
-                tbl_str = "\n".join(f"|{'|'.join(escape(_) for _ in row)}|"
-                                    for row in tbl)
-                parts.append(tbl_str)
-            if norm:
-                bullet = "\n".join(f"- {line}" for line in norm)
-                parts.append(bullet)
+            if tbl_input:
+                parts.append(tbl_input.render())
+            if tbl_param:
+                parts.append(tbl_param.render())
+            if plain_text:
+                parts.append("\n".join(plain_text))
         if self.examples:
             parts.append("### 示例")
             for example in self.examples:
-                parts.append(f"```plaintext\n{example}\n```")
+                parts.append(f"```text\n{example}\n```")
         if self.notes:
             parts.append("### 说明")
             parts.append("\n".join(f"- {note}" for note in self.notes))
@@ -213,6 +242,55 @@ class CommandMeta:
             add_item(current_item, current_indent)
 
         return root
+
+
+class CommandOverview:
+
+    def __init__(self, commands: dict[str, CommandMeta]):
+        self.commands = commands
+
+    def export_markdown(self) -> str:
+        # group commands by category
+        categories: dict[CommandCategory, list[CommandMeta]] = {}
+        for cmd in self.commands.values():
+            if not cmd.visible_in_overview:
+                continue
+            categories.setdefault(cmd.category, []).append(cmd)
+
+        def export_category(category: CommandCategory):
+            commands = categories.get(category)
+            if not commands:
+                return ""
+            parts = [f"### {category.value}"]
+            tbl = Table(["指令", "别名", "描述"])
+            for cmd in commands:
+                asterisk = "*" if cmd.is_command_group else ""
+                tbl.append([
+                    cmd.name + asterisk,
+                    ", ".join(cmd.aliases) if cmd.aliases else "-",
+                    cmd.description
+                ])
+            parts.append(tbl.render())
+            return "\n\n".join(parts)
+
+        intro = [
+            "## 指令概览",
+            f"- 使用`{CommandMeta.CMD_HELP} <指令>`查看详细信息",
+            ("- **注意：** 带\\*指令为同类指令总称，并非实际指令，"
+             "无法通过`<指令> [参数]...`方式触发"),
+        ]
+        acknowledgement = [
+            "## 致谢",
+            "本项目基于以下项目开发",
+            "- [Lagrange.Core](https://github.com/LagrangeDev/Lagrange.Core)",
+            "- [NoneBot2](https://nonebot.dev)",
+        ]
+        parts = [
+            "\n".join(intro),
+            *[export_category(cat) for cat in categories],
+            "\n".join(acknowledgement),
+        ]
+        return "\n\n".join(parts)
 
 
 if __name__ == "__main__":
