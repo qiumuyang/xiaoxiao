@@ -9,7 +9,7 @@ def generate_squircle_points(width: int = 200,
                              num_points: int = 50) -> np.ndarray:
     """Generate squircle points."""
     short, long = min(width, height), max(width, height)
-    is_wider = width > height
+    is_wider = width >= height
 
     if not is_wider:
         transposed = generate_squircle_points(height, width, n, num_points)
