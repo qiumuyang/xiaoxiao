@@ -2,6 +2,7 @@ aiohttp
 async-lru
 fonttools
 jieba
+mistletoe
 motor
 numpy
 opencv-python>=4.5.4.58
@@ -9,6 +10,7 @@ orjson
 paddlepaddle
 Pillow==10.4.0
 psutil
+Pygments
 pymixbox==2.0.0
 pyphen>=0.13.2
 pypinyin
