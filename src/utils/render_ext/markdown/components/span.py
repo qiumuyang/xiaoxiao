@@ -1,6 +1,7 @@
 from mistletoe.span_token import Image, LineBreak, Link, RawText, SpanToken
 from mistletoe.token import Token
 
+from ..math import InlineMath
 from ..render import MarkdownRenderer
 from .builder import Builder
 
@@ -22,6 +23,9 @@ class SpanRenderer:
                     builder.text(span.content.replace("<br>", "\n"))
                 case LineBreak():
                     builder.text("\n")
+                case InlineMath():
+                    # TODO: Add math support
+                    builder.text("[公式]")
                 case Image():
                     # TODO: Add image support
                     with builder.style("img", span_style[Link][0]):

@@ -33,7 +33,6 @@ class CodeFenceRenderer:
         ]
         builder = Builder(default=ctx.style, no_override=True)
         with builder.style("code-block", code_style.style):
-            # builder = SpanRenderer.render(self.master, token, builder)
             for content, token_type, style_dict in tokenize_code(
                     lang, code, code_style.highlight_style):
                 with builder.style(token_type, style_dict.style):
@@ -46,11 +45,6 @@ class CodeFenceRenderer:
                           content.height,
                           fill=Color.from_hex(code_style.background),
                           n=6))
-        # return Box(
-        #     content,
-        #     width=ctx.max_width,
-        #     alignment_horizontal=Alignment.START,
-        # ).build(background=Color.from_hex(code_style.background))
         return Stack.from_children(
             [squircle, content],
             horizontal_alignment=Alignment.START,

@@ -56,6 +56,9 @@ class TextSize(NamedTuple):
     heading: list[int] = [48, 42, 36, 30, 24, 20]
     code_inline: int = 22
     unordered_bullet_scale: float = 1.0
+    # measure different from pillow pixel size
+    math_inline: int = 14
+    math_block: int = 18
 
 
 class TextFont(NamedTuple):
@@ -238,6 +241,13 @@ class List(NamedTuple):
                             color=Color.from_hex(self.bullet_color))
 
 
+class Math(NamedTuple):
+    size_inline: int
+    size_block: int
+    color: str
+    background: str
+
+
 class Spacing(int):
 
     parent: "MarkdownStyle"
@@ -364,3 +374,10 @@ class MarkdownStyle(NamedTuple):
             ordered_bullet_size=self.text_size.main,
             bullet_color=self.text_palette.main,
         )
+
+    @property
+    def math(self) -> Math:
+        return Math(size_inline=self.text_size.math_inline,
+                    size_block=self.text_size.math_block,
+                    color=self.text_palette.main,
+                    background=self.bg_palette.code_block)

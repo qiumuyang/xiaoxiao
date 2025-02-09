@@ -1,3 +1,4 @@
+from .block_math import BlockMathRenderer
 from .code_fence import CodeFenceRenderer
 from .document import DocumentRenderer
 from .heading import HeadingRenderer
@@ -9,6 +10,7 @@ from .table import TableRenderer
 from .thematic_break import ThematicBreakRenderer
 
 __all__ = [
+    "BlockMathRenderer",
     "CodeFenceRenderer",
     "DocumentRenderer",
     "HeadingRenderer",
