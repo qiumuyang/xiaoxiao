@@ -2,6 +2,7 @@ aiohttp
 async-lru
 fonttools
 jieba
+matplotlib
 mistletoe
 motor
 numpy
