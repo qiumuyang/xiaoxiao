@@ -51,8 +51,6 @@ def endswith_num_and_char(s: str, chars: str, range_: tuple[int, int]):
 
 class Ask:
 
-    # TODO: add capture group () and replace with \d+
-
     PERSON = {"你": "我", "我": "你", "你们": "我们", "我们": "你们"}
 
     PATTERN_YES_NO = re.compile(r"^(.+)([没不])\1")

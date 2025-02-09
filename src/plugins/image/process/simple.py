@@ -18,6 +18,7 @@ class Reflect(ImageProcessor):
     将图片的一半复制并翻转到另一半
 
     Special:
+        憋笑 => 憋憋
         憋不住了 => 憋不不憋
     """
 

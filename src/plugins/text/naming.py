@@ -56,7 +56,7 @@ async def _():
         绝望潮湿小猫咪
 
     Notes:
-        - 来自[https://github.com/fzl666/fzl](https://github.com/fzl666/fzl)
+        - 来源: [https://github.com/fzl666/fzl](https://github.com/fzl666/fzl)
         - ~~永远缅怀wyrio~~
     """
     await naming.finish(SubcultureNamingMachine.generate())

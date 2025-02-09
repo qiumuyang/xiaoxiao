@@ -10,7 +10,7 @@ ping = on_command("ping", block=True, force_whitespace=True)
 @command_doc("ping", category=CommandCategory.UTILITY)
 async def _(matcher: Matcher):
     """
-    检测Bot是否在线
+    检测{bot}是否在线
 
     Special:
         激活生存确认协议……正在发送莱茵生命标准心跳包……

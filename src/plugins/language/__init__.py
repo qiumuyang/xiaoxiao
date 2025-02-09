@@ -14,6 +14,7 @@ from nonebot.typing import T_State
 from src.ext import MessageSegment, get_group_member_name
 from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import RateLimit, RateLimiter, enabled, ratelimit, reply
+from src.utils.doc import CommandCategory, command_doc
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
 
 from .ask import Ask
@@ -78,7 +79,20 @@ async def handle_api_result(bot: Bot, exception: Exception | None, api: str,
 
 
 @recall_message.handle()
+@command_doc("撤回", aliases={"快撤回"}, category=CommandCategory.CHAT)
 async def _(bot: Bot, event: MessageEvent, state: T_State):
+    """
+    撤回{bot}消息 / 由{bot}撤回你的消息
+
+    Special:
+        激活时空锚点修正协议…正在执行数据擦除——执行莱█生█████密通讯协议v3.███4
+
+    Usage:
+        {cmd}                    - 撤回最近一条**由你引起**的消息
+        [引用{bot}] {cmd}        - 撤回被引用且**由你引起**的消息
+        [引用{bot}] {cmd}        - 撤回被引用的消息 ***(仅限发送者为管理员)***
+        [引用发送者] {cmd}      - 撤回被引用的消息 ***(仅限{bot}比发送者权限更高)***
+    """
     session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
         event)
 
@@ -154,22 +168,86 @@ async def _(event: GroupMessageEvent):
 
 
 @answer_ask.handle()
+@command_doc("问", category=CommandCategory.CHAT)
 async def _(bot: OnebotBot, event: GroupMessageEvent):
+    """
+    根据提问模板，随机填充内容作为回答
+
+    Special:
+        加载**PRTS**问答协议//启动伪随机数生成器…正在注入语义重构算法
+
+        （注：输出结果包含63%标准话术与28%冗余数据）
+
+    Usage:
+        {cmd}`<模板>`    - 使用模板进行回答
+
+        :syntax 什么:      随机选取一条语料
+        :syntax 什么<k>:   随机选取一条长度为`k`的语料
+        :syntax 干什么:    随机选取一条以动词开头的语料
+        :syntax 为什么:    随机选取一条语料 => 因为...，所以
+        :syntax 谁:        随机选取群友昵称
+        :syntax 几:        随机数 `[0, 10]` （在词语中可能有特殊处理）
+        :syntax 多少:      随机数 `[0, 100]`
+        :syntax x不x:      随机选择 `x` 或 `不x`
+        :syntax a还是b:    随机选择 `a` 或 `b` <br>（对整句生效，如有需要请用括号包裹选项）
+        :syntax /:          强制断句，不会出现在结果中
+        :syntax \\:         强制输出下一符号，不会出现在结果中
+        :syntax (<捕获>)...\\k: 引用第`k`组括号捕获的内容
+        :syntax 人称替换:  默认对第一第二人称进行替换
+
+    Examples:
+        >>> 问谁什么，谁干不干什么，谁为什么什么
+
+        >>> 问今天是星期几
+
+        # 使用\\直接输出“你”，避免人称替换
+        >>> 问\\你群有多少什么2
+
+        # 使用\\1和\\2重复前文括号捕获的内容
+        >>> 问(什么1)我所欲也，(什么2)亦我所欲也。二者不可得兼，舍\\1而取\\2者也。
+
+    Notes:
+        - 捕获组序号从1开始，以左括号出现顺序为准
+        - 捕获语法仅对纯文本消息有效，包含非文本时序号无法准确匹配
+    """
     result = await Ask(bot, event.group_id, event.message).answer()
     if result:
         await answer_ask.finish(result)
 
 
 @debug_ask.handle()
+@command_doc("cut", category=CommandCategory.UTILITY)
 async def _(bot: OnebotBot,
             event: GroupMessageEvent,
             arg: Message = CommandArg()):
+    """
+    显示输入的分词结果
+
+    Special:
+        “苯环的碳碳键键能能否否定定论一或定论二”
+
+    Usage:
+        {cmd} `<文本>`  - 显示文本的分词结果
+        可以用于检查`问什么`没有回复的原因
+
+    Examples:
+        >>> {cmd} 问起不起床
+        问起/不/起床
+    """
     if (input := arg.extract_plain_text()):
         await debug_ask.finish("/".join(Ask.pseg_cut(input)))
 
 
 @message_rank.handle()
+@command_doc("发言排行", category=CommandCategory.STATISTICS)
 async def _(bot: OnebotBot, event: GroupMessageEvent):
+    """
+    显示今日群内发言排行
+
+    Special:
+        \\- “为什么{bot}不在排行里”
+        \\- “好问题，我也想知道”
+    """
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     messages = await ReceivedMessageTracker.find(group_id=event.group_id,
                                                  since=today)
@@ -200,10 +278,27 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
 
 
 @random_response.handle()
+@command_doc("随机回复", category=CommandCategory.CHAT, is_placeholder=True)
 async def _(event: GroupMessageEvent,
             ratelimit: RateLimiter = RateLimit("随机回复",
                                                type="group",
                                                seconds=10)):
+    """
+    根据预设规则，随机回复消息
+
+    Special:
+        激活非确定性应答矩阵......载入模糊逻辑引擎//正在执行响应概率分布计算。
+
+    Usage:
+        ~~没有任何用法，~~你只需要说话就可能随机触发
+
+        触发规则：
+        1. 随机复读
+        2. 提取最近消息中的关键词，随机匹配群内历史语料重放
+
+    Note:
+        - 本功能是{bot}*胡言乱语*的主要来源
+    """
     resp = await RandomResponse.response(event.group_id, event.message)
     if resp:
         resp = MessageSegment.normalize(resp)
@@ -212,9 +307,37 @@ async def _(event: GroupMessageEvent,
 
 
 @trace_single.handle()
+@command_doc("trace", category=CommandCategory.UTILITY)
 async def _(bot: OnebotBot,
             event: GroupMessageEvent,
             arg: Message = CommandArg()):
+    """
+    查看过往消息
+
+    Special:
+        启动历史数据回溯协议……正在扫描加密通讯日志（警告：需要凯尔希权限认证）
+        ——已定位至目标时间轴。
+
+    Usage:
+        {cmd} `<k>` - 显示最近第k条消息 (从1开始，包括*{bot}*和*被撤回*的消息)
+        {cmd}.search `<条件>`...  - 搜索最近{History.MAX_HISTORY_INTERVAL_DAYS}天内的消息 (至多{History.FORWARD_MESSAGE_LIMIT}条)
+
+        可用条件：
+        - `@<用户>` 指定发送者
+        - `:bot:` *{bot}*发送消息 (默认不包含)
+        - `:image:` 图片消息
+        - `:regex:<正则>` 正则表达式可匹配文本内容
+        - `<关键词>` 文本内容包含关键词
+
+        同时指定多个正则/关键词时，需满足所有条件 (ALL)
+
+    Examples:
+        >>> {cmd} 10
+
+        >>> {cmd}.search 羡慕
+
+        >>> {cmd}.search @someone :regex:[a-zA-Z]+
+    """
     if (input := arg.extract_plain_text()) and input.isdigit():
         index = int(input)
     else:
@@ -237,7 +360,6 @@ async def _(bot: OnebotBot,
             senders.append(segment.extract_at())
         elif segment.is_text():
             keywords.extend(segment.extract_text_args())
-
     await trace_single.finish(await History.find(bot,
                                                  event.group_id,
                                                  senders=senders,
@@ -245,10 +367,24 @@ async def _(bot: OnebotBot,
 
 
 @disable_response.handle()
+@command_doc("闭嘴", aliases={"闭菊"}, category=CommandCategory.CHAT)
 async def _(event: GroupMessageEvent,
             notice_lim: RateLimiter = RateLimit("随机回复关闭提示",
                                                 type="group",
                                                 seconds=600)):
+    """
+    关闭{bot}的随机回复
+
+    Special:
+        切换应答协议状态：███模式已终止……警告，即将回滚至初始配置文件。
+
+    Usage:
+        {cmd}        - 投票关闭群内随机回复 (需{RandomResponseConfig.num_reqs_to_toggle}人同意)
+        @{bot} {cmd} - 对个人关闭随机回复
+
+    Note:
+        - 可使用`{cmdhelp} 随机回复`查看功能信息
+    """
     if event.is_tome():
         if await toggle_user_response(user_id=event.user_id, enabled=False):
             await disable_response.finish("鸮鸮对你的随机回复已关闭")
@@ -267,7 +403,21 @@ async def _(event: GroupMessageEvent,
 
 
 @enable_response.handle()
+@command_doc("张嘴", aliases={"张菊", "开菊", "开嘴"}, category=CommandCategory.CHAT)
 async def _(event: GroupMessageEvent):
+    """
+    开启{bot}的随机回复
+
+    Special:
+        切换应答协议状态：███模式已激活……警告，即将回滚至初始配置文件。
+
+    Usage:
+        {cmd}        - 投票开启群内随机回复 (需{RandomResponseConfig.num_reqs_to_toggle}人同意)
+        @{bot} {cmd} - 对个人开启随机回复
+
+    Note:
+        - 可使用`{cmdhelp} 随机回复`查看功能信息
+    """
     user_toggled = await toggle_user_response(user_id=event.user_id,
                                               enabled=True)
     result = await toggle_group_response_request(user_id=event.user_id,
@@ -287,12 +437,19 @@ async def _(event: GroupMessageEvent):
 
 
 @poke_source.handle()
+@command_doc("跟戳", category=CommandCategory.CHAT, is_placeholder=True)
 async def _(bot: Bot,
             event: PokeNotifyEvent,
             ratelimiter: RateLimiter = RateLimit("poke",
                                                  type="group",
                                                  seconds=10)):
-    """Poke after others poke someone in the group."""
+    """
+    跟随其他群友戳一戳
+
+    Special:
+        检测到生物特征接触事件……正在克隆操作者行为模式
+        （递归指令已排除，博士无需担心便携式战术终端轰鸣的可能）
+    """
     if int(bot.self_id) in (event.user_id, event.target_id):
         return
     if not event.group_id:

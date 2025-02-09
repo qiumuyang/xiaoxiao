@@ -14,6 +14,7 @@ from typing_extensions import NotRequired
 
 from src.ext import RateLimit, RateLimiter
 from src.ext.config import Config, ConfigManager
+from src.utils.doc import CommandCategory, command_doc
 
 
 class Response(TypedDict):
@@ -93,19 +94,37 @@ rate_depend = RateLimit("abbr_trans", type="group", seconds=2)
 
 # lower priority than commands
 nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN, priority=2, block=True)
-nbnhhsh_cmd = on_command("翻译缩写",
-                         aliases={"nbnhhsh"},
-                         block=True,
-                         force_whitespace=True)
+nbnhhsh_cmd = on_command("翻译缩写", block=True, force_whitespace=True)
 
 
 @nbnhhsh_cmd.handle()
 @nbnhhsh_msg.handle()
+@command_doc("翻译缩写", category=CommandCategory.UTILITY)
 async def _(
     matcher: Matcher,
     event: GroupMessageEvent,
     ratelimiter: RateLimiter = rate_depend,
 ):
+    """
+    将字母数字形式的缩写转换为原始含义
+
+    Special:
+        “能不能好好说话”
+
+    Usage:
+        {cmd} `<缩写>`               - 翻译缩写
+        {cmd} `开|关`                - 开启或关闭快捷翻译缩写
+        {cmd} +|-`<缩写>`->`<翻译>`  - 添加或删除缩写翻译
+        `<缩写>`                      - 快捷翻译缩写
+
+    Examples:
+        >>> {cmd} +dsa->大神啊
+        【dsa】
+          + 大神啊
+
+    Notes:
+        - 来源: [https://lab.magiconch.com/nbnhhsh/](https://lab.magiconch.com/nbnhhsh/)
+    """
     cfg = await ConfigManager.get_group(event.group_id, AbbrTranslateConfig)
     abbr = event.get_message().extract_plain_text()
     is_cmd = abbr.startswith("翻译缩写")

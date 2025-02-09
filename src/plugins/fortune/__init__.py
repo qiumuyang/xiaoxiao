@@ -33,6 +33,7 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
 
     Notes:
         - 运势仅供娱乐，不具有实际参考价值
+        - 头像获取失败时，可使用`更新头像`手动更新
     """
     user_id = event.user_id
     color = arg.extract_plain_text().strip()

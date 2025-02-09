@@ -47,7 +47,7 @@ avatar_procs = {
 }
 
 
-@command_doc("图片处理", category=CommandCategory.IMAGE, is_command_group=True)
+@command_doc("图片处理", category=CommandCategory.IMAGE, is_placeholder=True)
 async def process_image_message(
     name: str,
     processor: ImageProcessor,
@@ -64,7 +64,7 @@ async def process_image_message(
 
     Usage:
         <操作> <图片> [<参数>]     - 对图片进行目标操作
-        [引用消息] <操作> [<参数>] - 对引用消息中包含的图片进行目标操作
+        [引用消息] <操作> [<参数>] - 对*引用消息*中包含的图片进行目标操作
         可用的操作：{" | ".join(('`' + (x[0] if isinstance(x, tuple) else x) + '`')
                                   for x in image_procs)}
 
@@ -133,7 +133,7 @@ async def register_process():
         logger.info(f"Registered image processor: {name}")
 
 
-@command_doc("群友头像", category=CommandCategory.IMAGE, is_command_group=True)
+@command_doc("群友头像", category=CommandCategory.IMAGE, is_placeholder=True)
 async def response_avatar(
     name: str,
     avatar: type[GroupMemberAvatar],
@@ -280,6 +280,7 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
         {cmd}               - 清除自定义头像；不存在时清除头像缓存
         {cmd} `<图片>`      - 设置自定义头像
         `[引用消息]` {cmd}  - 设置自定义头像为*引用消息*中的图片
+        设置自定义头像后，所有使用头像的指令都将使用自定义头像
 
     Notes:
         - 由于QQ的头像接口不稳定，采取本地缓存策略以保证可用
