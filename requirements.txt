@@ -18,3 +18,4 @@ pytest-asyncio
 requests
 typing_extensions>=4.10.0
 watchdog
+yapf
