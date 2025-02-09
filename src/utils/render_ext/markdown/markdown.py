@@ -1,8 +1,8 @@
 from typing_extensions import Unpack
 
-from src.utils.render import (BaseStyle, Border, Color, Container,
-                              RenderObject, Space, cached, volatile)
-from src.utils.render.base.image import RenderImage
+from src.utils.render import (BaseStyle, BoxShadow, Color, Container,
+                              RenderImage, RenderObject, Space, cached,
+                              volatile)
 
 from .render import MarkdownRenderer
 from .style import MarkdownStyle
@@ -23,7 +23,6 @@ class Markdown(RenderObject):
             self.style = style
             self.md_width = content_width
         self.background = self._background_color
-        self.padding = Space.all(30)
 
     @property
     def _background_color(self) -> Color:
@@ -46,8 +45,13 @@ class Markdown(RenderObject):
         return Container.from_children(
             [main],
             padding=self._padding,
-            border=Border.of(1, color=self._border_color),
+            margin=Space.all(self.md_width // 20),
             background=self._background_color,
+            decorations=[
+                BoxShadow.of(blur_radius=91,
+                             spread=4,
+                             color=Color.of(0, 0, 0, 0.8))
+            ],
         ).render()
 
     @property
