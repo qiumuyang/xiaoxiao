@@ -33,10 +33,7 @@ def load_document_image(name: str | None = None,
     return image
 
 
-def _initialize():
+def init_cache():
     load_document_image(cached=False)
     for doc in DocManager.iter_doc():
         load_document_image(doc.name, cached=False)
-
-
-_initialize()

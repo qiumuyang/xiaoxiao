@@ -22,7 +22,7 @@ create_tmux_session() {
 }
 
 bot_session="bot"
-start_bot="source .venv/bin/activate && ENVIRONMENT=prod nb run"
+start_bot="source .venv/bin/activate && python scripts/init_documentation_image.py && ENVIRONMENT=prod nb run"
 start_lagrange="python watch/start_lagrange.py"
 
 start() {
