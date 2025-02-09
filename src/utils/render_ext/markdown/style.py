@@ -7,6 +7,8 @@ import mistletoe.span_token as T
 from src.utils.render import (Color, FontFamily, TextDecoration, TextShading,
                               TextStyle)
 
+from .token import Emoji
+
 StrOrPath = str | Path
 
 
@@ -69,6 +71,8 @@ class TextFont(NamedTuple):
         bold="data/static/fonts/MapleMonoNormalNL-CN-Bold.ttf",
         italic="data/static/fonts/MapleMonoNormalNL-CN-Italic.ttf",
         bold_italic="data/static/fonts/MapleMonoNormalNL-CN-BoldItalic.ttf")
+    emoji: FontFamily = FontFamily(regular="data/static/fonts/seguiemj.ttf",
+                                   bold="data/static/fonts/seguiemj.ttf")
 
 
 class Heading(NamedTuple):
@@ -360,6 +364,9 @@ class MarkdownStyle(NamedTuple):
             T.Strikethrough:
             (TextStyle.of(decoration=TextDecoration.LINE_THROUGH), "s"),
             T.EscapeSequence: (TextStyle.of(), "esc"),
+            Emoji: (TextStyle.of(font=self.text_font.emoji,
+                                 embedded_color=True,
+                                 ymin_correction=True), "emoji"),
         }
 
     @property

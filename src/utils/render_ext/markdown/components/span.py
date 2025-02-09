@@ -1,8 +1,8 @@
 from mistletoe.span_token import Image, LineBreak, Link, RawText, SpanToken
 from mistletoe.token import Token
 
-from ..math import InlineMath
 from ..render import MarkdownRenderer
+from ..token import InlineMath
 from .builder import Builder
 
 

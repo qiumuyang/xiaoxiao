@@ -109,6 +109,11 @@ class TextStyle(Cacheable):
         obj.color = color
         return obj
 
+    def with_size(self, size: float) -> TextStyle:
+        obj = copy.copy(self)
+        obj.size = size
+        return obj
+
     def items(self, strip: bool = False) -> Iterable[tuple[str, object]]:
         for key, value in self.__dict__.items():
             if value is not undefined and key not in self.SKIP_ATTRS:
