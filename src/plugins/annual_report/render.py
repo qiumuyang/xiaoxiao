@@ -79,7 +79,7 @@ class AnnualReportRenderer:
     TALKATIVE_DAYS_FALLBACK = "你还没有获得过群龙王"
     POPULAR_SENTENCE_TEMPLATE = ("你最喜欢说的一句话是“<b>{popular}</b>”\n"
                                  "过去的一年里足足说了 <b>{times}</b> 次")
-    NO_MESSAGE_FALLBACK = "今年还没有发送过消息\n未语亦有痕，或待璀璨时"
+    NO_MESSAGE_FALLBACK = "这一年还没有发送过消息\n未语亦有痕，或待璀璨时"
 
     GROUP_ACTIVE_DAYS_TEMPLATE = "今年，群内活跃了 <b>{active_days}</b> 天"
     GROUP_MESSAGE_COUNT_TEMPLATE = ("在这些日子里，<b>{active_users}</b> "
@@ -133,7 +133,7 @@ class AnnualReportRenderer:
         year = datetime.strptime(cls.ANNUAL_STATISTICS_END, "%Y-%m-%d").year
         comp_title = cls._render_title(group_name, year)
         comp_avatar = await cls._render_avatar(group_id=group_id)
-        if group.num_messages == 0:
+        if not group or group.num_messages == 0:
             return Container.from_children(
                 (comp_width_reserve, comp_title, comp_avatar,
                  cls.NO_MESSAGE_FALLBACK_TEXT, comp_footer),
@@ -315,7 +315,7 @@ class AnnualReportRenderer:
             spacing=cls.AVATAR_SIZE // 2,
             direction=Direction.HORIZONTAL,
         )
-        if user.num_messages == 0:
+        if not user or user.num_messages == 0:
             return Container.from_children(
                 (comp_width_reserve, comp_title, comp_avatar,
                  cls.NO_MESSAGE_FALLBACK_TEXT, comp_footer),

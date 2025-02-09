@@ -55,7 +55,7 @@ class AnnualStatistics:
             return stat
         await cls.process_group(args[-1])
         stat = load_func(*args)
-        assert stat is not None
+        # assert stat is not None
         return stat
 
     @classmethod
