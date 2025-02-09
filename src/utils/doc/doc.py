@@ -15,7 +15,7 @@ class DocManager:
                  category: CommandCategory,
                  aliases: Iterable[str] = (),
                  visible_in_overview: bool = True,
-                 is_command_group: bool = False):
+                 is_placeholder: bool = False):
 
         def decorator(fn):
             meta = CommandMeta.parse(fn)
@@ -23,7 +23,7 @@ class DocManager:
             meta.category = category
             meta.aliases = set(aliases)
             meta.visible_in_overview = visible_in_overview
-            meta.is_command_group = is_command_group
+            meta.is_placeholder = is_placeholder
             cls._commands[name] = meta
             for alias in aliases:
                 cls._aliases[alias] = name

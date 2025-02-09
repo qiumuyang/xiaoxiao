@@ -6,19 +6,24 @@ from textwrap import dedent
 
 from src.ext import logger_wrapper
 
+from ..env import inject_env
 from .table import Table
 
 logger = logger_wrapper("Documentation")
 
 
 class CommandCategory(Enum):
-    CHAT = "聊天互动"
     FUN = "娱乐玄学"
+    CHAT = "聊天互动"
     IMAGE = "图片处理"
     STATISTICS = "统计排行"
-    TEXT = "文本处理"
     UTILITY = "实用工具"
     UNKNOWN = "未分类"
+
+
+@inject_env()
+class EnvRecv:
+    BOT_NAME: str
 
 
 class CommandMeta:
@@ -35,7 +40,7 @@ class CommandMeta:
     aliases: set[str]
     module: str
     visible_in_overview: bool
-    is_command_group: bool
+    is_placeholder: bool
 
     def __init__(self, **kwargs):
         self._meta = kwargs
@@ -133,7 +138,11 @@ class CommandMeta:
 
         mod = importlib.import_module(self._meta["module"])
         globals_ = mod.__dict__
-        inner = {"cmd": self._meta.get("name"), "cmdhelp": self.CMD_HELP}
+        inner = {
+            "cmd": self._meta.get("name"),
+            "cmdhelp": self.CMD_HELP,
+            "bot": EnvRecv.BOT_NAME
+        }
         inner = dict(filter(lambda x: x[1], inner.items()))
 
         def sub(m):
@@ -151,8 +160,13 @@ class CommandMeta:
 
     def export_markdown(self) -> str:
         """Export the metadata to a markdown format."""
+        if self.aliases:
+            alias = "，".join(self.aliases)
+            alias = f"`{alias}`"
+        else:
+            alias = ""
         parts = [
-            f"## {self.name}",
+            f"## {self.name} {alias}",
             self.description,
         ]
         if (_ := self.special) and (sp := dedent(_)):
@@ -171,9 +185,11 @@ class CommandMeta:
         if self.usage:
             tbl_input = Table(["输入", "描述"])
             tbl_param = Table(["参数", "描述", "范围"], ["`{}`", "{}", "`{}`"])
+            tbl_syntax = Table(["语法", "描述"], ["`{}`", "{}"])
             plain_text = []
             for line in self.usage:
                 # :param <name>: <description> || <range>
+                # :syntax <name>: <description>
                 if m := re.search(r":param\s+([^:]+?):\s*(.+)$", line):
                     name, desc_range = m.groups()
                     if " || " in desc_range:
@@ -181,6 +197,9 @@ class CommandMeta:
                     else:
                         desc, range_ = desc_range, ""
                     tbl_param.append([name, desc, range_])
+                elif m := re.search(r":syntax\s+([^:]+?):\s*(.+)$", line):
+                    name, desc = m.groups()
+                    tbl_syntax.append([name, desc])
                 elif " - " in line:
                     input_, desc = line.rsplit(" - ", 1)
                     tbl_input.append([input_, desc])
@@ -191,6 +210,8 @@ class CommandMeta:
                 parts.append(tbl_input.render())
             if tbl_param:
                 parts.append(tbl_param.render())
+            if tbl_syntax:
+                parts.append(tbl_syntax.render())
             if plain_text:
                 parts.append("\n".join(plain_text))
         if self.examples:
@@ -269,7 +290,7 @@ class CommandOverview:
             parts = [f"### {category.value}"]
             tbl = Table(["指令", "别名", "描述"])
             for cmd in commands:
-                asterisk = "*" if cmd.is_command_group else ""
+                asterisk = "\\*" if cmd.is_placeholder else ""
                 tbl.append([
                     cmd.name + asterisk,
                     ", ".join(cmd.aliases) if cmd.aliases else "-",
@@ -281,7 +302,7 @@ class CommandOverview:
         intro = [
             "## 指令概览",
             f"- 使用`{CommandMeta.CMD_HELP} <指令>`查看详细信息",
-            ("- **注意：** 带\\*指令为同类指令总称，并非实际指令，"
+            ("- 注意： 带\\*为*功能名称*，*非实际指令*，"
              "无法通过`<指令> [参数]...`方式触发"),
         ]
         acknowledgement = [
@@ -292,7 +313,7 @@ class CommandOverview:
         ]
         parts = [
             "\n".join(intro),
-            *[export_category(cat) for cat in categories],
+            *[export_category(cat) for cat in CommandCategory],
             "\n".join(acknowledgement),
         ]
         return "\n\n".join(parts)
