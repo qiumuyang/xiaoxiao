@@ -16,10 +16,13 @@ from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar, UpdateStatus
 
+from . import markdown
 from .color import parse_color, random_color, render_color
 from .group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
 from .process import (Flip, FlipFlop, FourColorGrid, GrayScale, ImageProcessor,
                       MultiRotate, Reflect, Reverse, Shake, ShouldIAlways)
+
+__ = markdown  # mark as used
 
 logger = logger_wrapper("Image")
 driver = get_driver()
