@@ -4,7 +4,11 @@ import re
 from enum import Enum
 from textwrap import dedent
 
+from src.ext import logger_wrapper
+
 from .table import Table
+
+logger = logger_wrapper("Documentation")
 
 
 class CommandCategory(Enum):
@@ -160,9 +164,10 @@ class CommandMeta:
                     lines.append(f"> *{line}*")
             parts.append("\n".join(lines))
             if not sp.strip().endswith(("。", "？", "！", "…", "”", "）")):
-                print(self.name, "⚠️ no ending punctuation")
+                logger.warning(
+                    f"⚠️  [{self.name}] special no ending punctuation")
         else:
-            print(self.name, "❓ no special")
+            logger.warning(f"❓ [{self.name}] no special")
         if self.usage:
             tbl_input = Table(["输入", "描述"])
             tbl_param = Table(["参数", "描述", "范围"], ["`{}`", "{}", "`{}`"])
