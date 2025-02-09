@@ -8,13 +8,14 @@ from src.utils.render_ext.markdown import Markdown
 cache = Path("data/dynamic/doc-markdown")
 
 
-def load_document_image(name: str | None = None) -> Image.Image | None:
+def load_document_image(name: str | None = None,
+                        cached: bool = True) -> Image.Image | None:
     cache.mkdir(parents=True, exist_ok=True)
     if name is None:
         file = cache / "overview.png"
     else:
         file = cache / f"{name}.png"
-    if file.exists():
+    if file.exists() and cached:
         try:
             return Image.open(file)
         except:
@@ -30,3 +31,12 @@ def load_document_image(name: str | None = None) -> Image.Image | None:
     image = renderer.render().to_pil()
     image.save(file)
     return image
+
+
+def _initialize():
+    load_document_image(cached=False)
+    for doc in DocManager.iter_doc():
+        load_document_image(doc.name, cached=False)
+
+
+_initialize()
