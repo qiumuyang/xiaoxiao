@@ -42,7 +42,7 @@ class DocManager:
             yield cmd
 
     @classmethod
-    def overview(cls) -> str:
+    def export_overview(cls) -> str:
         return CommandOverview(cls._commands).export_markdown()
 
 
