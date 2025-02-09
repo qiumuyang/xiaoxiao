@@ -8,6 +8,7 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot.permission import SUPERUSER
 
 from src.ext import get_group_member_name, ratelimit
+from src.utils.doc import CommandCategory, command_doc
 from src.utils.message import ReceivedMessageTracker as RMT
 from src.utils.message import SentMessageTracker as SMT
 
@@ -55,7 +56,7 @@ class Checker:
     @classmethod
     def format(cls, status: Status) -> str:
         tm = str(status["running_time"]).split(".")[0]  # remove milliseconds
-        fmt = ("Running Time: {tm}\n"
+        fmt = ("Uptime: {tm}\n"
                "CPU: {cpu}%\n"
                "Mem: {memory}MB (Free: {memory_free}MB)\n"
                "Messages (Sent/Recv): {message_sent}/{message_received}\n"
@@ -71,7 +72,15 @@ stat_all = stat.command("all", force_whitespace=True, permission=SUPERUSER)
 
 
 @stat_overview.handle()
+@command_doc("status", category=CommandCategory.UTILITY)
 async def _(bot: Bot, event: GroupMessageEvent):
+    """
+    检查{bot}运行状态
+
+    Usage:
+        {cmd}      - 运行状态概览
+        {cmd}.this - 本群运行状态
+    """
     st = await Checker.status()
     name = await get_group_member_name(group_id=event.group_id,
                                        user_id=int(bot.self_id))
