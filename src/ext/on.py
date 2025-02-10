@@ -14,6 +14,7 @@ from .rule import reply
 def on_reply(
     startswith: str | tuple[str, ...] = tuple(),
     rule: Rule | T_RuleChecker | None = None,
+    force_whitespace: bool = True,
     permission: Permission | T_PermissionChecker | None = None,
     *,
     handlers: list[T_Handler | Dependent] | None = None,
@@ -27,7 +28,7 @@ def on_reply(
     if isinstance(startswith, str):
         startswith = (startswith, )
     return on("message",
-              reply(*startswith) & rule,
+              reply(*startswith, force_whitespace=force_whitespace) & rule,
               permission,
               handlers=handlers,
               temp=temp,

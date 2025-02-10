@@ -216,11 +216,15 @@ class ReplyRule:
         lstrip: 是否去除空白字符后检查
     """
 
-    __slots__ = ("startswith", "lstrip")
+    __slots__ = ("startswith", "lstrip", "force_whitespace")
 
-    def __init__(self, *startswith: str, lstrip: bool = True):
+    def __init__(self,
+                 *startswith: str,
+                 lstrip: bool = True,
+                 force_whitespace: bool = True):
         self.startswith = startswith
         self.lstrip = lstrip
+        self.force_whitespace = force_whitespace
 
     async def __call__(self, event: MessageEvent, state: T_State) -> bool:
         if not event.reply:
@@ -231,13 +235,18 @@ class ReplyRule:
                 text = text.lstrip()
             if not text.startswith(self.startswith):
                 return False
+            # if equals to any startswith, return True
+            if text not in self.startswith and self.force_whitespace:
+                for s in self.startswith:
+                    if text.startswith(s) and not text[len(s)].isspace():
+                        return False
         state["reply"] = event.reply.model_copy()
         return True
 
 
-def reply(*startswith: str) -> Rule:
+def reply(*startswith: str, force_whitespace: bool = True) -> Rule:
     """匹配包含回复的消息，且文本部分满足指定前缀。"""
-    return Rule(ReplyRule(*startswith))
+    return Rule(ReplyRule(*startswith, force_whitespace=force_whitespace))
 
 
 class EnabledRule:
