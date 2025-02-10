@@ -61,7 +61,7 @@ class MessageRender:
                 content_ = Text.from_style(content,
                                            style=cls.STYLE_CONTENT,
                                            max_width=cls.MAX_WIDTH,
-                                           line_spacing=8,
+                                           line_spacing=4,
                                            background=Palette.WHITE,
                                            padding=cls.CONTENT_PADDING,
                                            decorations=cls.CONTENT_DECO)

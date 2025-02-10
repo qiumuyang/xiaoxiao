@@ -1,13 +1,14 @@
 from nonebot import on_command
 from nonebot.adapters import Message
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
-from src.ext import MessageSegment
+from src.ext import MessageSegment, get_user_name
 from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.image.avatar import Avatar
+from src.utils.render_ext.message import Message as RenderMessage
 
 from .color import parse_color, random_color, render_color
 from .commands import avatar, markdown, process
@@ -19,6 +20,7 @@ __ = process
 
 color_ = on_command("颜色", aliases={"查看颜色"}, block=True, force_whitespace=True)
 image_url = on_reply(("链接", "url"), block=True)
+quote = on_reply("入典", block=True)
 
 
 @color_.handle()
@@ -44,7 +46,7 @@ async def _(arg: Message = CommandArg()):
 
 @image_url.handle()
 @command_doc("链接", aliases={"url"}, category=CommandCategory.IMAGE)
-async def _(bot: Bot, event: MessageEvent, state: T_State):
+async def _(state: T_State):
     """
     提取图片下载链接
 
@@ -52,7 +54,7 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
         激活影像捕获协议…正在检索未加密网络地址……执行莱茵生命数据锚点定位程序。
 
     Usage:
-        `[引用消息]` {cmd} - 提取*引用消息*中的图片链接
+        [引用消息] {cmd} - 提取*引用消息*中的图片链接
 
     Notes:
         - 支持提取部分大表情链接
@@ -69,3 +71,29 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     await image_url.finish(
         MessageSegment.reply(reply.message_id) +
         MessageSegment.text("\n".join(urls)))
+
+
+@quote.handle()
+@command_doc("入典", category=CommandCategory.IMAGE)
+async def _(state: T_State):
+    """
+    生成消息图片
+
+    Usage:
+        [引用消息] {cmd} - 生成*引用消息*的图片
+    """
+    reply: Reply | None = state.get("reply")
+    if not reply:
+        return
+    if not reply.sender.user_id:
+        await quote.finish("无法获取发送者ID")
+    for seg in reply.message:
+        segment = MessageSegment.from_onebot(seg)
+        if segment.is_image():
+            content = segment.extract_url()
+            break
+    else:
+        content = reply.message.extract_plain_text()
+    avatar = await Avatar.user(reply.sender.user_id)
+    msg = RenderMessage(avatar, content, await get_user_name(reply))
+    await quote.finish(MessageSegment.image(msg.render().to_pil()))
