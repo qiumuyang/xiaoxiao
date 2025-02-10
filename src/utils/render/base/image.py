@@ -98,8 +98,8 @@ class RenderImage:
         return cls.from_raw(np.array(im))
 
     @classmethod
-    def from_url(cls, url: str) -> Self:
-        with urlopen(url) as response:
+    def from_url(cls, url: str, timeout: float = 10) -> Self:
+        with urlopen(url, timeout=timeout) as response:
             im = PILImage.open(response)
             return cls.from_pil(im)
 

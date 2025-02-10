@@ -37,30 +37,40 @@ class MessageRender:
 
     @classmethod
     def create(cls,
-               avatar: Image.Image,
+               avatar: str | Image.Image,
                content: str | Image.Image,
                nickname: str = "",
                alignment: Alignment = Alignment.START) -> RenderObject:
-        avatar_ = ImageObject.from_image(
-            avatar,
-            decorations=[CircleCrop.of()],
-        ).resize(cls.AVATAR_SIZE, cls.AVATAR_SIZE)
+        if isinstance(avatar, str):
+            avatar_ = ImageObject.from_url(avatar,
+                                           decorations=[CircleCrop.of()])
+        else:
+            avatar_ = ImageObject.from_image(avatar,
+                                             decorations=[CircleCrop.of()])
+        avatar_.resize(cls.AVATAR_SIZE, cls.AVATAR_SIZE)
         nickname_ = None
         if nickname:
             nickname_ = Text.from_style(nickname, style=cls.STYLE_NICKNAME)
         if isinstance(content, str):
-            content_ = Text.from_style(content,
-                                       style=cls.STYLE_CONTENT,
-                                       max_width=cls.MAX_WIDTH,
-                                       line_spacing=8,
-                                       background=Palette.WHITE,
-                                       padding=cls.CONTENT_PADDING,
-                                       decorations=cls.CONTENT_DECO)
+            if "multimedia.nt.qq.com" in content:
+                # image url
+                content_ = ImageObject.from_url(content,
+                                                decorations=cls.CONTENT_DECO)
+            else:
+                content_ = Text.from_style(content,
+                                           style=cls.STYLE_CONTENT,
+                                           max_width=cls.MAX_WIDTH,
+                                           line_spacing=8,
+                                           background=Palette.WHITE,
+                                           padding=cls.CONTENT_PADDING,
+                                           decorations=cls.CONTENT_DECO)
         else:
             content_ = ImageObject.from_image(
                 content,
                 decorations=cls.CONTENT_DECO,
-            ).rescale(0.6).thumbnail(cls.MAX_WIDTH, cls.MAX_HEIGHT)
+            )
+        if isinstance(content_, ImageObject):
+            content_.rescale(0.6).thumbnail(cls.MAX_WIDTH, cls.MAX_HEIGHT)
         # assemble
         if nickname_:
             spacer = Spacer.of(height=cls.SPACE_NAME_CONTENT)
@@ -86,7 +96,7 @@ class MessageRender:
 class Message(RenderObject):
 
     def __init__(self,
-                 avatar: Image.Image,
+                 avatar: str | Image.Image,
                  content: str | Image.Image,
                  nickname: str = "",
                  alignment: Alignment
