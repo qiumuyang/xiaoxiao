@@ -6,7 +6,8 @@ from typing import Generator
 from PIL import Image as PILImage
 from typing_extensions import Self, Unpack, override
 
-from ..base import BaseStyle, Color, RenderImage, RenderObject, volatile
+from ..base import (BaseStyle, Color, Interpolation, RenderImage, RenderObject,
+                    volatile)
 from ..utils import PathLike
 
 
@@ -128,8 +129,12 @@ class Image(RenderObject):
             self.im.rescale(scale)
         return self
 
-    def thumbnail(self, width: int, height: int) -> Self:
+    def thumbnail(
+            self,
+            width: int,
+            height: int,
+            interpolation: Interpolation = Interpolation.BILINEAR) -> Self:
         """Thumbnail the wrapped RenderImage."""
         with self.modify():
-            self.im.thumbnail(width, height)
+            self.im.thumbnail(width, height, interpolation)
         return self

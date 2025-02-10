@@ -6,8 +6,9 @@ from typing_extensions import Unpack
 from src.utils.render import (Alignment, BaseStyle, BoxSizing, CircleCrop,
                               Color, Container, Decorations, Direction)
 from src.utils.render import Image as ImageObject
-from src.utils.render import (Palette, RectCrop, RenderImage, RenderObject,
-                              Space, Spacer, Text, TextStyle, cached, volatile)
+from src.utils.render import (Interpolation, Palette, RectCrop, RenderImage,
+                              RenderObject, Space, Spacer, Text, TextStyle,
+                              cached, volatile)
 
 
 class MessageRender:
@@ -70,7 +71,8 @@ class MessageRender:
                 decorations=cls.CONTENT_DECO,
             )
         if isinstance(content_, ImageObject):
-            content_.rescale(0.6).thumbnail(cls.MAX_WIDTH, cls.MAX_HEIGHT)
+            content_.rescale(0.6).thumbnail(cls.MAX_WIDTH, cls.MAX_HEIGHT,
+                                            Interpolation.LANCZOS)
         # assemble
         if nickname_:
             spacer = Spacer.of(height=cls.SPACE_NAME_CONTENT)
