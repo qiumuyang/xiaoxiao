@@ -252,11 +252,3 @@ class RBQ(GroupMemberAvatar):
     ]
 
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
-
-
-__all__ = [
-    "GroupMemberAvatar",
-    "LittleAngel",
-    "Mesugaki",
-    "RBQ",
-]

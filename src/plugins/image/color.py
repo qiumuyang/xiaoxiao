@@ -71,10 +71,3 @@ def parse_color(s: str) -> Iterable[Color]:
             yield Color.from_hex(color_hex)
         except ValueError:
             pass
-
-
-__all__ = [
-    "parse_color",
-    "random_color",
-    "render_color",
-]

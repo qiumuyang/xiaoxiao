@@ -26,6 +26,9 @@ async def _(arg: Message = CommandArg()):
     Usage:
         {cmd} `<Markdown文本>`  -  渲染文本
         [引用] {cmd}            -  渲染*引用消息*中的文本
+
+    Notes:
+        - 暂不支持图片和行内公式
     """
     if content := arg.extract_plain_text():
         image = Markdown(content).render().to_pil()
