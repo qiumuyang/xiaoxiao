@@ -2,6 +2,7 @@ from typing import cast
 
 from nonebot import get_bot
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
+from nonebot.adapters.onebot.v11.event import Reply
 
 prefixes = [
     "\x08%ĀĀ\x07Ñ\n\x08\x12\x06",
@@ -17,13 +18,19 @@ def fix_name(name: str) -> str:
     return name
 
 
-async def get_user_name(event: MessageEvent, *, bot: Bot | None = None) -> str:
+async def get_user_name(event: MessageEvent | Reply,
+                        *,
+                        bot: Bot | None = None) -> str:
     bot = bot or cast(Bot, get_bot())
     if isinstance(event, GroupMessageEvent):
         return await get_group_member_name(group_id=event.group_id,
                                            user_id=event.user_id,
                                            bot=bot)
-    name = event.sender.card or event.sender.nickname or str(event.user_id)
+    name = event.sender.card or event.sender.nickname  # or str(event.user_id)
+    if isinstance(event, Reply):
+        name = name or str(event.sender.user_id)
+    else:
+        name = name or str(event.user_id)
     return fix_name(name)
 
 
