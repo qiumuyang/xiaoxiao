@@ -246,10 +246,14 @@ class List(NamedTuple):
 
 
 class Math(NamedTuple):
+    # shared
+    background: str
+    # matplotlib
     size_inline: int
     size_block: int
     color: str
-    background: str
+    # katex
+    rescale: float = 0.25
 
 
 class Spacing(int):

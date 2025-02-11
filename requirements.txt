@@ -1,5 +1,6 @@
 aiohttp
 async-lru
+cairosvg
 fonttools
 jieba
 matplotlib
@@ -11,6 +12,7 @@ orjson
 paddlepaddle
 Pillow==10.4.0
 psutil
+py_mini_racer
 Pygments
 pymixbox==2.0.0
 pyphen>=0.13.2
