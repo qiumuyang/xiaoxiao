@@ -295,6 +295,7 @@ class RenderImage:
         width: int = -1,
         height: int = -1,
         interpolation: Interpolation = Interpolation.BILINEAR,
+        engine: Literal["cv2", "pil"] = "pil",
     ) -> Self:
         """Resizes the image to the given width and height inplace.
 
@@ -318,12 +319,26 @@ class RenderImage:
         elif height < 0:
             height = round(self.height * width / self.width)
 
-        flag = interpolation.value
-        self.base_im = cv2.resize(
-            self.base_im,
-            (width, height),
-            interpolation=flag,
-        )
+        match engine:
+            case "cv2":
+                flag = interpolation.value
+                self.base_im = cv2.resize(
+                    self.base_im,
+                    (width, height),
+                    interpolation=flag,
+                )
+            case "pil":
+                flag_dict = {
+                    Interpolation.AREA: PILImage.Resampling.BOX,
+                    Interpolation.NEAREST: PILImage.Resampling.NEAREST,
+                    Interpolation.BILINEAR: PILImage.Resampling.BILINEAR,
+                    Interpolation.BICUBIC: PILImage.Resampling.BICUBIC,
+                    Interpolation.LANCZOS: PILImage.Resampling.LANCZOS,
+                }
+                resample = flag_dict[interpolation]
+                im = PILImage.fromarray(self.base_im)
+                im = im.resize((width, height), resample=resample)
+                self.base_im = np.array(im)
         return self
 
     @check_writable
