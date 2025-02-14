@@ -26,7 +26,7 @@ class Stack(RenderObject):
         children: Iterable[RenderObject],
         vertical_alignment: Alignment,
         horizontal_alignment: Alignment,
-        paste_mode: Literal["paste", "overlay", "cover"],
+        paste_mode: Literal["paste", "replace", "masked_replace"],
         **kwargs: Unpack[BaseStyle],
     ) -> None:
         super().__init__(**kwargs)
@@ -43,7 +43,7 @@ class Stack(RenderObject):
         alignment: Alignment = Alignment.START,
         vertical_alignment: Alignment | None = None,
         horizontal_alignment: Alignment | None = None,
-        paste_mode: Literal["paste", "overlay", "cover"] = "paste",
+        paste_mode: Literal["paste", "replace", "masked_replace"] = "paste",
         **kwargs: Unpack[BaseStyle],
     ) -> Self:
         if vertical_alignment is None:
@@ -89,10 +89,10 @@ class Stack(RenderObject):
 
             if self.paste_mode == "paste":
                 im = im.paste(x, y, child)
-            elif self.paste_mode == "overlay":
-                im = im.overlay(x, y, child)
-            elif self.paste_mode == "cover":
-                im = im.cover(x, y, child)
+            elif self.paste_mode == "replace":
+                im = im.replace(x, y, child)
+            elif self.paste_mode == "masked_replace":
+                im = im.masked_replace(x, y, child)
             else:
                 raise ValueError(f"Invalid paste mode: {self.paste_mode}")
         return im

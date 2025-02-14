@@ -77,7 +77,7 @@ class BoxShadow(Shadow):
         x = self.offset[0] - spread + obj.margin.left
         y = self.offset[1] - spread + obj.margin.top
         # create the shadow
-        layer = layer.overlay(x, y, RenderImage.empty(width, height,
+        layer = layer.replace(x, y, RenderImage.empty(width, height,
                                                       self.color))
         if self.blur_radius > 0:
             layer.base_im = cv2.GaussianBlur(
@@ -131,4 +131,4 @@ class ContentShadow(Shadow):
                     obj.padding.left)
         offset_y = (self.offset[1] + obj.margin.top + obj.border.width +
                     obj.padding.top)
-        return RenderImage.empty_like(im).overlay(offset_x, offset_y, shadow)
+        return RenderImage.empty_like(im).replace(offset_x, offset_y, shadow)

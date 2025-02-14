@@ -136,16 +136,16 @@ class Decorations:
                 raise ValueError(f"Invalid box sizing: {deco.box_sizing!r}")
             x, y, w, h = box
             cropped = RenderImage.from_raw(im.base_im[y:y + h, x:x + w])
-            im = im.overlay(x, y, deco.apply(cropped))
+            im = im.replace(x, y, deco.apply(cropped))
         elif isinstance(deco, LayerDecoration):
             if deco.overlay == Overlay.ABOVE_COMPOSITE:
                 im = im.paste(0, 0, deco.render_layer(im, obj))
             elif deco.overlay == Overlay.BELOW_COMPOSITE:
                 im = deco.render_layer(im, obj).paste(0, 0, im)
             elif deco.overlay == Overlay.ABOVE_OVERLAY:
-                im = im.overlay(0, 0, deco.render_layer(im, obj))
+                im = im.replace(0, 0, deco.render_layer(im, obj))
             elif deco.overlay == Overlay.BELOW_OVERLAY:
-                im = deco.render_layer(im, obj).overlay(0, 0, im)
+                im = deco.render_layer(im, obj).replace(0, 0, im)
             else:
                 raise ValueError(f"Invalid overlay: {deco.overlay!r}")
         else:

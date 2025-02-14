@@ -130,11 +130,23 @@ class Image(RenderObject):
         return self
 
     def thumbnail(
-            self,
-            width: int,
-            height: int,
-            interpolation: Interpolation = Interpolation.BILINEAR) -> Self:
+        self,
+        width: int,
+        height: int,
+        interpolation: Interpolation = Interpolation.BILINEAR,
+    ) -> Self:
         """Thumbnail the wrapped RenderImage."""
         with self.modify():
             self.im.thumbnail(width, height, interpolation)
+        return self
+
+    def cover(
+        self,
+        width: int,
+        height: int,
+        interpolation: Interpolation = Interpolation.BILINEAR,
+    ) -> Self:
+        """Cover the wrapped RenderImage."""
+        with self.modify():
+            self.im.cover(width, height, interpolation)
         return self

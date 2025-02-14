@@ -186,12 +186,12 @@ class RenderImage:
         return self
 
     @check_writable
-    def cover(self, x: int, y: int, im: Self) -> Self:
-        """Pastes the image onto this image at the given coordinates
-        only where the cover image is not transparent.
+    def masked_replace(self, x: int, y: int, im: Self) -> Self:
+        """Pastes the target image onto this image at the given coordinates
+        only where the target is not transparent.
 
-        If the cover pixel is transparent,
-        the pixel in the base image is not changed.
+        If a pixel in target is transparent,
+        the pixel in this image is not changed.
         """
         b, t, l, r = (y, y + im.height, x, x + im.width)
         if b >= self.height or t < 0 or l >= self.width or r < 0:
@@ -205,9 +205,9 @@ class RenderImage:
         return self
 
     @check_writable
-    def overlay(self, x: int, y: int, im: Self) -> Self:
-        """Pastes the image onto this image at the given coordinates
-        no matter what the alpha channel is."""
+    def replace(self, x: int, y: int, im: Self) -> Self:
+        """Pastes the target image onto this image at the given coordinates.
+        """
         b, t, l, r = (y, y + im.height, x, x + im.width)
         if b >= self.height or t < 0 or l >= self.width or r < 0:
             return self
@@ -386,6 +386,26 @@ class RenderImage:
             return self
 
         scale = min(max_width / self.width, max_height / self.height)
+        return self.rescale(scale, interpolation)
+
+    def cover(
+        self,
+        min_width: int = -1,
+        min_height: int = -1,
+        interpolation: Interpolation = Interpolation.BILINEAR,
+    ) -> RenderImage:
+        """aligns with CSS's object-fit: cover."""
+        if min_width < 0 and min_height < 0:
+            return self
+        if min_width < 0:
+            min_width = self.width
+        elif min_height < 0:
+            min_height = self.height
+
+        if self.width >= min_width and self.height >= min_height:
+            return self
+
+        scale = max(min_width / self.width, min_height / self.height)
         return self.rescale(scale, interpolation)
 
     def copy(self) -> Self:
