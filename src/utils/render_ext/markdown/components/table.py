@@ -3,7 +3,8 @@ from typing import Generic, Iterable, TypeVar, cast
 from mistletoe.block_token import Table, TableCell, TableRow
 
 from src.utils.render import (Alignment, Color, Container, Direction, Image,
-                              RenderObject, Space, Spacer, TextStyle)
+                              Interpolation, RenderObject, Space, Spacer,
+                              TextStyle)
 from src.utils.render.base.image import RenderImage
 
 from ..proto import Context
@@ -54,6 +55,8 @@ class TableRenderer:
     def normalize_column_width(cls,
                                raw: list[int],
                                max_width: int,
+                               *,
+                               min_col_width: int,
                                thresh: float = 0.7) -> list[int]:
         """Adjust column widths to fit within max_width.
 
@@ -68,6 +71,9 @@ class TableRenderer:
         if total <= max_width:
             return raw
 
+        if min_col_width * num_cols > max_width:
+            raise ValueError("Table too wide to fit in max_width")
+
         scale_factor = max_width / total
         scaled = [int(w * scale_factor) for w in raw]
         # in case of rounding errors
@@ -75,10 +81,10 @@ class TableRenderer:
             max_idx = max(range(num_cols), key=lambda i: scaled[i])
             scaled[max_idx] -= 1
 
-        # avoid extreme differences
+        # avoid extreme differences or too small columns
         max_w, min_w = max(scaled), min(scaled)
         thresh_abs = int(thresh * max_width)
-        while max_w - min_w > thresh_abs:
+        while max_w - min_w > thresh_abs or min(scaled) < min_col_width:
             max_idx = max(range(num_cols), key=lambda i: scaled[i])
             min_idx = min(range(num_cols), key=lambda i: scaled[i])
             scaled[max_idx] -= 1
@@ -178,16 +184,27 @@ class TableRenderer:
             round(_ * self.master.style.unit)
             for _ in self.master.style.table.padding_factor
         ]
-        reserved_padding = mat.num_cols * 2 * padding[
-            0]  # padding on both sides
+        # padding on both sides
+        reserved_padding = mat.num_cols * 2 * padding[0]
         reserved_border = self.master.style.table.border_thick  # right border
         actual_max_width = ctx.max_width - reserved_padding - reserved_border
         raw_column_widths = [
             max(cell.build().width for cell in col)
             for col in mat.iter_nonempty_cols()
         ]
-        col_widths = self.normalize_column_width(raw_column_widths,
-                                                 actual_max_width)
+        min_column_width = self.master.style.text_size.main * self.master.style.table.min_column_chars
+        while True:
+            try:
+                col_widths = self.normalize_column_width(
+                    raw_column_widths,
+                    actual_max_width,
+                    min_col_width=min_column_width)
+            except ValueError:
+                # unable to fit in max_width
+                # increase width then resize at the end
+                actual_max_width = round(actual_max_width * 1.25)
+            else:
+                break
         # 2. render each cell and calculate row heights / column widths
         cells = Mat([[
             cell.build(max_width=col_widths[j],
@@ -199,4 +216,5 @@ class TableRenderer:
         table = self._render_table(cells)
         # 4. add border
         image = self._draw_border(table, cells)
-        return Image.from_image(image)
+        return Image.from_image(image).thumbnail(
+            ctx.max_width, -1, interpolation=Interpolation.LANCZOS)

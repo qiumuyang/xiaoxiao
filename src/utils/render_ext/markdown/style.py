@@ -177,6 +177,8 @@ class Table(NamedTuple):
     border_color: str
     border_thick: int = 1
 
+    min_column_chars: int = 4
+
     header_bold: bool = True
     header_main: bool = True
     padding_factor: tuple[float, float] = (0.8, 0.4)
