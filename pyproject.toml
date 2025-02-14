@@ -12,3 +12,18 @@ adapters = [
 plugins = []
 plugin_dirs = ["src/plugins"]
 builtin_plugins = []
+
+[tool.pyright]
+include = [
+    "src",
+    "tests",
+    "watch"
+]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "data/"
+]
+ignore = [
+    "src/utils/render_ext/markdown/katexsvg/svgmath"
+]
