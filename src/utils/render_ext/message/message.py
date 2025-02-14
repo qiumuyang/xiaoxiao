@@ -81,6 +81,9 @@ class MessageRender:
                 cls.MIN_IMAGE_DIM,
                 Interpolation.LANCZOS,
             )
+            if content_.width > cls.MAX_IMAGE_DIM or content_.height > cls.MAX_IMAGE_DIM:
+                content_.resize(min(content_.width, cls.MAX_IMAGE_DIM),
+                                min(content_.height, cls.MAX_IMAGE_DIM))
 
         # assemble
         if nickname_:
