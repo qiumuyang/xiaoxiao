@@ -25,16 +25,17 @@ class MessageRender:
     STYLE_NICKNAME = TextStyle.of(font=FONT, size=18, color=COLOR_NICKNAME)
     STYLE_CONTENT = TextStyle.of(font=FONT, size=24, color=COLOR_CONTENT)
 
-    MAX_WIDTH = 400
-    MAX_HEIGHT = 500
-    SPACE_AVATAR_CONTENT = 10
-    SPACE_NAME_CONTENT = 6
-    CONTENT_ROUND_RADIUS = 11
-    CONTENT_PADDING = Space.of_side(14, 12)
+    MAX_WIDTH = 360
+    MAX_IMAGE_DIM = MAX_WIDTH
+    MIN_IMAGE_DIM = MAX_IMAGE_DIM // 6
+    SPACE_AVATAR_CONTENT = 14
+    SPACE_NAME_CONTENT = 10
+    CONTENT_ROUND_RADIUS = 15
+    CONTENT_PADDING = Space.of_side(14, 16)
     CONTENT_DECO = Decorations.of(
         RectCrop.of(border_radius=CONTENT_ROUND_RADIUS,
                     box_sizing=BoxSizing.BORDER_BOX))
-    PADDING = Space.of_side(26, 17)
+    PADDING = Space.of_side(26, 18)
 
     @classmethod
     def create(cls,
@@ -61,7 +62,7 @@ class MessageRender:
                 content_ = Text.from_style(content,
                                            style=cls.STYLE_CONTENT,
                                            max_width=cls.MAX_WIDTH,
-                                           line_spacing=4,
+                                           line_spacing=3,
                                            background=Palette.WHITE,
                                            padding=cls.CONTENT_PADDING,
                                            decorations=cls.CONTENT_DECO)
@@ -71,8 +72,16 @@ class MessageRender:
                 decorations=cls.CONTENT_DECO,
             )
         if isinstance(content_, ImageObject):
-            content_.rescale(0.6).thumbnail(cls.MAX_WIDTH, cls.MAX_HEIGHT,
-                                            Interpolation.LANCZOS)
+            content_.thumbnail(
+                cls.MAX_IMAGE_DIM,
+                cls.MAX_IMAGE_DIM,
+                Interpolation.LANCZOS,
+            ).cover(
+                cls.MIN_IMAGE_DIM,
+                cls.MIN_IMAGE_DIM,
+                Interpolation.LANCZOS,
+            )
+
         # assemble
         if nickname_:
             spacer = Spacer.of(height=cls.SPACE_NAME_CONTENT)
