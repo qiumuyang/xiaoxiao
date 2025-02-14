@@ -7,7 +7,6 @@ All credit goes to the original creator Nikolai Grigoriev
 <svgmath@grigoriev.ru>
 """
 
-
 from .mathfilter import MathFilter
 from .mathhandler import MathHandler, MathNS
 from .tools.saxtools import ContentFilter, XMLGenerator
