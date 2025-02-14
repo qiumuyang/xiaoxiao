@@ -10,6 +10,8 @@ For parsing single emoji, use either
 To match multiple emojis or custom patterns, insert `EMOJI_SEQUENCE` into pattern:
 
     re.match(rf"{EMOJI_SEQUENCE}+\s*...", string)
+
+https://gist.github.com/Saluev/604c9c3a3d6032770e15a0da143f73bd
 """
 import re
 
@@ -17,9 +19,9 @@ import re
 # https://www.unicode.org/Public/emoji/12.1/emoji-data.txt
 EMOJI_CHARACTER = (
     "["
-    "\u0023"
-    "\u002A"
-    "\u0030-\u0039"
+    # "\u0023"
+    # "\u002A"
+    # "\u0030-\u0039"
     "\u00A9"
     "\u00AE"
     "\u203C"
@@ -705,6 +707,6 @@ EMOJI_SEQUENCE = f"(?:{EMOJI_CORE_SEQUENCE}|{EMOJI_ZWJ_SEQUENCE}|{EMOJI_TAG_SEQU
 
 EMOJI_REGEXP = re.compile(EMOJI_SEQUENCE)
 
-EMOJI_MULTI_REGEXP = re.compile(rf"({EMOJI_SEQUENCE}+)")
+EMOJI_MULTI_REGEXP = re.compile(rf"({EMOJI_SEQUENCE}+\s*)")
 
 # yapf: enable
