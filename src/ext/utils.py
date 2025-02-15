@@ -20,11 +20,21 @@ def fix_name(name: str) -> str:
 
 async def get_user_name(event: MessageEvent | Reply,
                         *,
+                        group_id: int | None = None,
                         bot: Bot | None = None) -> str:
     bot = bot or cast(Bot, get_bot())
+    if isinstance(event, Reply):
+        user_id = event.sender.user_id
+        assert user_id is not None, "Reply sender has no user_id"
+    else:
+        user_id = event.user_id
+    if group_id:
+        return await get_group_member_name(group_id=group_id,
+                                           user_id=user_id,
+                                           bot=bot)
     if isinstance(event, GroupMessageEvent):
         return await get_group_member_name(group_id=event.group_id,
-                                           user_id=event.user_id,
+                                           user_id=user_id,
                                            bot=bot)
     name = event.sender.card or event.sender.nickname  # or str(event.user_id)
     if isinstance(event, Reply):

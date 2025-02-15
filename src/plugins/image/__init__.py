@@ -1,6 +1,6 @@
 from nonebot import on_command
 from nonebot.adapters import Message
-from nonebot.adapters.onebot.v11.event import Reply
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent, Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
@@ -75,7 +75,7 @@ async def _(state: T_State):
 
 @quote.handle()
 @command_doc("入典", category=CommandCategory.IMAGE)
-async def _(state: T_State):
+async def _(event: GroupMessageEvent, state: T_State):
     """
     生成消息图片
 
@@ -95,5 +95,6 @@ async def _(state: T_State):
     else:
         content = reply.message.extract_plain_text()
     avatar = await Avatar.user(reply.sender.user_id)
-    msg = RenderMessage(avatar, content, await get_user_name(reply))
+    msg = RenderMessage(avatar, content, await
+                        get_user_name(reply, group_id=event.group_id))
     await quote.finish(MessageSegment.image(msg.render().to_pil()))
