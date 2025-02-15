@@ -107,6 +107,8 @@ class CodeBlock(NamedTuple):
     background: str
     padding_factor: tuple[float, float] = (1.0, 0.4)
     highlight_style: str = "default"
+    rounded: bool = True
+    radius_factor: float = 0.5
 
     @property
     def style(self) -> TextStyle:

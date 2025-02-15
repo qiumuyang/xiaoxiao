@@ -192,7 +192,8 @@ class TableRenderer:
             max(cell.build().width for cell in col)
             for col in mat.iter_nonempty_cols()
         ]
-        min_column_width = self.master.style.text_size.main * self.master.style.table.min_column_chars
+        min_column_width = (self.master.style.unit *
+                            self.master.style.table.min_column_chars)
         while True:
             try:
                 col_widths = self.normalize_column_width(

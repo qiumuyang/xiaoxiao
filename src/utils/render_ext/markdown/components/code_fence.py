@@ -36,15 +36,26 @@ class CodeFenceRenderer:
             for content, token_type, style_dict in tokenize_code(
                     lang, code, code_style.highlight_style):
                 with builder.style(token_type, style_dict.style):
+                    if content == "\n":
+                        # due to bug in render.StyledText,
+                        # a single newline is not rendered (add a space to fix)
+                        builder.text(" ")
                     builder.text(content)
         content = builder.build(max_width=ctx.max_width - padding[0] * 2,
                                 spacing=main_style.line_spacing,
                                 padding=Space.of_side(*padding))
-        squircle = Image.from_image(
-            draw_squircle(ctx.max_width,
-                          content.height,
-                          fill=Color.from_hex(code_style.background),
-                          n=6))
+        if code_style.rounded:
+            squircle = Image.from_image(
+                draw_squircle(
+                    ctx.max_width,
+                    content.height,
+                    fill=Color.from_hex(code_style.background),
+                    radius=main_style.unit * code_style.radius_factor,
+                ))
+        else:
+            squircle = Image.empty(ctx.max_width,
+                                   content.height,
+                                   color=Color.from_hex(code_style.background))
         return Stack.from_children(
             [squircle, content],
             horizontal_alignment=Alignment.START,

@@ -32,7 +32,7 @@ class BlockMathRenderer:
             if isinstance(code_style.size, float):
                 base_size = code_style.size
             else:
-                base_size = self.master.style.text_size.main
+                base_size = self.master.style.unit
             content = Text.from_style(e.args[0],
                                       code_style.with_size(base_size // 2),
                                       max_width=ctx.max_width)
@@ -45,8 +45,7 @@ class BlockMathRenderer:
         squircle = Image.from_image(
             draw_squircle(ctx.max_width,
                           content.height,
-                          fill=Color.from_hex(style.background),
-                          n=6))
+                          fill=Color.from_hex(style.background)))
         return Stack.from_children(
             [squircle, content],
             horizontal_alignment=align_h,

@@ -9,7 +9,7 @@ For parsing single emoji, use either
 
 To match multiple emojis or custom patterns, insert `EMOJI_SEQUENCE` into pattern:
 
-    re.match(rf"{EMOJI_SEQUENCE}+\s*...", string)
+    re.match(rf"{EMOJI_SEQUENCE}+\\s*...", string)
 
 https://gist.github.com/Saluev/604c9c3a3d6032770e15a0da143f73bd
 """
