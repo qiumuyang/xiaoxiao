@@ -5,6 +5,7 @@ from .shake import Shake
 from .should_i_always import ShouldIAlways
 from .simple import Flip, GrayScale, Reflect, Reverse
 from .xl import FourColorGrid
+from .zoom import Zoom
 
 __all__ = [
     "Flip",
@@ -17,4 +18,5 @@ __all__ = [
     "MultiRotate",
     "Shake",
     "ShouldIAlways",
+    "Zoom",
 ]
