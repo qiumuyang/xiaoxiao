@@ -36,7 +36,7 @@ class Shake(ImageProcessor):
                     positional=True,
                     doc="超出边界处理方式 (bug)")
     blur = Argument(5, range=(0, 10), doc="模糊强度")
-    duration = Argument(2, range=(0.5, 5), doc="抖动时长 (秒，动图不适用)")
+    duration = Argument(2.0, range=(0.5, 5), doc="抖动时长 (秒)")
 
     @classmethod
     def generate_shake_offsets(cls, num_frames: int, amplitude: int):
@@ -128,7 +128,8 @@ class Shake(ImageProcessor):
         duration: float,
     ) -> BytesIO:
         min_frames = 15
-        default_frame_duration = int(duration * 1000 / min_frames)
+        duration *= 1000  # Convert to milliseconds
+        default_frame_duration = int(duration / min_frames)
         if self.is_gif(image):
             frames, durations = [], []
             while len(frames) < min_frames:
@@ -136,6 +137,11 @@ class Shake(ImageProcessor):
                     durations.append(frame.info["duration"]
                                      or default_frame_duration)
                     frames.append(frame.convert("RGBA"))
+            # rescale the duration to match the total duration
+            # NOT GOOD: if not specified, should keep the original duration
+            # requires Argument to support multi-type values
+            # total_duration = sum(durations)
+            # durations = [int(duration * d / total_duration) for d in durations]
         else:
             frames = [image.convert("RGBA")] * min_frames
             durations = [default_frame_duration] * min_frames
