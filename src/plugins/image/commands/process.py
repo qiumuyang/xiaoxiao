@@ -12,9 +12,9 @@ from src.ext import MessageSegment, ratelimit
 from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 
-from ..process import (Flip, FlipFlop, FourColorGrid, GrayScale,
-                       ImageProcessor, MultiRotate, Reflect, Reverse, Shake,
-                       ShouldIAlways, Zoom)
+from ..process import (Flip, FlipFlop, FourColorGrid, FourColorGridV2,
+                       GrayScale, ImageProcessor, MultiRotate, Reflect,
+                       Reverse, Shake, ShouldIAlways, Zoom)
 from .share import driver, logger
 
 image_procs = {
@@ -31,6 +31,7 @@ image_procs = {
     ("大风车", "逆时针旋转"): MultiRotate("counterclockwise"),
     ("反向大风车", "顺时针旋转"): MultiRotate("clockwise"),
     "特大": FourColorGrid(),
+    "特大2": FourColorGridV2(),
     ("抖动", "震动"): Shake(),
     "拉近": Zoom("in"),
     "拉远": Zoom("out"),

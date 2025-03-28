@@ -5,9 +5,8 @@ import numpy as np
 from PIL import Image
 
 from src.utils.doc import CommandCategory, command_doc
-from src.utils.render import Color, Container, Direction
+from src.utils.render import Color, Container, Direction, Palette
 from src.utils.render import Image as RImage
-from src.utils.render import Palette
 
 from .processor import ImageProcessor
 
@@ -98,6 +97,63 @@ class FourColorGrid(ImageProcessor):
                     color = Palette.natural_blend(Palette.BLACK, color,
                                                   -factor).to_rgb()
                 cols.append(RImage.from_image(self.adjust_tint(image, color)))
+            rows.append(
+                Container.from_children(cols, direction=Direction.HORIZONTAL))
+        return Container.from_children(
+            rows,
+            direction=Direction.VERTICAL,
+        ).render().to_pil()
+
+
+@command_doc("特大2", category=CommandCategory.IMAGE, visible_in_overview=False)
+class FourColorGridV2(ImageProcessor):
+
+    COLORS = [[30, 0], [120, 60]]
+
+    @classmethod
+    def convert_color(cls, image: Image.Image, hue: int):
+        img = np.array(image)
+        if img.shape[-1] == 4:
+            img, a = img[:, :, :3], img[:, :, 3]
+        else:
+            a = None
+        img = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+
+        # Create a mask to ignore white pixels (Saturation low and Value high indicate white)
+        # Adjust threshold for "white" detection
+        lower_white = np.array([0, 0, 200])
+        upper_white = np.array([180, 30, 255])
+        white_mask = cv2.inRange(hsv, lower_white, upper_white)
+
+        # Apply morphological closing to fill small gaps in the white regions (caused by ringing)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        white_mask = cv2.morphologyEx(white_mask,
+                                      cv2.MORPH_CLOSE,
+                                      kernel,
+                                      iterations=1)
+        non_white_mask = cv2.bitwise_not(white_mask).astype(np.bool_)
+
+        hsv[..., 0] = np.where(non_white_mask, hue, hsv[..., 0])
+        hsv[..., 1] = np.where(non_white_mask, 255, hsv[..., 1])
+
+        result = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+        result = cv2.addWeighted(result, 0.9, img, 0.1, 0)
+
+        if a is not None:
+            result = np.dstack((result, a))
+        return Image.fromarray(result)
+
+    def process_frame(self, image: Image.Image, *args,
+                      **kwargs) -> Image.Image:
+        if image.mode == "P":
+            image = image.convert("RGBA")
+        image = self.scale(image, max_size=(512, 512))
+        rows = []
+        for row in self.COLORS:
+            cols = []
+            for hue in row:
+                cols.append(RImage.from_image(self.convert_color(image, hue)))
             rows.append(
                 Container.from_children(cols, direction=Direction.HORIZONTAL))
         return Container.from_children(
