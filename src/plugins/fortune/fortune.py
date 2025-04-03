@@ -30,9 +30,14 @@ def get_sunrise_sunset(
     latitude: float,
     longitude: float,
 ) -> tuple[datetime, datetime]:
-    r = requests.get(
-        f"https://api.sunrise-sunset.org/json?lat={latitude}&lng={longitude}")
-    results = r.json()["results"]
+    try:
+        r = requests.get(
+            f"https://api.sunrise-sunset.org/json?lat={latitude}&lng={longitude}"
+        )
+        results = r.json()["results"]
+    except Exception:
+        return (datetime.now().replace(hour=6, minute=0, second=0),
+                datetime.now().replace(hour=18, minute=0, second=0))
     sunrise = datetime.strptime(results["sunrise"], "%I:%M:%S %p")
     sunset = datetime.strptime(results["sunset"], "%I:%M:%S %p")
     sunrise += timedelta(hours=8)
