@@ -5,8 +5,9 @@ import numpy as np
 from PIL import Image
 
 from src.utils.doc import CommandCategory, command_doc
-from src.utils.render import Color, Container, Direction, Palette
+from src.utils.render import Color, Container, Direction
 from src.utils.render import Image as RImage
+from src.utils.render import Palette
 
 from .processor import ImageProcessor
 

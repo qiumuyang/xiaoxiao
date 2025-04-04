@@ -8,6 +8,7 @@ else:
     from .bisect import bisect_left, bisect_right
 
 __all__ = [
+    "Flex",
     "ImageMask",
     "PathLike",
     "Undefined",

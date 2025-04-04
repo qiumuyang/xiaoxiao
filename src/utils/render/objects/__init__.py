@@ -1,21 +1,18 @@
 from .container import Container, FixedContainer, JustifyContent
 from .image import Image
+from .paragraph.paragraph import Paragraph
 from .relative import RelativeContainer
 from .spacer import Spacer, ZeroSpacingSpacer
 from .stack import Stack
-from .text import FontFamily, StyledText, Text, TextStyle
 
 __all__ = [
     "Container",
     "FixedContainer",
-    "FontFamily",
     "Image",
     "JustifyContent",
+    "Paragraph",
     "RelativeContainer",
     "Spacer",
     "Stack",
-    "StyledText",
-    "Text",
-    "TextStyle",
     "ZeroSpacingSpacer",
 ]

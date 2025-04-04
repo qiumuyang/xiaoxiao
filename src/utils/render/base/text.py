@@ -1,69 +1,49 @@
 from __future__ import annotations
 
 import math
-from enum import Flag, auto
-from typing import NamedTuple
+from typing import TypedDict
 
-from PIL import Image, ImageDraw, ImageFont
-from typing_extensions import Self
+from PIL import Image, ImageDraw
+from typing_extensions import Self, Unpack
 
-from ..utils import PathLike
 from ..utils.squircle import draw_squircle
 from .cacheable import Cacheable, cached, volatile
 from .color import Color, Palette
 from .image import RenderImage
+from .properties import Space
 from .textfont import TextFont
+from .textstyle import *
+from .textstyle.decoration import TextDecorationType
 
 
-class TextDecoration(Flag):
-    NONE = 0
-    UNDERLINE = auto()
-    OVERLINE = auto()
-    LINE_THROUGH = auto()
+class _Metrics(TypedDict):
+    """Internal type for storing text metrics."""
+    ascent: int
+    descent: int
+    bbox: tuple[float, float, float, float]
+    stroke_width: int
+    padding: Space
+    size: tuple[int, int]
 
 
-class TextShading(NamedTuple):
-    color: Color = Palette.TRANSPARENT
-    rounded: bool = False
-    padding: int | tuple[int, int] = 0
+class _RenderTextBlock(Cacheable):
+    """Render text to an image in **one single line**.
 
-
-class RenderText(Cacheable):
-    """Render text to an image in one single line.
-
-    Attributes:
-        text: text to render.
-        font: font file path.
-        size: font size.
-        color: text color.
-        stroke_width: width of stroke.
-        stroke_color: color of stroke.
-        decoration: text decoration. See `TextDecoration`.
-        decoration_thickness: thickness of text decoration lines.
-        shading: shading color of the text.
-            Do not confuse with `RenderObject.background`.
-        embedded_color: whether to use embedded color in the font.
-        ymin_correction: whether to use yMin in font metrics
-            for baseline correction.
-        italic: whether to simulate italic by shearing the text.
+    Refer to `TextStyle` for the attributes.
     """
-
-    SHEAR = 0.2
 
     def __init__(
         self,
         text: str,
-        font: PathLike,
-        size: int,
-        color: Color = Palette.BLACK,
-        stroke_width: int = 0,
-        stroke_color: Color | None = None,
-        decoration: TextDecoration = TextDecoration.NONE,
-        decoration_thickness: int = -1,
-        shading: TextShading = TextShading(),
-        embedded_color: bool = False,
-        ymin_correction: bool = False,
-        italic: bool = False,
+        font: FontFamily,
+        size: AbsoluteSize,
+        color: Color,
+        stroke: TextStroke | None,
+        decoration: TextDecoration | None,
+        shading: TextShading | None,
+        bold: bool,
+        italic: bool,
+        wrap: TextWrap,
     ) -> None:
         super().__init__()
         with volatile(self):
@@ -71,181 +51,302 @@ class RenderText(Cacheable):
             self.font = font
             self.size = size
             self.color = color
-            self.stroke_width = stroke_width
-            self.stroke_color = stroke_color
+            self.stroke = stroke
             self.decoration = decoration
-            self.decoration_thickness = decoration_thickness
             self.shading = shading
-            self.embedded_color = embedded_color
-            self.ymin_correction = ymin_correction
+            self.bold = bold
             self.italic = italic
+            self.wrap = wrap
+
+    @property
+    def style(self) -> TextStyle:
+        return TextStyle(font=self.font,
+                         size=self.size,
+                         color=self.color,
+                         stroke=self.stroke,
+                         decoration=self.decoration,
+                         shading=self.shading,
+                         bold=self.bold,
+                         italic=self.italic,
+                         wrap=self.wrap)
 
     @classmethod
     def of(
         cls,
         text: str,
-        font: PathLike,
-        size: int = 12,
+        font: str | FontFamily,
+        size: int | AbsoluteSize,
         *,
-        color: Color | None = None,
-        stroke_width: int = 0,
-        stroke_color: Color | None = None,
-        decoration: TextDecoration = TextDecoration.NONE,
-        decoration_thickness: int = -1,
-        shading: Color | TextShading = Palette.TRANSPARENT,
-        background: Color = Palette.TRANSPARENT,
-        embedded_color: bool = False,
-        ymin_correction: bool = False,
-        italic: bool = False,
+        color: Color = TextStyleDefaults.color,
+        stroke: TextStroke | None = TextStyleDefaults.stroke,
+        decoration: TextDecoration | None = TextStyleDefaults.decoration,
+        shading: Color | TextShading | None = TextStyleDefaults.shading,
+        bold: bool = TextStyleDefaults.bold,
+        italic: bool = TextStyleDefaults.italic,
+        wrap: TextWrap = TextStyleDefaults.wrap,
     ) -> Self:
-        """Create a `RenderText` instance with default values.
-
-        If `color` is not specified, it will be automatically chosen
-        from BLACK or WHITE based on the background color luminance.
-        """
+        if isinstance(font, str):
+            font = FontFamily.of(regular=font)
         if isinstance(shading, Color):
             shading = TextShading(shading)
-        if color is None:
-            im_bg = RenderImage.empty(1, 1, background)
-            im_sd = RenderImage.empty(1, 1, shading.color)
-            r, g, b, _ = im_bg.paste(0, 0, im_sd).base_im[0, 0]
-            luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-            color = Palette.WHITE if luminance < 128 else Palette.BLACK
-        if decoration_thickness < 0:
-            decoration_thickness = max(size // 10, 1)
-        return cls(text, font, size, color, stroke_width, stroke_color,
-                   decoration, decoration_thickness, shading, embedded_color,
-                   ymin_correction, italic)
+        return cls(text, font, AbsoluteSize(size), color, stroke, decoration,
+                   shading, bold, italic, wrap)
+
+    def with_text(self, text: str) -> Self:
+        return self.__class__.of(text, **enforce_minimal(self.style))
+
+    def __getitem__(self, index_or_slice: int | slice) -> Self:
+        return self.with_text(self.text[index_or_slice])
 
     @cached
     def render(self) -> RenderImage:
-        font = ImageFont.truetype(str(self.font), self.size)
-        # https://pillow.readthedocs.io/en/stable/handbook/text-anchors.html
-        # 1. calculate font metrics and text bounding box
-        l, t, r, _ = font.getbbox(self.text,
-                                  mode="RGBA",
-                                  stroke_width=self.stroke_width,
-                                  anchor="ls")
-        metrics = TextFont.get_metrics(str(self.font), self.size)
-        pad_b = TextFont.get_padding(str(self.font), self.size)
-        pad_t = math.ceil(-metrics.y_min) if self.ymin_correction else 0
-        # ascent: distance from the top to the baseline
-        # descent: distance from the baseline to the bottom
-        #          (normally negative, but in Pillow it is positive)
-        ascent, descent = font.getmetrics()
-        # shading padding
-        if isinstance(self.shading.padding, int):
-            shade_pad_h = shade_pad_v = self.shading.padding
+        # 1. 计算字体度量
+        metrics = self._get_font_metrics()
+
+        # 2. 创建文本画布
+        canvas = Image.new("RGBA", metrics["size"], Palette.TRANSPARENT)
+        draw = ImageDraw.Draw(canvas)
+
+        # 3 & 4. 绘制文本和描边 / 绘制装饰线
+        if self.decoration and self.decoration.layer == "under":
+            # line under text
+            self._draw_decorations(draw, metrics)
+
+            self._draw_text_and_stroke(draw, metrics)
         else:
-            shade_pad_h, shade_pad_v = self.shading.padding
-        width = math.ceil(r - l) + 2 * shade_pad_h
-        height = (ascent + descent + self.stroke_width * 2 + pad_t + pad_b +
-                  2 * shade_pad_v)
-        # add padding to avoid overflow
-        pad_l = int(self.SHEAR * height) if self.italic else 0
-        # 2. draw text
-        text_canvas = Image.new("RGBA", (width + pad_l, height),
-                                color=Palette.TRANSPARENT)
-        draw = ImageDraw.Draw(text_canvas)
-        draw.text(
-            xy=(self.stroke_width + pad_l + shade_pad_h,
-                self.stroke_width + pad_t + shade_pad_v),
-            text=self.text,
-            fill=self.color,
-            font=font,
-            stroke_width=self.stroke_width,
-            stroke_fill=self.stroke_color,
-            embedded_color=self.embedded_color,
-        )
-        # 3. draw decoration
+            # line over text
+            self._draw_text_and_stroke(draw, metrics)
+
+            self._draw_decorations(draw, metrics)
+
+        # 5. 应用斜体变换
+        canvas = self._apply_italic_transform(canvas)
+
+        # 6. 应用着色背景
+        if self.text and self.shading:
+            canvas = self._apply_shading_background(canvas, self.shading)
+
+        return RenderImage.from_pil(canvas)
+
+    @cached
+    def _get_font_metrics(self) -> _Metrics:
+        """获取字体度量信息"""
+        font_path, simulate_italic = self.font.resolve(self.bold, self.italic)
+        font = TextFont.load_font(font_path, self.size)
+
+        if self.stroke:
+            stroke_width = self.stroke.width
+        else:
+            stroke_width = 0
+
+        left, top, right, bottom = font.getbbox(self.text,
+                                                mode="RGBA",
+                                                stroke_width=stroke_width,
+                                                anchor="ls")
+        ascent, descent = font.getmetrics()
+
+        # 处理基线校正和底边矫正
+        match self.font.baseline_correction:
+            case False:
+                baseline_corr = 0
+            case True:
+                baseline_corr = math.ceil(
+                    -TextFont.get_metrics(font_path, self.size).y_min)
+            case int():
+                baseline_corr = self.font.baseline_correction
+            case _:
+                assert False, "should not reach here"
+        patch_b = TextFont.get_padding(font_path, self.size)
+
+        # 边距
+        if self.shading:
+            # note: l, r, t, b
+            padding = list(self.shading.padding.as_tuple())
+        else:
+            padding = [0, 0, 0, 0]
+        padding[2] += baseline_corr
+        padding[3] += patch_b
+        temp_padding = Space.of(*padding)
+
+        # 考虑斜体模拟需要的左边距
+        height = ascent + descent + stroke_width * 2 + temp_padding.height
+        if simulate_italic:
+            pad_shear = int(self.font.shear * height)
+        else:
+            pad_shear = 0
+        padding[0] += pad_shear
+
+        width = math.ceil(right - left) + temp_padding.width + pad_shear
+        return {
+            "ascent": ascent,
+            "descent": descent,
+            "bbox": (left, top, right, bottom),
+            "stroke_width": stroke_width,
+            "padding": Space.of(*padding),
+            "size": (width, height),
+        }
+
+    def _draw_text_and_stroke(
+        self,
+        draw: ImageDraw.ImageDraw,
+        metrics: _Metrics,
+    ) -> None:
+        """绘制文本主体和描边"""
+        font_path, _ = self.font.resolve(self.bold, self.italic)
+        font = TextFont.load_font(font_path, self.size)
+
+        # 计算起始位置
+        x = metrics["stroke_width"] + metrics["padding"].left
+        y = metrics["stroke_width"] + metrics["padding"].top
+
+        # 设置颜色参数
+        fill = self.color if not self.font.embedded_color else None
+
+        stroke_params = {}
+        if self.stroke:
+            stroke_params = {
+                "stroke_width": self.stroke.width,
+                "stroke_fill": self.stroke.color
+            }
+
+        draw.text(xy=(x, y),
+                  text=self.text,
+                  fill=fill,
+                  font=font,
+                  embedded_color=self.font.embedded_color,
+                  **stroke_params)
+
+    def _draw_decorations(
+        self,
+        draw: ImageDraw.ImageDraw,
+        metrics: _Metrics,
+    ) -> None:
+        """绘制文本装饰线"""
+        if not self.decoration or not self.text:
+            return
+
+        thick = self.decoration.thickness
+        if thick < 0:
+            # infer thickness from height
+            thick = math.ceil(max(self.height * self.font.thickness, 1))
+        half_thick = thick / 2 + 1
         y_coords: list[float] = []
-        thick = self.decoration_thickness
-        half_thick = thick // 2 + 1
-        if self.decoration & TextDecoration.UNDERLINE:
+        # 计算各装饰线位置
+        if TextDecorationType.UNDERLINE in self.decoration.type:
             y_coords.append(self.baseline + half_thick)
-        if self.decoration & TextDecoration.OVERLINE:
-            y_coords.append(ascent + t - half_thick + shade_pad_v)  # t < 0
-        if self.decoration & TextDecoration.LINE_THROUGH:
-            # deco_y.append((ascent + t + self.baseline) // 2 + half_thick)
-            y_coords.append(height // 2 + half_thick)
+        if TextDecorationType.OVERLINE in self.decoration.type:
+            # t is negative
+            y_coords.append(self.baseline + metrics["bbox"][1])
+        if TextDecorationType.LINE_THROUGH in self.decoration.type:
+            y_coords.append(metrics["size"][1] / 2 + half_thick)
+
+        # 绘制线条
+        x0 = metrics["padding"].left
+        x1 = metrics["size"][0] - metrics["padding"].right
         for y in y_coords:
-            draw.line(
-                xy=[(pad_l, y), (width, y)],
-                fill=self.color,
-                width=thick,
-            )
-        # 4. shear the image to simulate italic
-        if self.italic:
-            text_canvas = text_canvas.transform(
-                (text_canvas.width, text_canvas.height),
-                Image.Transform.AFFINE,
-                (1, self.SHEAR, 0, 0, 1, 0),
-                resample=Image.Resampling.BILINEAR,
-            )
-        # 5. apply shading
-        if self.shading.color != Palette.TRANSPARENT:
-            if self.shading.rounded:
-                shading = draw_squircle(width, height, self.shading.color)
-            else:
-                shading = Image.new("RGBA", (width, height),
-                                    self.shading.color)
-            shading.alpha_composite(text_canvas)
-            text_canvas = shading
-        return RenderImage.from_pil(text_canvas)
+            draw.line([(x0, y), (x1, y)], fill=self.color, width=thick)
 
-    @property
-    @cached
-    def baseline(self) -> int:
-        """Distance from the top to the baseline of the text."""
-        font = ImageFont.truetype(str(self.font), self.size)
-        ascent, _ = font.getmetrics()
-        metrics = TextFont.get_metrics(str(self.font), self.size)
-        pad = math.ceil(-metrics.y_min) if self.ymin_correction else 0
-        shade_pad = self.shading.padding if isinstance(
-            self.shading.padding, int) else self.shading.padding[1]
-        return ascent + self.stroke_width + pad + shade_pad
-
-    @property
-    @cached
-    def width(self) -> int:
-        return self.calculate_size(self.font, self.size, self.text,
-                                   self.stroke_width, self.italic,
-                                   self.shading, self.ymin_correction)[0]
-
-    @property
-    @cached
-    def height(self) -> int:
-        return self.calculate_size(self.font, self.size, self.text,
-                                   self.stroke_width, self.italic,
-                                   self.shading, self.ymin_correction)[1]
+    def _apply_italic_transform(self, canvas: Image.Image) -> Image.Image:
+        """应用仿制斜体变换"""
+        _, simulate_italic = self.font.resolve(self.bold, self.italic)
+        if not simulate_italic:
+            return canvas
+        shear = self.font.shear
+        return canvas.transform(canvas.size,
+                                Image.Transform.AFFINE, (1, shear, 0, 0, 1, 0),
+                                resample=Image.Resampling.BICUBIC)
 
     @classmethod
-    def calculate_size(
-        cls,
-        font: PathLike,
-        size: int,
-        text: str,
-        stroke: int,
-        italic: bool,
-        shading: TextShading,
-        ymin_correction: bool = False,
-    ) -> tuple[int, int]:
-        font_ = ImageFont.truetype(str(font), size)
-        # https://pillow.readthedocs.io/en/stable/handbook/text-anchors.html
-        l, _, r, _ = font_.getbbox(text,
-                                   mode="RGBA",
-                                   stroke_width=stroke,
-                                   anchor="ls")
-        metrics = TextFont.get_metrics(str(font), size)
-        pad_b = TextFont.get_padding(str(font), size)
-        pad_t = math.ceil(-metrics.y_min) if ymin_correction else 0
-        ascent, descent = font_.getmetrics()
-        if isinstance(shading.padding, int):
-            shade_pad_v = shade_pad_h = shading.padding
+    def _apply_shading_background(cls, canvas: Image.Image,
+                                  shading: TextShading) -> Image.Image:
+        """应用着色背景"""
+        if shading.rounded:
+            sd = draw_squircle(canvas.width, canvas.height, shading.color)
         else:
-            shade_pad_h, shade_pad_v = shading.padding
-        width = math.ceil(r - l) + 2 * shade_pad_h
-        height = ascent + descent + stroke * 2 + pad_t + pad_b + 2 * shade_pad_v
-        # add padding to avoid overflow
-        pad_l = int(cls.SHEAR * height) if italic else 0
-        return width + pad_l, height
+            sd = Image.new("RGBA", (canvas.width, canvas.height),
+                           shading.color)
+        return Image.alpha_composite(sd, canvas)
+
+    @property
+    def baseline(self) -> int:
+        """Distance from the top to the baseline of the text."""
+        metrics = self._get_font_metrics()
+        return (metrics["ascent"] + metrics["stroke_width"] +
+                metrics["padding"].top)
+
+    @property
+    def width(self) -> int:
+        return self._get_font_metrics()["size"][0]
+
+    @property
+    def height(self) -> int:
+        return self._get_font_metrics()["size"][1]
+
+    @staticmethod
+    def get_size(text: str,
+                 **kwargs: Unpack[MinimalTextStyle]) -> tuple[int, int]:
+        obj = _RenderTextBlock.of(text, **kwargs)
+        return obj.width, obj.height
+
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}({self.text!r}, "
+                f"fontsize={self.size!r})")
+
+
+class RenderText(_RenderTextBlock):
+
+    def as_block(self) -> _RenderTextBlock:
+        return _RenderTextBlock.of(self.text, **enforce_minimal(self.style))
+
+    @property
+    @cached
+    def blocks(self) -> list[_RenderTextBlock]:
+        if not self.font.fallbacks:
+            return [self.as_block()]
+        if not self.text:
+            return [self.as_block()]
+        dispatch_text_fonts: list[tuple[str, FontFamily]] = [("", self.font)]
+        fonts = [self.font] + self.font.fallbacks
+        for c in self.text:
+            # find the font that supports the character
+            for font in fonts:
+                font_path, _ = font.resolve(self.bold, self.italic)
+                if TextFont.supports_glyph(font_path, c):
+                    break
+            else:
+                font = self.font
+            # add the block
+            last_text, last_font = dispatch_text_fonts[-1]
+            if last_font is not font:
+                dispatch_text_fonts.append((c, font))
+            else:
+                dispatch_text_fonts[-1] = (last_text + c, last_font)
+        blocks = []
+        for text, font in dispatch_text_fonts:
+            if not text:
+                continue
+            style = enforce_minimal(self.style)
+            if font is not self.font:
+                style["font"] = font
+                style["size"] = round(style["size"] * font.scale)
+            style["shading"] = None  # apply shading after concat
+            blocks.append(_RenderTextBlock.of(text, **style))
+        return blocks
+
+    @cached
+    def render(self) -> RenderImage:
+        rendered_blocks = [b.render() for b in self.blocks]
+        result = RenderImage.concat_horizontal_baseline(
+            rendered_blocks, [b.baseline for b in self.blocks])
+        if self.text and self.shading:
+            im = self._apply_shading_background(result.to_pil(), self.shading)
+            return RenderImage.from_pil(im)
+        return result
+
+    @property
+    def width(self) -> int:
+        return sum(b.width for b in self.blocks)
+
+    @property
+    def height(self) -> int:
+        return max((b.height for b in self.blocks), default=0)

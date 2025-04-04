@@ -5,8 +5,8 @@ from pygments.lexers import get_lexer_by_name
 from pygments.styles import get_style_by_name
 from pygments.util import ClassNotFound
 
-from src.utils.render import Color, TextDecoration, TextShading, TextStyle
-from src.utils.render.base.color import Palette
+from src.utils.render import (Color, Palette, TextDecoration, TextShading,
+                              TextStyle)
 
 
 class StyleDict(NamedTuple):
@@ -25,20 +25,33 @@ class StyleDict(NamedTuple):
     @property
     def style(self) -> TextStyle:
         if self.underline:
-            deco = TextDecoration.UNDERLINE
+            deco = TextDecoration.underline()
         else:
-            deco = TextDecoration.NONE
+            deco = None
         if self.bgcolor:
             bg = Color.from_hex(self.bgcolor)
         else:
             bg = Palette.TRANSPARENT
-        return TextStyle.of(
-            color=Color.from_hex(self.color) if self.color else None,
+        sty = TextStyle(
             bold=self.bold,
             italic=self.italic,
             decoration=deco,
-            background=TextShading(color=bg),
+            shading=TextShading(color=bg),
         )
+        if self.color:
+            sty["color"] = Color.from_hex(self.color)
+        return sty
+
+
+def skip_last(iterable: Iterable) -> Iterable:
+    iterator = iter(iterable)
+    try:
+        current = next(iterator)
+    except StopIteration:
+        return  # 空迭代对象
+    for next_item in iterator:
+        yield current  # 返回当前元素（非最后一个）
+        current = next_item
 
 
 def tokenize_code(
@@ -57,7 +70,9 @@ def tokenize_code(
     except ClassNotFound:
         style = get_style_by_name("default")
 
-    for token_type, token_content in lex(code, lexer):
+    # lex unexpectedly yield an extra newline even if it is not present
+    # skip the last newline
+    for token_type, token_content in skip_last(lex(code, lexer)):
         token_type_str = ".".join(t for t in str(token_type).split(".")[1:])
         token_style = style.style_for_token(token_type)
         style_dict = StyleDict(**token_style)  # type: ignore

@@ -10,7 +10,7 @@ from typing_extensions import Literal, Self
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
-_T = TypeVar("_T")
+TC = TypeVar("TC", bound="Cacheable")
 
 if sys.version_info < (3, 9):
     # Python 3.9+ has built-in support for generic collections.
@@ -190,7 +190,7 @@ class CacheableDict(UserDict[K, V], Cacheable):
     update = _dict_update(UserDict[K, V].update)
 
 
-def cached(func: Callable[..., T]) -> Callable[..., T]:
+def cached(func: Callable[[TC], T]) -> Callable[[TC], T]:
     """Decorator to cache the return value of a method.
 
     Raises:
@@ -198,7 +198,7 @@ def cached(func: Callable[..., T]) -> Callable[..., T]:
     """
     key = func.__name__
 
-    def wrapper(self: Cacheable) -> T:
+    def wrapper(self: TC) -> T:
         if not isinstance(self, Cacheable):
             raise TypeError(
                 f"@cached must be used on a Cacheable object: {type(self)}")
@@ -222,7 +222,7 @@ class volatile:
     """
 
     @classmethod
-    def create_property(cls, obj: Cacheable, attr: str, initial: _T) -> _T:
+    def create_property(cls, obj: Cacheable, attr: str, initial: T) -> T:
         """Create a property named `attr` on `obj.__class__` that is volatile.
 
         `property.getter` will return `obj._attr` and
@@ -235,10 +235,10 @@ class volatile:
         # if already a property, don't override
         if not isinstance(getattr(obj.__class__, attr, None), property):
 
-            def getter(self: Cacheable) -> _T:
+            def getter(self: Cacheable) -> T:
                 return getattr(self, protected_attr)
 
-            def setter(self: Cacheable, value: _T) -> None:
+            def setter(self: Cacheable, value: T) -> None:
                 _assert_not_list_or_dict(value)
                 if not hasattr(self, protected_attr) or value != getattr(
                         self, protected_attr):

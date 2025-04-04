@@ -81,6 +81,9 @@ class Space:
     def height(self) -> int:
         return self.top + self.bottom
 
+    def as_tuple(self) -> tuple[int, int, int, int]:
+        return self.left, self.right, self.top, self.bottom
+
 
 class BoundingBox(NamedTuple):
     x: int

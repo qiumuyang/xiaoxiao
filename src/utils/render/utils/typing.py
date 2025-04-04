@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, Generic, List, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -11,6 +11,8 @@ PathLike = Union[str, Path]
 
 T = TypeVar("T")
 D = TypeVar("D")
+
+Flex = Union[T, List[T], None]
 
 
 class Undefined:
@@ -39,12 +41,3 @@ class cast(Generic[T]):
 
     def __new__(cls, value: Any) -> T:
         return value
-
-
-__all__ = [
-    "ImageMask",
-    "PathLike",
-    "Undefined",
-    "cast",
-    "undefined",
-]

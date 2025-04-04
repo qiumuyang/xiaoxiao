@@ -21,10 +21,9 @@ def mix_with_black_white(color: Color, k: int = 3) -> list[Color]:
 
 
 def render_single_color(color: Color, size: int = 40) -> RenderObject:
-    color_hex = Text.of(
+    color_hex = Paragraph.of(
         color.as_hex(),
-        font="data/static/fonts/Genshin.ttf",
-        size=size // 8,
+        style=TextStyle(font="data/static/fonts/Genshin.ttf", size=size // 8),
         background=color,
     )
     return Stack.from_children(

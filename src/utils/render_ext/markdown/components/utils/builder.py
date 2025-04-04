@@ -1,17 +1,18 @@
 import random
 import re
 import string
+from typing import cast
 
 from typing_extensions import Unpack
 
 from src.utils.render import (Alignment, BaseStyle, Container, Direction,
-                              RenderObject, Spacer, StyledText, TextStyle)
+                              Paragraph, RenderImage, RenderObject, Spacer,
+                              TextStyle)
 
-from ..style import OverrideStyle
+from ...style import OverrideStyle
 
 
 def rand_str(length: int = 4) -> str:
-
     return "".join(random.choices(string.ascii_lowercase, k=length))
 
 
@@ -25,16 +26,33 @@ def deduplicate(name: str, existing: set[str]) -> str:
 class Builder:
 
     _styles: dict[str, TextStyle]
+    _images: dict[str, RenderObject | RenderImage]
     _content: str
 
-    def __init__(self, default: TextStyle, no_override: bool = False) -> None:
+    def __init__(self,
+                 default: TextStyle,
+                 max_width: int | None = None,
+                 allow_override: bool = True) -> None:
         self._styles = {}
+        self._images = {}
         self._content = ""
         self._default = default
-        self.no_override = no_override
+        self.max_width = max_width
+        self.allow_override = allow_override
 
     def text(self, content: str):
-        self._content += StyledText.escape(content)
+        self._content += Paragraph.formatter.escape(content)
+
+    def image(self,
+              image: RenderObject | RenderImage,
+              name: str = "img_",
+              inline: bool = False):
+        name = deduplicate(name, set(self._images.keys()))
+        if inline:
+            self._content += f"<{name}/>"
+        else:
+            self._content += f"\n<{name}/>\n"
+        self._images[name] = image
 
     def style(self, name: str, style: TextStyle | None, dedup: bool = True):
         style = style or self._default
@@ -53,27 +71,37 @@ class Builder:
 
     @property
     def styles(self):
-        if self.no_override:
-            return self._styles
-        if isinstance(self._default, OverrideStyle):
-            if self._default.foreground_color:
-                return {
-                    k: v.with_color(self._default.foreground_color)
-                    for k, v in self._styles.items()
-                }
+        if not self.allow_override:
+            return {
+                k:
+                v if not OverrideStyle.isinstance(v) else
+                OverrideStyle.to_normal(v)
+                for k, v in self._styles.items()
+            }
+        if OverrideStyle.isinstance(self._default):
+            fg = cast(OverrideStyle, self._default)["foreground_color"]
+            return {
+                k: OverrideStyle.to_normal(v) | TextStyle(color=fg)
+                for k, v in self._styles.items()
+            }
         return self._styles
+
+    @property
+    def default(self):
+        return OverrideStyle.to_normal(self._default)
 
     def build(self,
               *,
               max_width: int | None = None,
               spacing: int = 0,
               **kwargs: Unpack[BaseStyle]) -> RenderObject:
-        return StyledText.of(self.content,
-                             styles=self.styles,
-                             default=self._default,
-                             max_width=max_width,
-                             line_spacing=spacing,
-                             **kwargs)
+        return Paragraph.from_markup(self.content,
+                                     default=self.default,
+                                     styles=self.styles,
+                                     images=self._images,
+                                     max_width=max_width or self.max_width,
+                                     line_spacing=spacing,
+                                     **kwargs)
 
     class StyleContext:
 

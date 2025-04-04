@@ -4,8 +4,8 @@ from src.utils.render import RenderObject, Space
 
 from ..proto import Context
 from ..render import MarkdownRenderer
-from .builder import Builder
 from .span import SpanRenderer
+from .utils.builder import Builder
 
 
 @MarkdownRenderer.register(Paragraph)
@@ -15,7 +15,7 @@ class ParagraphRenderer:
         self.master = master
 
     def render(self, token: Paragraph, ctx: Context) -> RenderObject:
-        builder = Builder(default=ctx.style)
+        builder = Builder(default=ctx.style, max_width=ctx.max_width)
         builder = SpanRenderer.render(self.master, token, builder)
         return builder.build(max_width=ctx.max_width,
                              margin=Space.of(0, 0, 0,

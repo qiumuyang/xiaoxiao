@@ -12,7 +12,7 @@ class Item(Enum):
     SP = "spacer"
 
 
-RenderItem = Item | Text | Spacer
+RenderItem = Item | Paragraph | Spacer
 
 NotoSansHansBold = "data/static/fonts/NotoSansHans-Bold.otf"
 SegUIEmoji = "data/static/fonts/seguiemj.ttf"
@@ -31,12 +31,17 @@ class GroupMemberAvatar:
     SPACE_RATIO = 0.02
 
     TITLE_TEMPLATE = "{nickname}"
-    TITLE_FONT = NotoSansHansBold
-    TITLE_FALLBACK_FONT = SegUIEmoji
+    TITLE_FONT = FontFamily.of(regular=NotoSansHansBold,
+                               fallbacks=FontFamily.of(
+                                   regular=SegUIEmoji,
+                                   embedded_color=True,
+                                   scale=0.85,
+                                   baseline_correction=True))
     TITLE_FONT_SIZE_RANGE = (4, 28)
     TITLE_ASPECT = 0.25
     TITLE_FILL = Palette.BLACK
-    TITLE_STROKE = (None, 0)  # color and width
+    TITLE_STROKE: TextStroke | None = None
+    TITLE_EXTRA_STYLES: dict[str, TextStyle] = {}
     BACKGROUND = Palette.WHITE
 
     DEFAULT_ALIGN = Alignment.CENTER
@@ -48,7 +53,7 @@ class GroupMemberAvatar:
         if cls.MAX_WIDTH == -1:
             size = 0
             for item in cls.RENDER_LIST:
-                if isinstance(item, Text):
+                if isinstance(item, Paragraph):
                     size = max(size, item.width)
             if size == -1:
                 raise ValueError("No fixed width text found.")
@@ -64,45 +69,15 @@ class GroupMemberAvatar:
     ) -> RenderObject:
         max_width = cls.get_max_width()
         max_height = round(max_width * cls.TITLE_ASPECT)
-        stroke_fill, stroke_width = cls.TITLE_STROKE
-        styled_parts = []
-        for text, support in Text.split_font_unsupported(
-                cls.TITLE_FONT, cls.TITLE_TEMPLATE.format(nickname=nickname)):
-            styled_parts.append(text if support else f"<emoji>{text}</emoji>")
-        font_size = StyledText.get_max_fitting_font_size(
-            text="".join(styled_parts),
-            styles={
-                "emoji":
-                TextStyle.of(
-                    font=cls.TITLE_FALLBACK_FONT,
-                    embedded_color=True,
-                    ymin_correction=True,
-                )
-            },
-            default=TextStyle.of(font=cls.TITLE_FONT,
-                                 color=cls.TITLE_FILL,
-                                 stroke_color=stroke_fill,
-                                 stroke_width=stroke_width),
-            font_size_range=cls.TITLE_FONT_SIZE_RANGE,
+        return Paragraph.from_template_with_font_range(
+            template=cls.TITLE_TEMPLATE,
+            values=dict(nickname=nickname),
             max_size=(max_width, max_height),
-        )
-        return StyledText.of(
-            text="".join(styled_parts),
-            styles={
-                "emoji":
-                TextStyle.of(
-                    font=cls.TITLE_FALLBACK_FONT,
-                    embedded_color=True,
-                    ymin_correction=True,
-                )
-            },
-            default=TextStyle.of(font=cls.TITLE_FONT,
-                                 size=font_size,
-                                 color=cls.TITLE_FILL,
-                                 stroke_color=stroke_fill,
-                                 stroke_width=stroke_width),
-            alignment=alignment,
-            max_width=max_width,
+            font_size=cls.TITLE_FONT_SIZE_RANGE,
+            default=TextStyle(font=cls.TITLE_FONT,
+                              color=cls.TITLE_FILL,
+                              stroke=cls.TITLE_STROKE),
+            styles=cls.TITLE_EXTRA_STYLES,
         )
 
     @classmethod
@@ -173,20 +148,18 @@ class GroupMemberAvatar:
         return container.render().to_pil()
 
 
-def text1(s: str) -> Text:
-    return Text.of(
+def text_large(s: str) -> Paragraph:
+    return Paragraph.of(
         s,
-        font=NotoSansHansBold,
-        size=32,
+        style=TextStyle(font=NotoSansHansBold, size=32),
         alignment=Alignment.CENTER,
     )
 
 
-def text2(s: str) -> Text:
-    return Text.of(
+def text_small(s: str) -> Paragraph:
+    return Paragraph.of(
         s,
-        font=NotoSansHansBold,
-        size=18,
+        style=TextStyle(font=NotoSansHansBold, size=18),
         alignment=Alignment.CENTER,
     )
 
@@ -205,8 +178,8 @@ class LittleAngel(GroupMemberAvatar):
         Item.SP,
         Item.AVATAR,
         Item.SP,
-        text1("非常可爱！简直就是小天使"),
-        text2("她没失踪也没怎么样 我只是觉得你们都该看一下"),
+        text_large("非常可爱！简直就是小天使"),
+        text_small("她没失踪也没怎么样 我只是觉得你们都该看一下"),
     ]
 
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
@@ -226,8 +199,8 @@ class Mesugaki(GroupMemberAvatar):
         Item.SP,
         Item.AVATAR,
         Item.SP,
-        text1("非常欠艹！简直就是雌小鬼"),
-        text2("她没失踪也没怎么样 我只是觉得你们都该调教一下"),
+        text_large("非常欠艹！简直就是雌小鬼"),
+        text_small("她没失踪也没怎么样 我只是觉得你们都该调教一下"),
     ]
 
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"
@@ -247,8 +220,8 @@ class RBQ(GroupMemberAvatar):
         Item.SP,
         Item.AVATAR,
         Item.SP,
-        text1("非常可爱！简直就是RBQ"),
-        text2("她没失踪也没怎么样 我只是觉得你们都该玩一下"),
+        text_large("非常可爱！简直就是RBQ"),
+        text_small("她没失踪也没怎么样 我只是觉得你们都该玩一下"),
     ]
 
     TITLE_TEMPLATE = "请问你们看到{nickname}了吗？"

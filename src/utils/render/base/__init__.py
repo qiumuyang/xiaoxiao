@@ -6,10 +6,12 @@ from .image import ImageMask, RenderImage
 from .object import BaseStyle, RenderObject
 from .properties import (Alignment, Border, BoundingBox, Direction,
                          Interpolation, Space)
-from .text import RenderText, TextDecoration, TextShading
+from .text import RenderText
 from .textfont import TextFont
+from .textstyle import *
 
 __all__ = [
+    "AbsoluteSize",
     "Alignment",
     "BaseStyle",
     "Border",
@@ -19,12 +21,17 @@ __all__ = [
     "Color",
     "Decorations",
     "Direction",
+    "FontFamily",
+    "Hyphen",
     "ImageMask",
     "InplaceDecoration",
     "Interpolation",
     "LayerDecoration",
+    "MinimalTextStyle",
+    "OverflowWrap",
     "Overlay",
     "Palette",
+    "RelativeSize",
     "RenderImage",
     "RenderObject",
     "RenderText",
@@ -32,6 +39,11 @@ __all__ = [
     "TextDecoration",
     "TextFont",
     "TextShading",
+    "TextStroke",
+    "TextStyle",
+    "TextStyleDefaults",
+    "TextWrap",
     "cached",
+    "enforce_minimal",
     "volatile",
 ]

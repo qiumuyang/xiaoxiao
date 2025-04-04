@@ -5,7 +5,8 @@ Fix fonts overshooting ascender.
 import string
 from copy import deepcopy
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import lru_cache, wraps
+from typing import Any
 
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._h_e_a_d import table__h_e_a_d
@@ -24,14 +25,16 @@ class FontMetrics:
 class TextFont:
 
     metrics: dict[str, FontMetrics] = {}
+    cmaps: dict[str, Any] = {}
 
     @classmethod
-    def init_font(cls, font_path: str) -> FontMetrics:
+    def init_font(cls, font_path: str):
         if font_path not in cls.metrics:
             if font_path.endswith(".ttc"):
                 font = TTFont(font_path, fontNumber=0)
             else:
                 font = TTFont(font_path)
+            cmap = font["cmap"]
             hhea: table__h_h_e_a = font["hhea"]  # type: ignore
             head: table__h_e_a_d = font["head"]  # type: ignore
             ascent = hhea.ascent
@@ -44,10 +47,10 @@ class TextFont:
                 y_min = 0
             cls.metrics[font_path] = FontMetrics(ascent, descent, y_min,
                                                  units_per_em)
-        return cls.metrics[font_path]
+            cls.cmaps[font_path] = cmap
 
     @classmethod
-    def get_metrics(cls, font_path: str, font_size: int) -> FontMetrics:
+    def get_metrics(cls, font_path: str, font_size: float) -> FontMetrics:
         cls.init_font(font_path)
         result = deepcopy(cls.metrics[font_path])
         result.ascent *= font_size / result.units_per_em
@@ -56,9 +59,32 @@ class TextFont:
         return result
 
     @classmethod
+    def supports_glyph(cls, font_path: str, glyph: str) -> bool:
+        cls.init_font(font_path)
+        for table in cls.cmaps[font_path].tables:
+            if ord(glyph) in table.cmap.keys():
+                return True
+        return False
+
+    @classmethod
+    @wraps(ImageFont.truetype)
     @lru_cache()
-    def get_padding(cls, font_path: str, font_size: int) -> int:
-        font = ImageFont.truetype(font_path, font_size)
+    def load_font(cls, *args, **kwargs) -> ImageFont.FreeTypeFont:
+        try:
+            return ImageFont.truetype(*args, **kwargs)
+        except OSError:
+            raise ValueError(f"Font file not found: {kwargs['font']}")
+
+    @classmethod
+    @lru_cache()
+    def get_padding(cls, font_path: str, font_size: float) -> int:
+        """Calculate the padding needed to fix the overshooting ascender
+        by rendering the font with and without the ascender and measuring
+        the difference in height.
+
+        It is a little bit hacky and inefficient, but it works.
+        """
+        font = cls.load_font(font_path, font_size)
         ascent, descent = font.getmetrics()
         text = string.ascii_letters
         width = round(font.getlength(text))

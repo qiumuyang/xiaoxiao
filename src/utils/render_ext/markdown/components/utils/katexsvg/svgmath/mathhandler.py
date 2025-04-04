@@ -47,13 +47,13 @@ class MathHandler(sax.ContentHandler):
     def endDocument(self):
         self.output.endDocument()
 
-    def startElementNS(self, elementName, qName, attributes):
+    def startElementNS(self, name, qname, attrs):
         if self.skip > 0:
             self.skip += 1
             return
 
         locator = NodeLocator(self.locator)
-        (namespace, localName) = elementName
+        (namespace, localName) = name
         if namespace and namespace != MathNS:
             if self.config.verbose:
                 locator.message(
@@ -63,7 +63,7 @@ class MathHandler(sax.ContentHandler):
             return
 
         properties = {}
-        for (attName, value) in list(attributes.items()):
+        for (attName, value) in list(attrs.items()):
             (attNamespace, attLocalName) = attName
             if attNamespace and attNamespace != MathNS:
                 if self.config.verbose:
@@ -76,12 +76,13 @@ class MathHandler(sax.ContentHandler):
         self.currentNode = MathNode(localName, properties, locator,
                                     self.config, self.currentNode)
 
-    def endElementNS(self, elementName, qName):
+    def endElementNS(self, name, qname):
         if self.skip > 0:
             self.skip -= 1
-            if self.skip > 0: return
+            if self.skip > 0:
+                return
 
-        (namespace, localname) = elementName
+        (namespace, localname) = name
         if namespace and namespace != MathNS:
             raise sax.SAXParseException(
                 "SAX parser error: namespace on opening and closing elements don't match",
@@ -100,6 +101,7 @@ class MathHandler(sax.ContentHandler):
         self.currentNode = self.currentNode.parent
 
     def characters(self, content):
-        if self.skip > 0: return
+        if self.skip > 0:
+            return
         if self.currentNode:
             self.currentNode.text += content

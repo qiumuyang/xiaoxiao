@@ -7,7 +7,7 @@ from src.utils.render import (Alignment, Container, Direction, RenderObject,
 
 from ..proto import Context
 from ..render import MarkdownRenderer
-from .builder import Box, Builder
+from .utils.builder import Box, Builder
 
 
 @MarkdownRenderer.register(List)
@@ -73,7 +73,7 @@ class ListItemBuilder:
             bullet_text = style.ordered_bullet(ctx.indent - 1, number)
         else:
             bullet_text = style.unordered_bullet(ctx.indent - 1)
-        builder = Builder(default=ctx.style)
+        builder = Builder(default=ctx.style, max_width=ctx.max_width)
         with builder.style("marker", style=style.bullet(is_ordered)):
             builder.text(bullet_text)
         space_between = round(style.bullet_margin_factor *

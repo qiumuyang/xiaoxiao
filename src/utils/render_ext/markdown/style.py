@@ -1,11 +1,11 @@
-import copy
 from pathlib import Path
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, cast
 
 import mistletoe.span_token as T
+from typing_extensions import Required
 
-from src.utils.render import (Color, FontFamily, TextDecoration, TextShading,
-                              TextStyle)
+from src.utils.render import (Color, FontFamily, Space, TextDecoration,
+                              TextShading, TextStyle, TextWrap)
 
 from .token import Emoji
 
@@ -13,21 +13,17 @@ StrOrPath = str | Path
 
 
 class OverrideStyle(TextStyle):
-    """
 
-    This is an ugly hack to allow overriding the foreground color for quote.
-    """
+    foreground_color: Required[Color]
 
-    foreground_color: Color | None = None
+    @staticmethod  # type: ignore
+    def to_normal(style: TextStyle) -> TextStyle:
+        kv = {k: v for k, v in style.items() if k != "foreground_color"}
+        return cast(TextStyle, kv)
 
-    @classmethod
-    def from_style(cls,
-                   style: TextStyle,
-                   foreground_color: Color | None = None) -> "OverrideStyle":
-        obj = cls.__new__(cls)
-        obj.__dict__.update(copy.deepcopy(style.__dict__))
-        obj.foreground_color = foreground_color
-        return obj
+    @staticmethod  # type: ignore
+    def isinstance(style: TextStyle) -> bool:
+        return "foreground_color" in style
 
 
 class BackgroundPalette(NamedTuple):
@@ -64,15 +60,16 @@ class TextSize(NamedTuple):
 
 
 class TextFont(NamedTuple):
-    main: FontFamily = FontFamily(regular="data/static/fonts/MSYAHEI.ttc",
-                                  bold="data/static/fonts/MSYAHEIbd.ttc")
-    code: FontFamily = FontFamily(
+    main: FontFamily = FontFamily.of(regular="data/static/fonts/MSYAHEI.ttc",
+                                     bold="data/static/fonts/MSYAHEIbd.ttc")
+    code: FontFamily = FontFamily.of(
         regular="data/static/fonts/MapleMonoNormalNL-CN-Regular.ttf",
         bold="data/static/fonts/MapleMonoNormalNL-CN-Bold.ttf",
         italic="data/static/fonts/MapleMonoNormalNL-CN-Italic.ttf",
         bold_italic="data/static/fonts/MapleMonoNormalNL-CN-BoldItalic.ttf")
-    emoji: FontFamily = FontFamily(regular="data/static/fonts/seguiemj.ttf",
-                                   bold="data/static/fonts/seguiemj.ttf")
+    emoji: FontFamily = FontFamily.of(regular="data/static/fonts/seguiemj.ttf",
+                                      embedded_color=True,
+                                      baseline_correction=True)
 
 
 class Heading(NamedTuple):
@@ -84,10 +81,10 @@ class Heading(NamedTuple):
     margin_factor: float = 0.5
 
     def level(self, level: int) -> TextStyle:
-        return TextStyle.of(font=self.font,
-                            size=self.sizes[level - 1],
-                            color=Color.from_hex(self.color),
-                            bold=self.bold[level - 1])
+        return TextStyle(font=self.font,
+                         size=self.sizes[level - 1],
+                         color=Color.from_hex(self.color),
+                         bold=self.bold[level - 1])
 
     def line_offset(self, level: int) -> int | None:
         rel = self.line_below[level - 1]
@@ -112,10 +109,10 @@ class CodeBlock(NamedTuple):
 
     @property
     def style(self) -> TextStyle:
-        return TextStyle.of(font=self.font,
-                            size=self.size,
-                            color=Color.from_hex(self.color),
-                            hyphenation=False)
+        return TextStyle(font=self.font,
+                         size=self.size,
+                         color=Color.from_hex(self.color),
+                         wrap=TextWrap.of(hyphen="none"))
 
 
 class CodeInline(NamedTuple):
@@ -128,18 +125,18 @@ class CodeInline(NamedTuple):
 
     @property
     def style(self) -> TextStyle:
-        style_ = TextStyle.of(
+        sty = TextStyle(
             font=self.font,
             size=self.size,
             color=Color.from_hex(self.color),
-            background=TextShading(color=Color.from_hex(self.background),
-                                   rounded=self.rounded,
-                                   padding=(4, 2)),
+            shading=TextShading(color=Color.from_hex(self.background),
+                                rounded=self.rounded,
+                                padding=Space.of_side(4, 2)),
         )
         if self.force_regular:
-            style_.bold = False
-            style_.italic = False
-        return style_
+            sty["bold"] = False
+            sty["italic"] = False
+        return sty
 
 
 class Quote(NamedTuple):
@@ -154,11 +151,11 @@ class Quote(NamedTuple):
 
     @property
     def style(self) -> OverrideStyle:
-        normal = TextStyle.of(font=self.font,
-                              size=self.size,
-                              color=Color.from_hex(self.color),
-                              italic=self.italic)
-        return OverrideStyle.from_style(normal, Color.from_hex(self.color))
+        return OverrideStyle(font=self.font,
+                             size=self.size,
+                             color=Color.from_hex(self.color),
+                             italic=self.italic,
+                             foreground_color=Color.from_hex(self.color))
 
 
 class Link(NamedTuple):
@@ -167,9 +164,10 @@ class Link(NamedTuple):
 
     @property
     def style(self) -> TextStyle:
-        return TextStyle.of(color=Color.from_hex(self.color),
-                            decoration=TextDecoration.UNDERLINE
-                            if self.underline else TextDecoration.NONE)
+        return TextStyle(
+            color=Color.from_hex(self.color),
+            decoration=TextDecoration.underline() if self.underline else None,
+        )
 
 
 class Table(NamedTuple):
@@ -187,7 +185,7 @@ class Table(NamedTuple):
 
     @property
     def header(self) -> TextStyle:
-        return TextStyle.of(bold=self.header_bold)
+        return TextStyle(bold=self.header_bold)
 
     def background(self, index: int) -> Color:
         if index == 0:
@@ -244,9 +242,9 @@ class List(NamedTuple):
         return fn(index) + "."
 
     def bullet(self, is_ordered: bool) -> TextStyle:
-        return TextStyle.of(size=self.ordered_bullet_size
-                            if is_ordered else self.unordered_bullet_size,
-                            color=Color.from_hex(self.bullet_color))
+        return TextStyle(size=self.ordered_bullet_size
+                         if is_ordered else self.unordered_bullet_size,
+                         color=Color.from_hex(self.bullet_color))
 
 
 class Math(NamedTuple):
@@ -320,9 +318,9 @@ class MarkdownStyle(NamedTuple):
 
     @property
     def main(self) -> TextStyle:
-        return TextStyle.of(font=self.text_font.main,
-                            size=self.text_size.main,
-                            color=Color.from_hex(self.text_palette.main))
+        return TextStyle(font=self.text_font.main,
+                         size=self.text_size.main,
+                         color=Color.from_hex(self.text_palette.main))
 
     @property
     def heading(self) -> Heading:
@@ -365,16 +363,14 @@ class MarkdownStyle(NamedTuple):
     @property
     def span(self) -> dict[type[T.SpanToken], tuple[TextStyle, str]]:
         return {
-            T.Emphasis: (TextStyle.of(italic=True), "em"),
-            T.Strong: (TextStyle.of(bold=True), "strong"),
+            T.Emphasis: (TextStyle(italic=True), "em"),
+            T.Strong: (TextStyle(bold=True), "strong"),
             T.InlineCode: (self.code_inline.style, "code"),
             T.Link: (self.link.style, "a"),
             T.Strikethrough:
-            (TextStyle.of(decoration=TextDecoration.LINE_THROUGH), "s"),
-            T.EscapeSequence: (TextStyle.of(), "esc"),
-            Emoji: (TextStyle.of(font=self.text_font.emoji,
-                                 embedded_color=True,
-                                 ymin_correction=True), "emoji"),
+            (TextStyle(decoration=TextDecoration.line_through()), "s"),
+            T.EscapeSequence: (TextStyle(), "esc"),
+            Emoji: (TextStyle(font=self.text_font.emoji), "emoji"),
         }
 
     @property

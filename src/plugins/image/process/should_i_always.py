@@ -3,7 +3,7 @@ from PIL import Image
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.render import Alignment, Container, Direction
 from src.utils.render import Image as ImageR
-from src.utils.render import Palette, Space, Text
+from src.utils.render import Palette, Paragraph, Space, TextStyle
 
 from .processor import ImageProcessor
 
@@ -26,6 +26,8 @@ class ShouldIAlways(ImageProcessor):
     HORIZONTAL_SPACING_RATIO = 0.3
     VERTICAL_SPACING_RATIO = 0.25
 
+    TEMPLATE = "要我一直  <image/>  吗"
+
     def process_frame(self, image: Image.Image, *args,
                       **kwargs) -> Image.Image:
         image = self.scale(image,
@@ -35,26 +37,19 @@ class ShouldIAlways(ImageProcessor):
         image_small = ImageR.from_image(image).rescale(1 / self.DOWN)
         # make font size even
         font_size = round(image_small.height * self.FONT_RATIO) // 2 * 2
-        hor_spacing = round(font_size * self.HORIZONTAL_SPACING_RATIO)
         ver_spacing = round(font_size * self.VERTICAL_SPACING_RATIO)
         return Container.from_children(
             [
                 image_large,
-                Container.from_children(
-                    [
-                        Text.of("要我一直",
-                                font=self.NotoSansHansBold,
-                                size=font_size,
-                                color=Palette.BLACK),
-                        image_small,
-                        Text.of("吗",
-                                font=self.NotoSansHansBold,
-                                size=font_size,
-                                color=Palette.BLACK),
-                    ],
-                    alignment=Alignment.CENTER,
-                    direction=Direction.HORIZONTAL,
-                    spacing=hor_spacing,
+                Paragraph.from_markup(
+                    self.TEMPLATE,
+                    default=TextStyle(
+                        font=self.NotoSansHansBold,
+                        size=font_size,
+                        color=Palette.BLACK,
+                        shading=Palette.ALICE_BLUE,
+                    ),
+                    images=dict(image=image_small),
                 )
             ],
             alignment=Alignment.CENTER,

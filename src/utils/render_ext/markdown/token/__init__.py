@@ -1,8 +1,4 @@
 from .emoji import Emoji
-from .math import BlockMath, InlineMath
+from .math import Math
 
-__all__ = [
-    "BlockMath",
-    "Emoji",
-    "InlineMath",
-]
+__all__ = ["Emoji", "Math"]

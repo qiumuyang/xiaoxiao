@@ -1,9 +1,11 @@
-from mistletoe.span_token import Image, LineBreak, Link, RawText, SpanToken
+from mistletoe.span_token import Image, LineBreak, RawText, SpanToken
 from mistletoe.token import Token
 
 from ..render import MarkdownRenderer
-from ..token import InlineMath
-from .builder import Builder
+from ..token import Math
+from .utils.builder import Builder
+from .utils.image import fetch_image
+from .utils.math import render_math
 
 
 class SpanRenderer:
@@ -14,7 +16,6 @@ class SpanRenderer:
     @classmethod
     def render(cls, master: MarkdownRenderer, token: Token,
                builder: Builder) -> Builder:
-        span_style = master.style.span
         for span in token.children or []:
             if not isinstance(span, SpanToken):
                 raise ValueError(f"Unexpected non-span token: {span}")
@@ -22,14 +23,22 @@ class SpanRenderer:
                 case RawText():
                     builder.text(span.content.replace("<br>", "\n"))
                 case LineBreak():
-                    builder.text("\n")
-                case InlineMath():
-                    # TODO: Add math support
-                    builder.text("[公式]")
+                    if not span.soft:
+                        builder.text("\n")
+                case Math():
+                    try:
+                        builder.image(render_math(span.math,
+                                                  span.inline,
+                                                  max_width=builder.max_width),
+                                      name="eq_",
+                                      inline=span.inline)
+                    except Exception:
+                        builder.text("[公式渲染错误]")
                 case Image():
-                    # TODO: Add image support
-                    with builder.style("img", span_style[Link][0]):
-                        builder.text(f"[Image:{span.src}]")
+                    try:
+                        builder.image(fetch_image(span.src))
+                    except Exception:
+                        builder.text("[图片渲染错误]")
                 case _:
                     style_with_name = master.style.span.get(type(span))
                     if not style_with_name:

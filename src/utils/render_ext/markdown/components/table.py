@@ -9,8 +9,8 @@ from src.utils.render.base.image import RenderImage
 
 from ..proto import Context
 from ..render import MarkdownRenderer
-from .builder import Box, Builder
 from .span import SpanRenderer
+from .utils.builder import Box, Builder
 
 T = TypeVar("T")
 

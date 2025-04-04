@@ -6,9 +6,9 @@ from typing_extensions import Unpack
 from src.utils.render import (Alignment, BaseStyle, BoxSizing, CircleCrop,
                               Color, Container, Decorations, Direction)
 from src.utils.render import Image as ImageObject
-from src.utils.render import (Interpolation, Palette, RectCrop, RenderImage,
-                              RenderObject, Space, Spacer, Text, TextStyle,
-                              cached, volatile)
+from src.utils.render import (Interpolation, Palette, Paragraph, RectCrop,
+                              RenderImage, RenderObject, Space, Spacer,
+                              TextStyle, cached, volatile)
 
 
 class MessageRender:
@@ -22,8 +22,8 @@ class MessageRender:
 
     FONT = "data/static/fonts/MiSans-Regular.ttf"
 
-    STYLE_NICKNAME = TextStyle.of(font=FONT, size=18, color=COLOR_NICKNAME)
-    STYLE_CONTENT = TextStyle.of(font=FONT, size=24, color=COLOR_CONTENT)
+    STYLE_NICKNAME = TextStyle(font=FONT, size=18, color=COLOR_NICKNAME)
+    STYLE_CONTENT = TextStyle(font=FONT, size=24, color=COLOR_CONTENT)
 
     MAX_WIDTH = 360
     MAX_IMAGE_DIM = MAX_WIDTH
@@ -52,20 +52,20 @@ class MessageRender:
         avatar_.resize(cls.AVATAR_SIZE, cls.AVATAR_SIZE)
         nickname_ = None
         if nickname:
-            nickname_ = Text.from_style(nickname, style=cls.STYLE_NICKNAME)
+            nickname_ = Paragraph.of(nickname, style=cls.STYLE_NICKNAME)
         if isinstance(content, str):
             if "multimedia.nt.qq.com" in content:
                 # image url
                 content_ = ImageObject.from_url(content,
                                                 decorations=cls.CONTENT_DECO)
             else:
-                content_ = Text.from_style(content,
-                                           style=cls.STYLE_CONTENT,
-                                           max_width=cls.MAX_WIDTH,
-                                           line_spacing=3,
-                                           background=Palette.WHITE,
-                                           padding=cls.CONTENT_PADDING,
-                                           decorations=cls.CONTENT_DECO)
+                content_ = Paragraph.of(content,
+                                        style=cls.STYLE_CONTENT,
+                                        max_width=cls.MAX_WIDTH,
+                                        line_spacing=4,
+                                        background=Palette.WHITE,
+                                        padding=cls.CONTENT_PADDING,
+                                        decorations=cls.CONTENT_DECO)
         else:
             content_ = ImageObject.from_image(
                 content,

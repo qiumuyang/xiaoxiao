@@ -9,8 +9,8 @@ from src.utils.render.utils.squircle import draw_squircle
 
 from ..proto import Context
 from ..render import MarkdownRenderer
-from .builder import Builder
-from .syntax_highlight import tokenize_code
+from .utils.builder import Builder
+from .utils.syntax import tokenize_code
 
 
 @MarkdownRenderer.register(CodeFence)
@@ -27,19 +27,16 @@ class CodeFenceRenderer:
             raise ValueError(
                 "CodeFence must have exactly one child of type RawText")
         code = cast(RawText, children[0]).content
+        code = code.removesuffix("\n")  # remove one trailing newline
         lang = token.language
         padding = [
             round(_ * main_style.unit) for _ in code_style.padding_factor
         ]
-        builder = Builder(default=ctx.style, no_override=True)
+        builder = Builder(default=ctx.style, allow_override=False)
         with builder.style("code-block", code_style.style):
             for content, token_type, style_dict in tokenize_code(
                     lang, code, code_style.highlight_style):
                 with builder.style(token_type, style_dict.style):
-                    if content == "\n":
-                        # due to bug in render.StyledText,
-                        # a single newline is not rendered (add a space to fix)
-                        builder.text(" ")
                     builder.text(content)
         content = builder.build(max_width=ctx.max_width - padding[0] * 2,
                                 spacing=main_style.line_spacing,

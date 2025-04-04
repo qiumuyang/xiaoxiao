@@ -7,7 +7,7 @@ from src.utils.render import RenderObject, Spacer
 
 from .proto import BlockRenderer, Context
 from .style import MarkdownStyle
-from .token import *
+from .token import Emoji, Math
 
 
 class MarkdownRenderer:
@@ -33,7 +33,7 @@ class MarkdownRenderer:
         self.text = text
         self.style = style
         self.content_width = content_width
-        with AstRenderer(InlineMath, BlockMath, Emoji):
+        with AstRenderer(Emoji, Math):
             self.doc = mistletoe.Document(text)
 
     def render(self) -> RenderObject:

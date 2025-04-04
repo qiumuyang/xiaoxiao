@@ -1,4 +1,3 @@
-import textwrap
 from datetime import datetime
 
 from PIL import Image as PILImage
@@ -44,10 +43,20 @@ class FortuneRender:
     SegUIEmoji = "data/static/fonts/seguiemj.ttf"
     STLiti = "data/static/fonts/STLITI.TTF"
 
-    text_template = textwrap.dedent("""
-        <date>■  {date}</date>
-        <luck>■  今天的幸运色是 {lucky_color}</luck>
-        """).strip()
+    MAIN_FONT = FontFamily.of(regular=NotoSansHansMedium,
+                              bold=NotoSansHansBold,
+                              fallbacks=FontFamily.of(
+                                  regular=SegUIEmoji,
+                                  embedded_color=True,
+                                  scale=0.85,
+                                  baseline_correction=True))
+
+    DATE_COLOR_TEMPLATE = ("<date>■  {date}</date>\n"
+                           "<luck>■  今天的幸运色是 {lucky_color}</luck>")
+    DATE_COLOR_STYLE = TextStyle(font=MAIN_FONT, size=FONT_SMALL)
+    EVENT_STYLE = TextStyle(font=MAIN_FONT,
+                            size=FONT_EVENT,
+                            color=Palette.WHITE)
 
     @classmethod
     def text_style(
@@ -56,16 +65,8 @@ class FortuneRender:
         theme_light: Color,
         lucky_color: Color,
     ) -> dict[str, TextStyle]:
-        return {
-            "luck":
-            TextStyle.of(font=cls.NotoSansHansMedium,
-                         size=cls.FONT_SMALL,
-                         color=lucky_color),
-            "date":
-            TextStyle.of(font=cls.NotoSansHansMedium,
-                         size=cls.FONT_SMALL,
-                         color=theme_light),
-        }
+        return dict(luck=TextStyle(color=lucky_color),
+                    date=TextStyle(color=theme_light))
 
     @classmethod
     def render_event_row(
@@ -81,10 +82,8 @@ class FortuneRender:
             color = Palette.blend(Color.of(*color), Palette.BLACK, 0.2)
         else:
             color = Color.of(*color)
-        head = Text.of(text="宜" if is_good else "忌",
-                       font=cls.NotoSansHansMedium,
-                       size=cls.FONT_EVENT,
-                       color=Palette.WHITE)
+        head = Paragraph.of(text="宜" if is_good else "忌",
+                            style=cls.EVENT_STYLE)
         event_height = round(cls.FONT_EVENT * cls.EVENT_EXPAND)
         head = FixedContainer.from_children(
             children=[head],
@@ -98,12 +97,7 @@ class FortuneRender:
         event_width = round(event_height * cls.EVENT_ASPECT)
         event_objects = [
             FixedContainer.from_children(
-                children=[
-                    Text.of(text=event,
-                            font=cls.NotoSansHansMedium,
-                            size=cls.FONT_EVENT,
-                            color=Palette.WHITE)
-                ],
+                children=[Paragraph.of(text=event, style=cls.EVENT_STYLE)],
                 width=event_width,
                 height=event_height,
                 justify_content=JustifyContent.CENTER,
@@ -130,37 +124,17 @@ class FortuneRender:
         theme_light: Color,
         theme_dark: Color,
     ) -> RenderObject:
-        styled_parts = []
-        for text, support in Text.split_font_unsupported(
-                cls.NotoSansHansBold, username):
-            # let's assume unsupported characters are all emojis
-            styled_parts.append(text if support else f"<emoji>{text}</emoji>")
-        max_name_size = (max_name_width, max_name_height)
-        shared_kw = dict(
-            text="".join(styled_parts),
-            styles={
-                "emoji":
-                TextStyle.of(font=cls.SegUIEmoji,
-                             size=cls.EMOJI_CORRECTION,
-                             stroke_width=0,
-                             embedded_color=True,
-                             ymin_correction=True),
-            },
-            default=TextStyle.of(
-                font=cls.NotoSansHansBold,
-                size=0,
-                color=theme_light,
-                stroke_color=theme_dark,
-                stroke_width=1,
-            ),
+        return Paragraph.from_template_with_font_range(
+            "<b>{name}</b>",
+            values=dict(name=username),
+            max_size=(max_name_width, max_name_height),
+            font_size=(cls.FONT_LARGE // 4, cls.FONT_LARGE),
+            default=TextStyle(font=cls.MAIN_FONT,
+                              size=0,
+                              stroke=TextStroke(width=1, color=theme_dark),
+                              color=theme_light),
+            styles=dict(b=TextStyle(bold=True)),
         )
-        font_size = StyledText.get_max_fitting_font_size(
-            font_size_range=(cls.FONT_LARGE // 4, cls.FONT_LARGE),
-            max_size=max_name_size,
-            **shared_kw)  # type: ignore
-        shared_kw["default"].size = font_size  # type: ignore
-        return StyledText.of(max_width=max_name_width,
-                             **shared_kw)  # type: ignore
 
     @classmethod
     def is_dark_by_sunrise_sunset(cls) -> bool:
@@ -228,13 +202,14 @@ class FortuneRender:
             name_text = Image.from_image(
                 name_text.render(),
                 margin=Space.of(0, max_name_width - name_text.width, 0, 0))
-        desc_text = StyledText.of(
-            text=cls.text_template.format(lucky_color=lucky_color.as_hex(),
-                                          date=fortune["date"]),
+        desc_text = Paragraph.from_template(
+            cls.DATE_COLOR_TEMPLATE,
+            values=dict(lucky_color=lucky_color.as_hex(),
+                        date=fortune["date"]),
+            default=cls.DATE_COLOR_STYLE,
             styles=cls.text_style(theme_dark, theme_light, lucky_color),
-            default=TextStyle.of(),  # default style not used
             max_width=max_name_width,
-            line_spacing=cls.FONT_MEDIUM // 4)
+        )
 
         avatar_space_r = cls.SZ // cls.AVATAR_SPACE_D
         avatar_offset = (avatar_space_r, 0)
@@ -254,11 +229,11 @@ class FortuneRender:
         # lower part: fortune text & events texts
         is_good_fortune = "吉" in fortune["fortune"]
         fortune_color = cls.GOOD_FORTUNE_COLOR if is_good_fortune else cls.BAD_FORTUNE_COLOR
-        fortune_text = Text.of(
+        fortune_text = Paragraph.of(
             text=fortune["fortune"],
-            font=cls.STLiti,
-            size=cls.FONT_MEDIUM,
-            color=Palette.WHITE,
+            style=TextStyle(font=cls.STLiti,
+                            size=cls.FONT_MEDIUM,
+                            color=Palette.WHITE),
             max_width=cls.FONT_MEDIUM,
             line_spacing=6,
         )

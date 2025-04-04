@@ -33,38 +33,33 @@ class AnnualReportRenderer:
     TREND_BORDER = Border.of(3, Palette.WHITE.with_alpha(0.4))
     GLOBAL_MARGIN = Space.of_side(horizontal=30, vertical=15)
 
-    EMPH_TEXT_COLOR = Color.of(80, 80, 80)
-    NORMAL_TEXT_COLOR = EMPH_TEXT_COLOR.with_alpha(0.75)
-    NORMAL_TEXT_STYLE = TextStyle.of(
-        font=NotoSansHansRegular,
-        size=18,
-        color=NORMAL_TEXT_COLOR,
-    )
-    SMALL = TextStyle.of(size=0.75)
-    EMPH_TEXT_STYLE = TextStyle.of(
-        font=NotoSansHansBold,
-        size=1.6,  # relative to normal
-        color=EMPH_TEXT_COLOR,
-    )
-    EMPH_TEXT_STYLE2 = TextStyle.of(
-        font=NotoSansHansBold,
-        size=1.2,
-        color=EMPH_TEXT_COLOR,
-    )
-    EMOJI_TEXT_STYLE = TextStyle.of(font=SegUIEmoji,
-                                    size=0.85,
-                                    stroke_width=0,
-                                    embedded_color=True,
-                                    ymin_correction=True)
-    CAPTION_TEXT_STYLE = TextStyle.of(font=NotoSansHansLight,
-                                      size=14,
-                                      color=Palette.GRAY)
+    EMPH_COLOR = Color.of(80, 80, 80)
+    NORMAL_COLOR = EMPH_COLOR.with_alpha(0.75)
 
+    EMOJI_FONT = FontFamily.of(regular=SegUIEmoji,
+                               embedded_color=True,
+                               scale=0.85,
+                               baseline_correction=True)
+    MAIN_FONT = FontFamily.of(regular=NotoSansHansRegular,
+                              bold=NotoSansHansBold,
+                              fallbacks=EMOJI_FONT)
+    MAIN_STYLE = TextStyle(font=MAIN_FONT, size=18, color=NORMAL_COLOR)
+    STYLES = {
+        "s": TextStyle(size=0.75),
+        "b": TextStyle(size=1.6, bold=True),
+        "b2": TextStyle(size=1.2, bold=True),
+    }
+
+    CAPTION_STYLE = TextStyle(font=NotoSansHansLight,
+                              size=14,
+                              color=Palette.GRAY)
+
+    TITLE_TEMPLATE = "{name} · {year}群聊年度报告"
     ACTIVE_DAYS_TEMPLATE = "今年，你在群内活跃了 <b>{active_days}</b> 天"
     MESSAGE_COUNT_TEMPLATE = ("在这些日子里，你一共发送了 <b>{num_messages}</b> 条消息，"
                               "排名第 <b>{message_rank}</b>")
     MOST_MESSAGE_TEMPLATE = ("你在 <b>{month}月{day}日</b> 发了<b>{most_message}</b>"
-                             "条消息\n\n{most_message_comment}")
+                             "条消息\n{most_message_comment}")
     MOST_MESSAGE_COMMENTS = [
         "或许发生了什么有趣的事",
         "还记得当时聊了些什么吗",
@@ -77,7 +72,7 @@ class AnnualReportRenderer:
     TALKATIVE_DAYS_TEMPLATE = ("获得了 <b>{talkative_days}</b> 次群龙王，"
                                "排名第 <b>{talkative_rank}</b>")
     TALKATIVE_DAYS_FALLBACK = "你还没有获得过群龙王"
-    POPULAR_SENTENCE_TEMPLATE = ("你最喜欢说的一句话是“<b>{popular}</b>”\n"
+    POPULAR_SENTENCE_TEMPLATE = ("你最喜欢说的一句话是“<b>{sentence}</b>”\n"
                                  "过去的一年里足足说了 <b>{times}</b> 次")
     NO_MESSAGE_FALLBACK = "这一年还没有发送过消息\n未语亦有痕，或待璀璨时"
 
@@ -91,10 +86,9 @@ class AnnualReportRenderer:
     GROUP_COMMENTS = ["历历瞬间 令人难忘", "真是温暖的大家庭", "和你们聊天，不怕冷场"]
     GROUP_POPULAR_SENTENCE_TEMPLATE = ("过去的一年里，<b>{users}</b> 位群友说了"
                                        "<b>{times}</b>次“<b>{sentence}</b>”")
-    GROUP_POPULAR_SENTENCE_EXTRA = "此外，群友们还经常说：\n\n{items}"
-    GROUP_POPULAR_SENTENCE_ITEM_TEMPLATE = (
-        "“<b2>{sentence}</b2>” （{users} <s>人</s>{times} <s>次</s>）")
-    GROUP_POPULAR_SENTENCE_ITEM_JOIN = "\n"
+    GROUP_POPULAR_SENTENCE_EXTRA = ("此外，群友们还经常说：\n"
+                                    "{items:[\n]“<b2>{{sentence}}</b2>” "
+                                    "（{{users}} <s>人</s>{{times}} <s>次</s>）}")
     GROUP_TOP_USER_MESSAGE_TEMPLATE = "发言TOP3占比 <b>{top3_ratio:.1%}</b>"
     GROUP_TOP_USER_MESSAGE_COMMENT_THRESH = 0.5
     GROUP_TOP_USER_MESSAGE_COMMENTS = [
@@ -116,14 +110,14 @@ class AnnualReportRenderer:
     DAY_COLOR2 = Color.from_hex("#fda085")
     BG_COLOR1 = Color.from_hex("#a8edea")
     BG_COLOR2 = Color.from_hex("#fed6e3")
-    HOR_LINE_COLOR = NORMAL_TEXT_COLOR.with_alpha(0.25)
+    HOR_LINE_COLOR = NORMAL_COLOR.with_alpha(0.25)
 
-    TREND_CAPTION_TEXT = Text.from_style("活跃度趋势", style=CAPTION_TEXT_STYLE)
-    TALKATIVE_DAYS_FALLBACK_TEXT = Text.from_style(TALKATIVE_DAYS_FALLBACK,
-                                                   style=NORMAL_TEXT_STYLE)
-    NO_MESSAGE_FALLBACK_TEXT = Text.from_style(NO_MESSAGE_FALLBACK,
-                                               style=NORMAL_TEXT_STYLE,
-                                               margin=Space.of_side(0, 40))
+    TREND_CAPTION_TEXT = Paragraph.of("活跃度趋势", style=CAPTION_STYLE)
+    TALKATIVE_DAYS_FALLBACK_TEXT = Paragraph.of(TALKATIVE_DAYS_FALLBACK,
+                                                style=MAIN_STYLE)
+    NO_MESSAGE_FALLBACK_TEXT = Paragraph.of(NO_MESSAGE_FALLBACK,
+                                            style=MAIN_STYLE,
+                                            margin=Space.of_side(0, 40))
 
     @classmethod
     async def render_group(cls, group: GroupStatistics, group_id: int,
@@ -133,6 +127,7 @@ class AnnualReportRenderer:
         year = datetime.strptime(cls.ANNUAL_STATISTICS_END, "%Y-%m-%d").year
         comp_title = cls._render_title(group_name, year)
         comp_avatar = await cls._render_avatar(group_id=group_id)
+
         if not group or group.num_messages == 0:
             return Container.from_children(
                 (comp_width_reserve, comp_title, comp_avatar,
@@ -141,20 +136,21 @@ class AnnualReportRenderer:
                 direction=Direction.VERTICAL,
                 spacing=30,
             )
-        comp_basic_info1 = StyledText.of(
-            text=cls.GROUP_ACTIVE_DAYS_TEMPLATE.format(
-                active_days=group.active_days),
-            default=cls.NORMAL_TEXT_STYLE,
-            styles={"b": cls.EMPH_TEXT_STYLE},
+
+        comp_basic_info1 = Paragraph.from_template(
+            cls.GROUP_ACTIVE_DAYS_TEMPLATE,
+            values=dict(active_days=group.active_days),
+            default=cls.MAIN_STYLE,
+            styles=cls.STYLES,
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
         )
-        comp_basic_info2 = StyledText.of(
-            text=cls.GROUP_MESSAGE_COUNT_TEMPLATE.format(
-                active_users=group.active_users,
-                num_messages=group.num_messages),
-            default=cls.NORMAL_TEXT_STYLE,
-            styles={"b": cls.EMPH_TEXT_STYLE},
+        comp_basic_info2 = Paragraph.from_template(
+            cls.GROUP_MESSAGE_COUNT_TEMPLATE,
+            values=dict(active_users=group.active_users,
+                        num_messages=group.num_messages),
+            default=cls.MAIN_STYLE,
+            styles=cls.STYLES,
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
         )
@@ -164,30 +160,30 @@ class AnnualReportRenderer:
         assert group.most_message is not None
         most_user_date, most_user = group.most_user
         most_message_date, most_message = group.most_message
-        comp_most_user = StyledText.of(
-            text=cls.GROUP_MOST_USER_TEMPLATE.format(
-                month=most_user_date.month,
-                day=most_user_date.day,
-                most_user=most_user),
-            default=cls.NORMAL_TEXT_STYLE,
-            styles={"b": cls.EMPH_TEXT_STYLE},
+        comp_most_user = Paragraph.from_template(
+            cls.GROUP_MOST_USER_TEMPLATE,
+            values=dict(month=most_user_date.month,
+                        day=most_user_date.day,
+                        most_user=most_user),
+            default=cls.MAIN_STYLE,
+            styles=cls.STYLES,
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
         )
-        comp_most_message = StyledText.of(
-            text=cls.GROUP_MOST_MESSAGE_TEMPLATE.format(
-                month=most_message_date.month,
-                day=most_message_date.day,
-                most_message=most_message),
-            default=cls.NORMAL_TEXT_STYLE,
-            styles={"b": cls.EMPH_TEXT_STYLE},
+        comp_most_message = Paragraph.from_template(
+            cls.GROUP_MOST_MESSAGE_TEMPLATE,
+            values=dict(month=most_message_date.month,
+                        day=most_message_date.day,
+                        most_message=most_message),
+            default=cls.MAIN_STYLE,
+            styles=cls.STYLES,
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
         )
-        comp_comment = Text.from_style(text=random.choice(cls.GROUP_COMMENTS),
-                                       style=cls.NORMAL_TEXT_STYLE,
-                                       alignment=Alignment.CENTER,
-                                       max_width=cls.MAX_WIDTH)
+        comp_comment = Paragraph.of(text=random.choice(cls.GROUP_COMMENTS),
+                                    style=cls.MAIN_STYLE,
+                                    alignment=Alignment.CENTER,
+                                    max_width=cls.MAX_WIDTH)
         components = [
             comp_width_reserve,
             comp_title,
@@ -202,18 +198,13 @@ class AnnualReportRenderer:
         if group.popular_sentences:
             pop = group.popular_sentences
             top_sentence, top_times, top_users = pop[0]
-            comp_popular_sentence = StyledText.of(
-                text=cls._process_emoji_text(
-                    cls.GROUP_POPULAR_SENTENCE_TEMPLATE.format(
-                        users=top_users,
-                        times=top_times,
-                        sentence=top_sentence),
-                    font=cls.NotoSansHansRegular),
-                default=cls.NORMAL_TEXT_STYLE,
-                styles={
-                    "b": cls.EMPH_TEXT_STYLE,
-                    "emoji": cls.EMOJI_TEXT_STYLE
-                },
+            comp_popular_sentence = Paragraph.from_template(
+                cls.GROUP_POPULAR_SENTENCE_TEMPLATE,
+                values=dict(users=top_users,
+                            times=top_times,
+                            sentence=top_sentence),
+                default=cls.MAIN_STYLE,
+                styles=cls.STYLES,
                 alignment=Alignment.CENTER,
                 max_width=cls.MAX_WIDTH,
             )
@@ -222,20 +213,15 @@ class AnnualReportRenderer:
             if len(pop) > 1:
                 sampled = random.sample(pop[1:], min(3, len(pop) - 1))
                 sampled = sorted(sampled, key=lambda x: -x[1])
-                comp_popular_sentence_extra = StyledText.of(
-                    text=cls._process_emoji_text(
-                        cls.GROUP_POPULAR_SENTENCE_EXTRA.
-                        format(items=cls.GROUP_POPULAR_SENTENCE_ITEM_JOIN.join(
-                            cls.GROUP_POPULAR_SENTENCE_ITEM_TEMPLATE.format(
-                                sentence=sentence, users=users, times=times)
-                            for sentence, times, users in sampled)),
-                        font=cls.NotoSansHansRegular),
-                    default=cls.NORMAL_TEXT_STYLE,
-                    styles={
-                        "b2": cls.EMPH_TEXT_STYLE2,
-                        "emoji": cls.EMOJI_TEXT_STYLE,
-                        "s": cls.SMALL,
-                    },
+                comp_popular_sentence_extra = Paragraph.from_template(
+                    cls.GROUP_POPULAR_SENTENCE_EXTRA,
+                    values=dict(items=[{
+                        "sentence": sentence,
+                        "users": users,
+                        "times": times
+                    } for sentence, times, users in sampled]),
+                    default=cls.MAIN_STYLE,
+                    styles=cls.STYLES,
                     alignment=Alignment.CENTER,
                     max_width=cls.MAX_WIDTH,
                     line_spacing=15,
@@ -247,11 +233,11 @@ class AnnualReportRenderer:
             ratio = sum(v for _, v in sorted(group.user_messages.items(),
                                              key=lambda x: -x[1])
                         [:3]) / group.num_messages
-            comp_top_message_text = StyledText.of(
-                text=cls.GROUP_TOP_USER_MESSAGE_TEMPLATE.format(
-                    top3_ratio=ratio),
-                default=cls.NORMAL_TEXT_STYLE,
-                styles={"b": cls.EMPH_TEXT_STYLE},
+            comp_top_message_text = Paragraph.from_template(
+                cls.GROUP_TOP_USER_MESSAGE_TEMPLATE,
+                values=dict(top3_ratio=ratio),
+                default=cls.MAIN_STYLE,
+                styles=cls.STYLES,
                 alignment=Alignment.CENTER,
                 max_width=cls.MAX_WIDTH,
             )
@@ -259,9 +245,9 @@ class AnnualReportRenderer:
             components.append(comp_top_message_user)
             components.append(comp_top_message_text)
             if ratio > cls.GROUP_TOP_USER_MESSAGE_COMMENT_THRESH:
-                comp_top_message_comment = Text.from_style(
+                comp_top_message_comment = Paragraph.of(
                     text=random.choice(cls.GROUP_TOP_USER_MESSAGE_COMMENTS),
-                    style=cls.NORMAL_TEXT_STYLE,
+                    style=cls.MAIN_STYLE,
                     alignment=Alignment.CENTER,
                     max_width=cls.MAX_WIDTH,
                 )
@@ -272,11 +258,11 @@ class AnnualReportRenderer:
             ratio = sum(v for _, v in sorted(group.user_talkative_days.items(),
                                              key=lambda x: -x[1])
                         [:3]) / group.active_days
-            comp_top_talkative_text = StyledText.of(
-                text=cls.GROUP_TOP_USER_TALKATIVE_TEMPLATE.format(
-                    top3_ratio=ratio),
-                default=cls.NORMAL_TEXT_STYLE,
-                styles={"b": cls.EMPH_TEXT_STYLE},
+            comp_top_talkative_text = Paragraph.from_template(
+                cls.GROUP_TOP_USER_TALKATIVE_TEMPLATE,
+                values=dict(top3_ratio=ratio),
+                default=cls.MAIN_STYLE,
+                styles=cls.STYLES,
                 alignment=Alignment.CENTER,
                 max_width=cls.MAX_WIDTH,
             )
@@ -284,9 +270,9 @@ class AnnualReportRenderer:
             components.append(comp_top_talkative_user)
             components.append(comp_top_talkative_text)
             if ratio > cls.GROUP_TOP_USER_TALKATIVE_COMMENT_THRESH:
-                comp_top_talkative_comment = Text.from_style(
+                comp_top_talkative_comment = Paragraph.of(
                     text=random.choice(cls.GROUP_TOP_USER_TALKATIVE_COMMENTS),
-                    style=cls.NORMAL_TEXT_STYLE,
+                    style=cls.MAIN_STYLE,
                     alignment=Alignment.CENTER,
                     max_width=cls.MAX_WIDTH,
                 )
@@ -323,19 +309,20 @@ class AnnualReportRenderer:
                 direction=Direction.VERTICAL,
                 spacing=30,
             )
-        comp_basic_info1 = StyledText.of(
-            text=cls.ACTIVE_DAYS_TEMPLATE.format(active_days=user.active_days),
-            default=cls.NORMAL_TEXT_STYLE,
-            styles={"b": cls.EMPH_TEXT_STYLE},
+        comp_basic_info1 = Paragraph.from_template(
+            cls.ACTIVE_DAYS_TEMPLATE,
+            values=dict(active_days=user.active_days),
+            default=cls.MAIN_STYLE,
+            styles=cls.STYLES,
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
         )
-        comp_basic_info2 = StyledText.of(
-            text=cls.MESSAGE_COUNT_TEMPLATE.format(
-                num_messages=user.num_messages,
-                message_rank=user.message_rank),
-            default=cls.NORMAL_TEXT_STYLE,
-            styles={"b": cls.EMPH_TEXT_STYLE},
+        comp_basic_info2 = Paragraph.from_template(
+            cls.MESSAGE_COUNT_TEMPLATE,
+            values=dict(num_messages=user.num_messages,
+                        message_rank=user.message_rank),
+            default=cls.MAIN_STYLE,
+            styles=cls.STYLES,
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
         )
@@ -347,25 +334,25 @@ class AnnualReportRenderer:
         for (op, thresh), extra in cls.MOST_MESSAGE_COMMENT_CONDITION.items():
             if op(most_message, thresh):
                 comments.extend(extra)
-        comp_most_message = StyledText.of(
-            text=cls.MOST_MESSAGE_TEMPLATE.format(
-                month=most_message_date.month,
-                day=most_message_date.day,
-                most_message=most_message,
-                most_message_comment=random.choice(comments)),
-            default=cls.NORMAL_TEXT_STYLE,
-            styles={"b": cls.EMPH_TEXT_STYLE},
+        comp_most_message = Paragraph.from_template(
+            cls.MOST_MESSAGE_TEMPLATE,
+            values=dict(month=most_message_date.month,
+                        day=most_message_date.day,
+                        most_message=most_message,
+                        most_message_comment=random.choice(comments)),
+            default=cls.MAIN_STYLE,
+            styles=cls.STYLES,
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
             line_spacing=20,
         )
         if user.talkative_days:
-            comp_talkative_days = StyledText.of(
-                text=cls.TALKATIVE_DAYS_TEMPLATE.format(
-                    talkative_days=user.talkative_days,
-                    talkative_rank=user.talkative_rank),
-                default=cls.NORMAL_TEXT_STYLE,
-                styles={"b": cls.EMPH_TEXT_STYLE},
+            comp_talkative_days = Paragraph.from_template(
+                cls.TALKATIVE_DAYS_TEMPLATE,
+                values=dict(talkative_days=user.talkative_days,
+                            talkative_rank=user.talkative_rank),
+                default=cls.MAIN_STYLE,
+                styles=cls.STYLES,
                 alignment=Alignment.CENTER,
                 max_width=cls.MAX_WIDTH,
             )
@@ -382,16 +369,11 @@ class AnnualReportRenderer:
         ]
         if user.popular_sentence:
             sentence, times = user.popular_sentence
-            comp_popular_sentence = StyledText.of(
-                text=cls._process_emoji_text(
-                    cls.POPULAR_SENTENCE_TEMPLATE.format(popular=sentence,
-                                                         times=times),
-                    font=cls.NotoSansHansRegular),
-                default=cls.NORMAL_TEXT_STYLE,
-                styles={
-                    "b": cls.EMPH_TEXT_STYLE,
-                    "emoji": cls.EMOJI_TEXT_STYLE
-                },
+            comp_popular_sentence = Paragraph.from_template(
+                cls.POPULAR_SENTENCE_TEMPLATE,
+                values=dict(sentence=sentence, times=times),
+                default=cls.MAIN_STYLE,
+                styles=cls.STYLES,
                 alignment=Alignment.CENTER,
                 max_width=cls.MAX_WIDTH,
             )
@@ -407,23 +389,13 @@ class AnnualReportRenderer:
             ))
 
     @classmethod
-    def _process_emoji_text(cls, text: str, *, font: str) -> str:
-        styled_parts = []
-        for t, support in Text.split_font_unsupported(font, text):
-            styled_parts.append(t if support else f"<emoji>{t}</emoji>")
-        return "".join(styled_parts)
-
-    @classmethod
     def _render_title(cls, name: str, year: int):
-        return StyledText.of(
-            text="{name} · {year}群聊年度报告".format(
-                name=cls._process_emoji_text(name, font=cls.TITLE_FONT),
-                year=year,
-            ),
-            styles={"emoji": cls.EMOJI_TEXT_STYLE},
-            default=TextStyle.of(font=cls.TITLE_FONT,
-                                 size=cls.TITLE_FONT_SIZE,
-                                 color=cls.TITLE_COLOR),
+        return Paragraph.from_template(
+            cls.TITLE_TEMPLATE,
+            values=dict(name=name, year=year),
+            default=TextStyle(font=cls.TITLE_FONT,
+                              size=cls.TITLE_FONT_SIZE,
+                              color=cls.TITLE_COLOR),
             alignment=Alignment.CENTER,
             max_width=cls.MAX_WIDTH,
             margin=Space(10, 10, 20, 10),
@@ -489,7 +461,7 @@ class AnnualReportRenderer:
         for i, (user_id, num) in enumerate(sorted_users[:3]):
             space = Spacer.of(height=cls.AVATAR_SIZE // 4)
             avatar = await cls._render_avatar(user_id=user_id)
-            caption = Text.from_style(f"{num}", style=cls.CAPTION_TEXT_STYLE)
+            caption = Paragraph.of(f"{num}", style=cls.CAPTION_STYLE)
             if i == 0:
                 # top1 is higher than others
                 order = [avatar, space, caption]
@@ -522,13 +494,10 @@ class AnnualReportRenderer:
     @classmethod
     @lru_cache
     def _render_footer(cls):
-        color = cls.NORMAL_TEXT_COLOR.with_alpha(0.6)
-        return Text.of(
+        return Paragraph.of(
             f"* 数据起止：{cls.ANNUAL_STATISTICS_BEGIN} ~"
             f"{cls.ANNUAL_STATISTICS_END}",
-            font=cls.NotoSansHansLight,
-            size=14,
-            color=color,
+            style=cls.CAPTION_STYLE,
             margin=Space.of_side(0, 20))
 
     @classmethod

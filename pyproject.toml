@@ -13,6 +13,12 @@ plugins = []
 plugin_dirs = ["src/plugins"]
 builtin_plugins = []
 
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = ["F403", "F405"]  # allow star imports
+
 [tool.pyright]
 include = [
     "src",
@@ -25,5 +31,5 @@ exclude = [
     "data/"
 ]
 ignore = [
-    "src/utils/render_ext/markdown/katexsvg/svgmath"
+    "src/utils/render_ext/markdown/components/utils/katexsvg/svgmath"
 ]

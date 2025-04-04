@@ -142,6 +142,28 @@ class RenderImage:
         return im
 
     @classmethod
+    def concat_horizontal_baseline(
+        cls,
+        images: Sequence[Self],
+        baselines: Sequence[int],
+        color: Color = Palette.TRANSPARENT,
+        spacing: int = 0,
+    ) -> Self:
+        assert len(images) == len(baselines)
+        width = sum(im.width for im in images)
+        width += max(0, len(images) - 1) * spacing
+        max_baseline = max(baselines)
+        placements = [(max_baseline - b, e.height)
+                      for (b, e) in zip(baselines, images)]
+        height = max(y + h for y, h in placements)
+        im = cls.empty(width, height, color)
+        x = 0
+        for child, (y, _) in zip(images, placements):
+            im.paste(x, y, child)
+            x += child.width + spacing
+        return im
+
+    @classmethod
     def concat_vertical(
         cls,
         images: Sequence[Self],

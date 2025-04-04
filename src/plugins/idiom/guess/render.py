@@ -70,10 +70,10 @@ class Alphabet:
         if not character.strip():
             inner_object = Spacer.of()
         else:
-            inner_object = Text.of(text=character.upper(),
-                                   font=cls.MS_YAHEI,
-                                   size=font_size,
-                                   color=foreground)
+            inner_object = Paragraph.of(text=character.upper(),
+                                        style=TextStyle(font=cls.MS_YAHEI,
+                                                        size=font_size,
+                                                        color=foreground))
         decorations = tuple()
         style = {}
         if rounded_border:
@@ -254,18 +254,15 @@ class IdiomRender:
     STKAITI = "data/static/fonts/STKAITI.TTF"
     MS_YAHEI = "data/static/fonts/MSYAHEI.ttc"
 
-    WORD = TextStyle.of(font=STLITI, size=40)
-    PINYIN = TextStyle.of(font=MS_YAHEI,
-                          size=24,
-                          decoration=TextDecoration.UNDERLINE)
-    DETAIL = TextStyle.of(font=STKAITI, size=24)
-    DEFAULT = TextStyle.of(font=MS_YAHEI, size=24, color=Palette.BLACK)
-
-    TEXT_STYLE = {
-        "w": WORD,
-        "p": PINYIN,
-        "d": DETAIL,
-        "default": DEFAULT,
+    DEFAULT_TEXT_STYLE = TextStyle(
+        font=MS_YAHEI,
+        size=24,
+        color=Palette.BLACK,
+    )
+    EXT_TEXT_STYLES = {
+        "w": TextStyle(font=STLITI, size=2.0),
+        "p": TextStyle(font=MS_YAHEI, decoration=TextDecoration.underline()),
+        "d": TextStyle(font=STKAITI),
     }
     TEMPLATE_CENTER = ("<w>{word}</w>\n"
                        "<p>{pinyin}</p>\n")
@@ -281,18 +278,20 @@ class IdiomRender:
             explanation = "释义：" + explanation
         if derivation:
             derivation = "出处：" + derivation
-        text_c = cls.TEMPLATE_CENTER.format(word=idiom["word"], pinyin=pinyin)
-        text_l = cls.TEMPLATE_LEFT.format(explanation=explanation,
-                                          derivation=derivation).replace(
-                                              "<d></d>", "")
-        sc = StyledText.of(text=text_c,
-                           styles=cls.TEXT_STYLE,
-                           max_width=max_width,
-                           alignment=Alignment.CENTER)
-        sl = StyledText.of(text=text_l,
-                           styles=cls.TEXT_STYLE,
-                           max_width=max_width,
-                           alignment=Alignment.START)
+        sc = Paragraph.from_template(cls.TEMPLATE_CENTER,
+                                     values=dict(word=idiom["word"],
+                                                 pinyin=pinyin),
+                                     default=cls.DEFAULT_TEXT_STYLE,
+                                     styles=cls.EXT_TEXT_STYLES,
+                                     max_width=max_width,
+                                     alignment=Alignment.CENTER)
+        sl = Paragraph.from_template(cls.TEMPLATE_LEFT,
+                                     values=dict(explanation=explanation,
+                                                 derivation=derivation),
+                                     default=cls.DEFAULT_TEXT_STYLE,
+                                     styles=cls.EXT_TEXT_STYLES,
+                                     max_width=max_width,
+                                     alignment=Alignment.START)
         return Container.from_children(
             children=[sc, sl],
             alignment=Alignment.CENTER,
