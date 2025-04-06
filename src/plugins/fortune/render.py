@@ -130,7 +130,6 @@ class FortuneRender:
             max_size=(max_name_width, max_name_height),
             font_size=(cls.FONT_LARGE // 4, cls.FONT_LARGE),
             default=TextStyle(font=cls.MAIN_FONT,
-                              size=0,
                               stroke=TextStroke(width=1, color=theme_dark),
                               color=theme_light),
             styles=dict(b=TextStyle(bold=True)),

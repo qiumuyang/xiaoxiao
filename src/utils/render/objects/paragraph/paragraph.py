@@ -232,7 +232,7 @@ class Paragraph(RenderObject):
             target_size: The target size to be used for absolute font sizes.
 
         Returns:
-            The list of TextStyle objects with adjusted font sizes.
+            Tuple of TextStyle objects with adjusted font sizes
         """
         absolute = None
         for style in styles:
@@ -243,6 +243,10 @@ class Paragraph(RenderObject):
                 style["size"] = target_size
             else:
                 style["size"] = round(style["size"] / absolute * target_size)
+        if absolute is None:
+            for style in styles:
+                if "size" not in style:
+                    style["size"] = target_size
         return styles
 
     @staticmethod

@@ -47,7 +47,6 @@ class ShouldIAlways(ImageProcessor):
                         font=self.NotoSansHansBold,
                         size=font_size,
                         color=Palette.BLACK,
-                        shading=Palette.ALICE_BLUE,
                     ),
                     images=dict(image=image_small),
                 )

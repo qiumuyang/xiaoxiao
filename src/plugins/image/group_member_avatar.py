@@ -74,6 +74,7 @@ class GroupMemberAvatar:
             values=dict(nickname=nickname),
             max_size=(max_width, max_height),
             font_size=cls.TITLE_FONT_SIZE_RANGE,
+            alignment=Alignment.CENTER,
             default=TextStyle(font=cls.TITLE_FONT,
                               color=cls.TITLE_FILL,
                               stroke=cls.TITLE_STROKE),
