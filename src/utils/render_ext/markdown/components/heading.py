@@ -1,6 +1,6 @@
 from typing import cast
 
-from mistletoe.block_token import Heading
+from mistletoe.block_token import Heading, SetextHeading
 
 from src.utils.render import (Alignment, Color, Container, Direction, Image,
                               RenderObject, Space, Spacer)
@@ -12,12 +12,17 @@ from .utils.builder import Builder
 
 
 @MarkdownRenderer.register(Heading)
+@MarkdownRenderer.register(SetextHeading)
 class HeadingRenderer:
 
     def __init__(self, master: MarkdownRenderer) -> None:
         self.master = master
 
-    def render(self, token: Heading, ctx: Context) -> RenderObject:
+    def render(
+        self,
+        token: Heading | SetextHeading,
+        ctx: Context,
+    ) -> RenderObject:
         level = token.level
         # 1. render content
         builder = Builder(ctx.style, max_width=ctx.max_width)
