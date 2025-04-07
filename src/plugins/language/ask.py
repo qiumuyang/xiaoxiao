@@ -64,6 +64,18 @@ class Ask:
     LENGTH_CHECK_ATTEMP = 5
     MIN_WHAT, MAX_WHAT = 2, 10
 
+    ESCAPE_TABLE = {"&": "&amp;", **{str(i): f"&#{i};" for i in range(10)}}
+
+    @classmethod
+    def escape(cls, s: str) -> str:
+        return "".join(cls.ESCAPE_TABLE.get(c, c) for c in s)
+
+    @classmethod
+    def unescape(cls, s: str) -> str:
+        for k, v in cls.ESCAPE_TABLE.items():
+            s = s.replace(v, k)
+        return s
+
     @classmethod
     def is_question(cls, s: str) -> bool:
         if not s.startswith("问"):
@@ -165,7 +177,7 @@ class Ask:
                     except ValueError:
                         processed_message.append("[由于循环引用，展开终止]")
                         return processed_message
-                    append_seg = expanded
+                    append_seg = self.unescape(expanded)
             if append_seg is not None:
                 processed_message.append(append_seg)
         if self.replacement:
@@ -300,12 +312,12 @@ class Ask:
         prev_in = ""
         prev_in_pos = ""
 
-        def output(out: str):
+        def output(out: str, escape: bool = True):
             nonlocal total_out
             nonlocal prev_out
             total_out += out
             prev_out = out
-            return out
+            return out if not escape else self.escape(out)
 
         while remain:
             word, pos = next(pseg.cut(remain, use_paddle=True))
@@ -316,7 +328,7 @@ class Ask:
                 #   - \d, which is a reference to capture group
                 #   - (), which indicates a capture group, capture handles this
                 if next_remain[:1].isdigit() or next_remain[:1] in "()":
-                    yield output(word + next_remain[0])
+                    yield output(word + next_remain[0], escape=False)
                 else:
                     yield output(word if not next_remain else next_remain[0])
                 remain = next_remain[1:]
@@ -435,6 +447,6 @@ class Ask:
                 self.replacement = True
                 next_remain = rest + next_remain
             else:
-                yield output(word)
+                yield output(word, escape=False)
             remain = next_remain
             prev_in, prev_in_pos = word, pos
