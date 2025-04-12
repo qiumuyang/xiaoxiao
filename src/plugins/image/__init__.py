@@ -4,7 +4,7 @@ from nonebot.adapters.onebot.v11.event import GroupMessageEvent, Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
-from src.ext import MessageSegment, get_user_name
+from src.ext import MessageSegment, get_group_member_name, get_user_name
 from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar
@@ -87,13 +87,21 @@ async def _(event: GroupMessageEvent, state: T_State):
         return
     if not reply.sender.user_id:
         await quote.finish("无法获取发送者ID")
+    urls, text = [], ""
     for seg in reply.message:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image():
-            content = segment.extract_url()
-            break
+            urls.append(segment.extract_url())
+        elif segment.is_text():
+            text += segment.extract_text()
+        elif segment.is_at():
+            name = await get_group_member_name(group_id=event.group_id,
+                                               user_id=segment.extract_at())
+            text += f"@{name}"
+    if urls:
+        content = urls[0]
     else:
-        content = reply.message.extract_plain_text()
+        content = text
     avatar = await Avatar.user(reply.sender.user_id)
     msg = RenderMessage(avatar, content, await
                         get_user_name(reply, group_id=event.group_id))
