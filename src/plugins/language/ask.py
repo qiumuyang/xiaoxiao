@@ -43,7 +43,7 @@ def endswith_num_and_char(s: str, chars: str, range_: tuple[int, int]):
     if not any(s.endswith(c) for c in chars):
         return False
     i = 2
-    while i <= len(s) and s[-i].isdigit():
+    while i <= len(s) and s[-i].isdecimal():
         i += 1
     num = s[-i + 1:-1]
     return num and range_[0] <= int(num) <= range_[1]
@@ -327,7 +327,7 @@ class Ask:
                 # except:
                 #   - \d, which is a reference to capture group
                 #   - (), which indicates a capture group, capture handles this
-                if next_remain[:1].isdigit() or next_remain[:1] in "()":
+                if next_remain[:1].isdecimal() or next_remain[:1] in "()":
                     yield output(word + next_remain[0], escape=False)
                 else:
                     yield output(word if not next_remain else next_remain[0])

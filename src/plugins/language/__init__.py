@@ -338,7 +338,7 @@ async def _(bot: OnebotBot,
 
         >>> {cmd}.search @someone :regex:[a-zA-Z]+
     """
-    if (input := arg.extract_plain_text()) and input.isdigit():
+    if (input := arg.extract_plain_text()) and input.isdecimal():
         index = int(input)
     else:
         index = 1

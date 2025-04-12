@@ -30,7 +30,7 @@ def expand_capture_group_references(s: str) -> str:
                     output.append(c)
             case _:
                 if c == "\\":
-                    if i + 1 < len(s) and s[i + 1].isdigit():
+                    if i + 1 < len(s) and s[i + 1].isdecimal():
                         # is reference
                         output.append(c)
                     else:
