@@ -158,6 +158,13 @@ class MessageSegment(_MessageSegment):
             url = url.replace("https://", "http://")
         return url
 
+    def extract_filename(self) -> str:
+        if "filename" in self.data:
+            return self.data["filename"]
+        if self.is_mface():
+            return self.data["emoji_id"] + ".emoji"
+        raise ValueError("Segment does not contain a filename")
+
     def extract_face(self) -> int:
         if not self.is_face():
             raise ValueError("Not a face segment")

@@ -1,6 +1,5 @@
 from io import BytesIO
 
-from aiohttp import ClientSession, ClientTimeout
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
@@ -11,6 +10,7 @@ from PIL import Image
 from src.ext import MessageSegment, ratelimit
 from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.persistence import FileStorage
 
 from ..process import (Flip, FlipFlop, FourColorGrid, FourColorGridV2,
                        GrayScale, ImageProcessor, MultiRotate, Reflect,
@@ -45,7 +45,7 @@ async def process_image_message(
     matcher: Matcher,
     event: MessageEvent,
     state: T_State,
-    session: ClientSession,
+    storage: FileStorage,
 ):
     """
     对图片进行预设操作
@@ -82,20 +82,22 @@ async def process_image_message(
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image() or segment.is_mface():
             url = segment.extract_url()
-            async with session.get(url) as resp:
-                resp.raise_for_status()
-                image = Image.open(BytesIO(await resp.read()))
-                if not processor.supports(image):
-                    continue
-                result = processor(image, *args)
-                if result is not None:
-                    await matcher.finish(
-                        MessageSegment.image(result, summary=name))
+            filename = segment.extract_filename()
+            data = await storage.load(url, filename)
+            if data is None:
+                continue
+            image = Image.open(BytesIO(data))
+            if not processor.supports(image):
+                continue
+            result = processor(image, *args)
+            if result is not None:
+                await matcher.finish(MessageSegment.image(result,
+                                                          summary=name))
 
 
 @driver.on_startup
 async def register_process():
-    session = ClientSession(timeout=ClientTimeout(total=10))
+    storage = await FileStorage.get_instance()
     for name, processor in image_procs.items():
         if isinstance(name, str):
             name = (name, )
@@ -114,7 +116,7 @@ async def register_process():
 
             async def _(matcher: Matcher, event: MessageEvent, state: T_State):
                 await process_image_message(name, proc, matcher, event, state,
-                                            session)
+                                            storage)
 
             return _
 
