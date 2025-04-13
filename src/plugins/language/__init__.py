@@ -6,10 +6,13 @@ from typing import Any
 from nonebot import CommandGroup, on_command, on_message, on_notice
 from nonebot.adapters import Bot, Message
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
+from nonebot.adapters.onebot.v11 import GroupMessageEvent
+from nonebot.adapters.onebot.v11 import Message as Message_
+from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.adapters.onebot.v11.event import PokeNotifyEvent, Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
+from pymongo.errors import DocumentTooLarge
 
 from src.ext import MessageSegment, get_group_member_name
 from src.ext.permission import ADMIN, SUPERUSER
@@ -74,8 +77,12 @@ async def handle_api_result(bot: Bot, exception: Exception | None, api: str,
     match api:
         case "send_msg":
             session_id = SentMessageTracker.get_session_id(data)
-            await SentMessageTracker.add(session_id, result["message_id"],
-                                         data["message"])
+            try:
+                await SentMessageTracker.add(session_id, result["message_id"],
+                                             data["message"])
+            except DocumentTooLarge:
+                await SentMessageTracker.add(session_id, result["message_id"],
+                                             Message_("[过大消息]"))
 
 
 @recall_message.handle()
