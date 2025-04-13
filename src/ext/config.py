@@ -5,7 +5,7 @@ from typing import ClassVar, TypeVar, cast
 from nonebot import get_driver
 from pydantic import BaseModel
 
-from src.utils.persistence import Collection, Mongo
+from src.utils.persistence.mongo import Collection, Mongo
 
 from .log import logger_wrapper
 

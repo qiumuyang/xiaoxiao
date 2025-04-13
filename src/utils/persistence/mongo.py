@@ -1,7 +1,7 @@
 from typing import Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar
 
 from motor.core import (AgnosticCollection, AgnosticCommandCursor,
-                        AgnosticCursor)
+                        AgnosticCursor, AgnosticDatabase)
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 from pymongo.results import (DeleteResult, InsertManyResult, InsertOneResult,
@@ -232,6 +232,10 @@ class Mongo:
     _client = AsyncIOMotorClient()
 
     _collections: list[tuple[str, str]] = []
+
+    @classmethod
+    def database(cls) -> AgnosticDatabase:
+        return cls._client[cls.DB]
 
     @classmethod
     def collection(cls, name: str, db: str = "") -> Collection:
