@@ -1,6 +1,7 @@
 import asyncio
 import re
 from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
 
 import aiohttp
 from motor.core import AgnosticDatabase
@@ -9,6 +10,14 @@ from pymongo.errors import DuplicateKeyError
 
 from src.ext import logger_wrapper
 from src.utils.env import inject_env
+
+
+class StorageStat(NamedTuple):
+    ephemeral_file_count: int
+    ephemeral_file_size: int
+    persistent_file_count: int
+    persistent_file_size: int
+
 
 logger = logger_wrapper("storage")
 
@@ -175,3 +184,31 @@ class FileStorage:
             await self.fs_bucket.delete(doc["_id"])
             return True
         return False
+
+    async def get_stats(self) -> StorageStat | None:
+        """Returns total number of files and cumulative size in bytes."""
+        pipeline = [{
+            "$group": {
+                "_id": "$metadata.storage_type",
+                "total_files": {
+                    "$sum": 1
+                },
+                "total_bytes": {
+                    "$sum": "$length"
+                }
+            }
+        }]
+        result = await self.db.fs.files.aggregate(pipeline).to_list(length=1)
+        if result:
+            ephemeral, persistent = None, None
+            for entry in result:
+                if entry["_id"] == "ephemeral":
+                    ephemeral = entry
+                elif entry["_id"] == "persistent":
+                    persistent = entry
+            return StorageStat(
+                ephemeral["total_files"] if ephemeral else 0,
+                ephemeral["total_bytes"] if ephemeral else 0,
+                persistent["total_files"] if persistent else 0,
+                persistent["total_bytes"] if persistent else 0,
+            )
