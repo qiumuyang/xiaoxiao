@@ -62,7 +62,7 @@ class FileStorage:
         self.ttl = _parse_timedelta(self.FILE_STORAGE_TTL)
 
     @classmethod
-    async def get_instance(cls, db_name: str = "files"):
+    async def get_instance(cls, db_name: str = "files") -> "FileStorage":
         async with cls._lock:
             if db_name in cls._instances:
                 return cls._instances[db_name]

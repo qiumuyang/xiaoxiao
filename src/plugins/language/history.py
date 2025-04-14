@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from nonebot.adapters.onebot.v11 import Bot, Message
 
-from src.ext import MessageSegment, get_group_member_name
+from src.ext import MessageExtension, MessageSegment, get_group_member_name
 from src.utils.env import inject_env
 from src.utils.message.receive import MessageData as ReceiveMessageData
 from src.utils.message.receive import ReceivedMessageTracker as RMT
@@ -54,6 +54,7 @@ class History:
                 # cannot be wrapped again by node_lagrange
                 return content
 
+        content = await MessageExtension.replace_with_local_image(content)
         forward_id = await bot.call_api("send_forward_msg",
                                         messages=[
                                             MessageSegment.node_lagrange(
@@ -151,16 +152,21 @@ class History:
               for user_id in user_ids))
         uin_to_nicknames = dict(zip(user_ids, member_names))
 
+        message_uid = [(message, user_id) for message in filtered
+                       if (user_id := message.user_id if isinstance(
+                           message, ReceiveMessageData) else int(bot.self_id))]
+        content = await asyncio.gather(
+            *(MessageExtension.replace_with_local_image(message.content)
+              for message, _ in message_uid))
+
         # Reference:
         # https://lagrangedev.github.io/Lagrange.Doc/Lagrange.OneBot/API/Extend/#发送合并转发-群聊
         nodes = [
             MessageSegment.node_lagrange(
                 user_id=user_id,
                 nickname=uin_to_nicknames.get(user_id, str(user_id)),
-                content=message.content,
-            ) for message in filtered
-            if (user_id := message.user_id if isinstance(
-                message, ReceiveMessageData) else int(bot.self_id))
+                content=content,
+            ) for (_, user_id), content in zip(message_uid, content)
         ]
         forward_id = await bot.call_api("send_forward_msg", messages=nodes)
         return Message(MessageSegment.forward(id_=forward_id))

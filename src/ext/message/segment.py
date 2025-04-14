@@ -10,6 +10,8 @@ from nonebot.adapters.onebot.v11 import MessageSegment as _MessageSegment
 from PIL import Image
 from typing_extensions import override
 
+from src.utils.persistence import FileStorage
+
 from .button import ButtonGroup
 
 
@@ -235,3 +237,19 @@ class MessageExtension:
                 nickname=nickname,
                 content=Message(MessageSegment.forward(id_=forward_id)),
             ))
+
+    @classmethod
+    async def replace_with_local_image(cls, message: Message) -> Message:
+        storage = await FileStorage.get_instance()
+        for i, seg in enumerate(message):
+            segment = MessageSegment.from_onebot(seg)
+            if segment.is_image():
+                try:
+                    data = await storage.load(
+                        url=segment.extract_url(),
+                        filename=segment.extract_filename())
+                    if data is not None:
+                        message[i] = MessageSegment.image(image=data)
+                except Exception:
+                    pass
+        return message
