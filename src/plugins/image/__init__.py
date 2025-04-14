@@ -123,7 +123,7 @@ async def _(event: GroupMessageEvent, state: T_State):
 
 
 @RMT.on_receive
-async def add_to_storage(_: str | None, data: RMD) -> None:
+async def add_to_storage(_, data: RMD) -> None:
     # Since the download url expires quickly,
     # we keep a local cache of images in case later use.
     # message send is different from message receive

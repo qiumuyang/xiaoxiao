@@ -235,7 +235,7 @@ def _(entry: Entry) -> dict:
 
 
 @RMT.on_receive
-async def add_to_corpus(object_id: str | None, data: RMD) -> None:
+async def add_to_corpus(_, data: RMD) -> None:
     """Add received messages to the corpus.
 
     1. Non-command (i.e. handled=False)
@@ -261,7 +261,7 @@ async def add_to_corpus(object_id: str | None, data: RMD) -> None:
 
 
 @SMT.on_send
-async def mark_as_sent(object_id: str, data: SMD) -> None:
+async def mark_as_sent(_, data: SMD) -> None:
     """Mark sent messages as recently sent."""
     text = data.content.extract_plain_text()
     if text:

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any, Awaitable, Callable
 
 import pymongo
+from bson import ObjectId
 from nonebot.adapters.onebot.v11 import (GroupMessageEvent, Message,
                                          MessageEvent)
 
@@ -23,7 +24,6 @@ class MessageData:
     content: Message
 
 
-ObjectId = str
 Sink = Callable[[ObjectId, MessageData], Awaitable[Any]]
 
 

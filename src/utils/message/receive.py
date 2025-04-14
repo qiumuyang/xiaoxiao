@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Awaitable, Callable
 
+from bson import ObjectId
 from nonebot.adapters.onebot.v11 import Message
 
 from src.ext import logger_wrapper
@@ -23,7 +24,6 @@ class MessageData:
 
 
 MessageCollection = Collection[dict, MessageData]
-ObjectId = str
 Sink = Callable[[ObjectId | None, MessageData], Awaitable[Any]]
 
 
