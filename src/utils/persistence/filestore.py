@@ -102,7 +102,7 @@ class FileStorage:
 
     async def _store_temp(self, content: aiohttp.StreamReader, filename: str):
         existing = await self.db.fs.files.find_one({"filename": filename})
-        if existing:
+        if existing and existing["metadata"]["storage_type"] != "persistent":
             try:
                 await self.fs_bucket.delete(existing["_id"])
             except Exception as e:
