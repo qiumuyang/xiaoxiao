@@ -159,7 +159,7 @@ class FileStorage:
         doc = await self.db.fs.files.find_one({"filename": filename})
         return doc["metadata"] if doc else None
 
-    async def add_reference(self, filename: str) -> bool:
+    async def increase_reference(self, filename: str) -> bool:
         result = await self.db.fs.files.update_one(
             {
                 "filename": filename,
@@ -169,7 +169,7 @@ class FileStorage:
             }})
         return result.modified_count > 0
 
-    async def remove_reference(self, filename: str) -> bool:
+    async def decrease_reference(self, filename: str) -> bool:
         doc = await self.db.fs.files.find_one_and_update(
             {
                 "filename": filename,
