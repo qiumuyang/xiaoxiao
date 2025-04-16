@@ -1,3 +1,3 @@
-from .message import Message, MessageRender
+from .message import MessageRender
 
-__all__ = ["Message", "MessageRender"]
+__all__ = ["MessageRender"]

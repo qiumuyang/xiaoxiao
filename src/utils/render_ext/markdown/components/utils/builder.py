@@ -23,11 +23,36 @@ def deduplicate(name: str, existing: set[str]) -> str:
     return new_name
 
 
+class Multiline:
+
+    def __init__(self):
+        self.text = ""
+        self.newline = False
+
+    def append(self, text: str, inline: bool):
+        if self.newline or not inline:
+            if self.text:
+                self.text += "\n"
+            self.newline = False
+        self.text += text
+        if not inline:
+            self.newline = True
+
+    def append_tag_begin(self, tag: str, inline: bool):
+        self.append(f"<{tag}>", inline)
+
+    def append_tag_end(self, tag: str, inline: bool):
+        self.append(f"</{tag}>", inline)
+
+    def append_self_closing_tag(self, tag: str, inline: bool):
+        self.append(f"<{tag}/>", inline)
+
+
 class Builder:
 
     _styles: dict[str, TextStyle]
     _images: dict[str, RenderObject | RenderImage]
-    _content: str
+    _content: Multiline
 
     def __init__(self,
                  default: TextStyle,
@@ -35,39 +60,36 @@ class Builder:
                  allow_override: bool = True) -> None:
         self._styles = {}
         self._images = {}
-        self._content = ""
+        self._content = Multiline()
         self._default = default
         self.max_width = max_width
         self.allow_override = allow_override
 
-    def text(self, content: str):
-        self._content += Paragraph.formatter.escape(content)
+    def text(self, content: str, inline: bool = True):
+        self._content.append(Paragraph.formatter.escape(content), inline)
 
     def image(self,
               image: RenderObject | RenderImage,
-              name: str = "img_",
+              tag: str = "img_",
               inline: bool = False):
-        name = deduplicate(name, set(self._images.keys()))
-        if inline:
-            self._content += f"<{name}/>"
-        else:
-            self._content += f"\n<{name}/>\n"
-        self._images[name] = image
+        tag = deduplicate(tag, set(self._images.keys()))
+        self._images[tag] = image
+        self._content.append_self_closing_tag(tag, inline)
 
-    def style(self, name: str, style: TextStyle | None, dedup: bool = True):
+    def style(self, tag: str, style: TextStyle | None, dedup: bool = True):
         style = style or self._default
         if dedup:
-            name = deduplicate(name, set(self._styles.keys()))
-        self._styles[name] = style
-        return self.StyleContext(self, name)
+            tag = deduplicate(tag, set(self._styles.keys()))
+        self._styles[tag] = style
+        return self.StyleContext(self, tag)
 
     @property
-    def content(self):
-        return self._content
+    def content(self) -> str:
+        return self._content.text
 
     @property
-    def raw_content(self):
-        return re.sub(r"<[^>]*>", "", self._content)
+    def raw_content(self) -> str:
+        return re.sub(r"<[^>]*>", "", self._content.text)
 
     @property
     def styles(self):
@@ -105,15 +127,15 @@ class Builder:
 
     class StyleContext:
 
-        def __init__(self, constructor: "Builder", name: str):
+        def __init__(self, constructor: "Builder", tag: str):
             self.constructor = constructor
-            self.name = name
+            self.name = tag
 
         def __enter__(self):
-            self.constructor._content += f"<{self.name}>"
+            self.constructor._content.append_tag_begin(self.name, inline=False)
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            self.constructor._content += f"</{self.name}>"
+            self.constructor._content.append_tag_end(self.name, inline=False)
 
 
 class Box:

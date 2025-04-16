@@ -47,6 +47,10 @@ class MessageSegment(_MessageSegment):
         return cls(type="image", data=data)
 
     @classmethod
+    def image_url(cls, url: str, filename: str) -> "MessageSegment":
+        return cls(type="image", data={"url": url, "filename": filename})
+
+    @classmethod
     def serialize(cls, message: Message) -> list[dict[str, Any]]:
         return [{
             "type": segment.type,

@@ -1,14 +1,16 @@
-from typing import Literal
-
+from nonebot.adapters.onebot.v11 import Message as MessageObject
 from PIL import Image
-from typing_extensions import Unpack
 
-from src.utils.render import (Alignment, BaseStyle, BoxSizing, CircleCrop,
-                              Color, Container, Decorations, Direction)
+from src.ext import MessageSegment, get_group_member_name
+from src.utils.persistence import FileStorage
+from src.utils.render import (Alignment, BoxSizing, CircleCrop, Color,
+                              Container, Decorations, Direction)
 from src.utils.render import Image as ImageObject
 from src.utils.render import (Interpolation, Palette, Paragraph, RectCrop,
                               RenderImage, RenderObject, Space, Spacer,
-                              TextStyle, cached, volatile)
+                              TextStyle)
+
+from ..markdown.components.utils.builder import Builder
 
 
 class MessageRender:
@@ -36,13 +38,19 @@ class MessageRender:
         RectCrop.of(border_radius=CONTENT_ROUND_RADIUS,
                     box_sizing=BoxSizing.BORDER_BOX))
     PADDING = Space.of_side(26, 18)
+    FACE_TEMPLATE = "data/static/face/{id}.png"
+    FACE_SIZE = 30
 
     @classmethod
-    def create(cls,
-               avatar: str | Image.Image,
-               content: str | Image.Image,
-               nickname: str = "",
-               alignment: Alignment = Alignment.START) -> RenderObject:
+    async def create(
+        cls,
+        avatar: str | Image.Image,
+        content: MessageObject,
+        nickname: str = "",
+        alignment: Alignment = Alignment.START,
+        group_id: int | None = None,
+    ) -> RenderObject:
+        storage = await FileStorage.get_instance()
         if isinstance(avatar, str):
             avatar_ = ImageObject.from_url(avatar,
                                            decorations=[CircleCrop.of()])
@@ -53,44 +61,84 @@ class MessageRender:
         nickname_ = None
         if nickname:
             nickname_ = Paragraph.of(nickname, style=cls.STYLE_NICKNAME)
-        if isinstance(content, str):
-            if "multimedia.nt.qq.com" in content:
-                # image url
-                content_ = ImageObject.from_url(content,
-                                                decorations=cls.CONTENT_DECO)
-            else:
-                content_ = Paragraph.of(content,
-                                        style=cls.STYLE_CONTENT,
-                                        max_width=cls.MAX_WIDTH,
-                                        line_spacing=4,
-                                        background=Palette.WHITE,
-                                        padding=cls.CONTENT_PADDING,
-                                        decorations=cls.CONTENT_DECO)
+        builder = Builder(default=cls.STYLE_CONTENT, max_width=cls.MAX_WIDTH)
+        shortcut = None
+        for segment in content:
+            segment = MessageSegment.from_onebot(segment)
+            match segment.type:
+                case "image" | "mface":
+                    # load image
+                    image = None
+                    try:
+                        filename = segment.extract_filename()
+                        url = segment.extract_url()
+                        image = await storage.load_image(url, filename)
+                    except Exception:
+                        pass
+                    if image is not None:
+                        image = ImageObject.from_image(
+                            image,
+                            decorations=cls.CONTENT_DECO,
+                        ).thumbnail(
+                            cls.MAX_IMAGE_DIM,
+                            cls.MAX_IMAGE_DIM,
+                            Interpolation.LANCZOS,
+                        ).cover(
+                            cls.MIN_IMAGE_DIM,
+                            cls.MIN_IMAGE_DIM,
+                            Interpolation.LANCZOS,
+                        )
+                        if image.width > cls.MAX_IMAGE_DIM or image.height > cls.MAX_IMAGE_DIM:
+                            image.resize(min(image.width, cls.MAX_IMAGE_DIM),
+                                         min(image.height, cls.MAX_IMAGE_DIM))
+                        builder.image(image, inline=False)
+                    else:
+                        builder.text("[图片]", inline=False)
+                    if len(content) == 1:
+                        shortcut = image
+                        break
+                case "at":
+                    # convert to nickname
+                    try:
+                        if group_id is not None:
+                            name = await get_group_member_name(
+                                group_id=group_id,
+                                user_id=segment.extract_at())
+                        else:
+                            name = str(segment.extract_at())
+                    except Exception:
+                        name = "error"
+                    builder.text("@" + name)
+                case "text":
+                    builder.text(segment.extract_text())
+                case "face":
+                    face_id = segment.extract_face()
+                    try:
+                        builder.image(
+                            RenderImage.from_file(
+                                cls.FACE_TEMPLATE.format(
+                                    id=face_id)).thumbnail(
+                                        cls.FACE_SIZE,
+                                        cls.FACE_SIZE,
+                                    ),
+                            inline=True,
+                        )
+                    except Exception:
+                        builder.text("[表情]", inline=True)
+        # When there is only one image, directly use it as the main content
+        if shortcut is None:
+            rendered_content = builder.build(spacing=4,
+                                             background=Palette.WHITE,
+                                             padding=cls.CONTENT_PADDING,
+                                             decorations=cls.CONTENT_DECO)
         else:
-            content_ = ImageObject.from_image(
-                content,
-                decorations=cls.CONTENT_DECO,
-            )
-        if isinstance(content_, ImageObject):
-            content_.thumbnail(
-                cls.MAX_IMAGE_DIM,
-                cls.MAX_IMAGE_DIM,
-                Interpolation.LANCZOS,
-            ).cover(
-                cls.MIN_IMAGE_DIM,
-                cls.MIN_IMAGE_DIM,
-                Interpolation.LANCZOS,
-            )
-            if content_.width > cls.MAX_IMAGE_DIM or content_.height > cls.MAX_IMAGE_DIM:
-                content_.resize(min(content_.width, cls.MAX_IMAGE_DIM),
-                                min(content_.height, cls.MAX_IMAGE_DIM))
-
+            rendered_content = shortcut
         # assemble
         if nickname_:
             spacer = Spacer.of(height=cls.SPACE_NAME_CONTENT)
-            components = [nickname_, spacer, content_]
+            components = [nickname_, spacer, rendered_content]
         else:
-            components = [content_]
+            components = [rendered_content]
         name_with_content = Container.from_children(
             components, alignment=alignment, direction=Direction.VERTICAL)
         items = [
@@ -104,44 +152,5 @@ class MessageRender:
             alignment=Alignment.START,  # align top
             direction=Direction.HORIZONTAL,
             background=cls.COLOR_BG,
-            padding=cls.PADDING)
-
-
-class Message(RenderObject):
-
-    def __init__(self,
-                 avatar: str | Image.Image,
-                 content: str | Image.Image,
-                 nickname: str = "",
-                 alignment: Alignment
-                 | Literal["start", "end"] = Alignment.START,
-                 **kwargs: Unpack[BaseStyle]):
-        super().__init__(**kwargs)
-        with volatile(self):
-            self.avatar_obj = avatar
-            self.content = content
-            self.nickname_obj = nickname
-            match alignment:
-                case "start":
-                    self.alignment = Alignment.START
-                case "end":
-                    self.alignment = Alignment.END
-                case _:
-                    assert isinstance(alignment, Alignment)
-                    self.alignment = alignment
-
-    @property
-    @cached
-    def content_width(self) -> int:
-        return self.render_content().width
-
-    @property
-    @cached
-    def content_height(self) -> int:
-        return self.render_content().height
-
-    @cached
-    def render_content(self) -> RenderImage:
-        return MessageRender.create(self.avatar_obj, self.content,
-                                    self.nickname_obj,
-                                    self.alignment).render()
+            padding=cls.PADDING,
+        )

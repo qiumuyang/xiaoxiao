@@ -1,11 +1,13 @@
 import asyncio
 import re
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from typing import NamedTuple
 
 import aiohttp
 from motor.core import AgnosticDatabase
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+from PIL import Image
 from pymongo.errors import DuplicateKeyError
 
 from src.ext import logger_wrapper
@@ -154,6 +156,11 @@ class FileStorage:
         except Exception as e:
             logger.info(f"Load file failed: {e}")
             return None
+
+    async def load_image(self, url: str, filename: str) -> Image.Image | None:
+        data = await self.load(url, filename)
+        if data:
+            return Image.open(BytesIO(data))
 
     async def load_metadata(self, filename: str) -> dict | None:
         doc = await self.db.fs.files.find_one({"filename": filename})

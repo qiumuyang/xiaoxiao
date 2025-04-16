@@ -30,7 +30,7 @@ class SpanRenderer:
                         builder.image(render_math(span.math,
                                                   span.inline,
                                                   max_width=builder.max_width),
-                                      name="eq_",
+                                      tag="eq_",
                                       inline=span.inline)
                     except Exception:
                         builder.text("[公式渲染错误]")

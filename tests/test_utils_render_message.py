@@ -1,22 +1,24 @@
-from io import BytesIO
 from pathlib import Path
 
-import requests
+import pytest
+from nonebot.adapters.onebot.v11 import Message as MessageObject
 from PIL import Image
 
+from src.ext import MessageSegment
 from src.utils.render import (Container, Direction, FixedContainer,
                               JustifyContent)
-from src.utils.render_ext.message import Message
-from src.utils.render_ext.message.message import MessageRender
+from src.utils.render_ext.message import MessageRender
 
 
 def placeholder(width: int, height: int) -> Image.Image:
-    r = requests.get(f"https://placehold.co/{width}x{height}.png")
-    r.raise_for_status()
-    return Image.open(BytesIO(r.content))
+    # r = requests.get(f"https://placehold.co/{width}x{height}.png")
+    # r.raise_for_status()
+    # return Image.open(BytesIO(r.content))
+    return Image.new("RGBA", (width, height), (255, 255, 255, 0))
 
 
-def test_render_message():
+@pytest.mark.asyncio
+async def test_render_message():
     out = Path("render-test/message")
     out.mkdir(parents=True, exist_ok=True)
 
@@ -34,11 +36,19 @@ def test_render_message():
 
     width = 1000
     messages = []
-    for content, nickname, alignment, name in testcases:
-        message = Message(avatar=avatar,
-                          content=content,
-                          nickname=nickname,
-                          alignment=alignment)
+    for i, (content, nickname, alignment, name) in enumerate(testcases):
+        message = await MessageRender.create(
+            avatar=avatar,
+            content=MessageObject(
+                MessageSegment.text(content)
+                if not isinstance(content, Image.Image) else MessageSegment.
+                image_url(
+                    filename=f"test_{i:05d}.png",
+                    url=
+                    f"https://placehold.co/{content.width}x{content.height}.png"
+                )),
+            nickname=nickname,
+            alignment=alignment)
         message.render().save(out / f"{name}.png")
         messages.append(
             FixedContainer.from_children(width,
@@ -46,6 +56,24 @@ def test_render_message():
                                          JustifyContent.START if alignment
                                          == "start" else JustifyContent.END,
                                          direction=Direction.HORIZONTAL))
+    message_complex = await MessageRender.create(
+        avatar=avatar,
+        content=MessageObject([
+            MessageSegment.text("Leading text"),
+            MessageSegment.image_url(filename="test_512x512.png",
+                                     url="https://placehold.co/512x512.png"),
+            MessageSegment.text("Trailing text"),
+            MessageSegment.at(111),
+            MessageSegment.face(0),
+            MessageSegment.text("end")
+        ]),
+        nickname="nickname")
+    messages.append(
+        FixedContainer.from_children(width,
+                                     message_complex.height, [message_complex],
+                                     JustifyContent.START,
+                                     direction=Direction.HORIZONTAL))
+
     Container.from_children(messages,
                             direction=Direction.VERTICAL,
                             background=MessageRender.COLOR_BG).render().save(

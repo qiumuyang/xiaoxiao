@@ -1,11 +1,8 @@
-from io import BytesIO
-
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
 from nonebot.typing import T_State
-from PIL import Image
 
 from src.ext import MessageSegment, ratelimit
 from src.ext.on import on_reply
@@ -83,11 +80,8 @@ async def process_image_message(
         if segment.is_image() or segment.is_mface():
             url = segment.extract_url()
             filename = segment.extract_filename()
-            data = await storage.load(url, filename)
-            if data is None:
-                continue
-            image = Image.open(BytesIO(data))
-            if not processor.supports(image):
+            image = await storage.load_image(url, filename)
+            if not image or not processor.supports(image):
                 continue
             result = processor(image, *args)
             if result is not None:
