@@ -60,7 +60,7 @@ async def _(state: T_State):
         激活影像捕获协议…正在检索未加密网络地址……执行莱茵生命数据锚点定位程序。
 
     Usage:
-        [引用消息] {cmd} - 提取*引用消息*中的图片链接
+        `引用` {cmd} - 提取*引用消息*中的图片链接
 
     Notes:
         - 支持提取部分大表情链接
@@ -86,7 +86,7 @@ async def _(event: GroupMessageEvent, state: T_State):
     生成消息图片
 
     Usage:
-        [引用消息] {cmd} - 生成*引用消息*的图片
+        `引用` {cmd} - 生成*引用消息*的图片
     """
     reply: Reply | None = state.get("reply")
     if not reply:

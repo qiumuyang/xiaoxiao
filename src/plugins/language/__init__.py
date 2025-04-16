@@ -215,7 +215,6 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
 
     Notes:
         - 捕获组序号从1开始，以左括号出现顺序为准
-        - 捕获语法仅对纯文本消息有效，包含非文本时序号无法准确匹配
     """
     result = await Ask(bot, event.group_id, event.message).answer()
     if result:

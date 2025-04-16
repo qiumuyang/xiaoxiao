@@ -114,7 +114,7 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
     Usage:
         {cmd}               - 清除自定义头像；不存在时清除头像缓存
         {cmd} `<图片>`      - 设置自定义头像
-        `[引用消息]` {cmd}  - 设置自定义头像为*引用消息*中的图片
+        `引用` {cmd}        - 设置自定义头像为*引用消息*中的图片
         设置自定义头像后，所有使用头像的指令都将使用自定义头像
 
     Notes:
