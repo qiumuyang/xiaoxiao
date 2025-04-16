@@ -8,7 +8,7 @@ import jieba
 import jieba.posseg as pseg
 from nonebot.adapters.onebot.v11 import Bot, Message
 
-from src.ext import (MessageSegment, get_group_member_name,
+from src.ext import (MessageExtension, MessageSegment, get_group_member_name,
                      list_group_member_names, logger_wrapper)
 
 from .capture_group import expand_capture_group_references
@@ -84,22 +84,8 @@ class Ask:
             return not any(word.startswith(bad) for bad in cls.BAD_ASK)
         return False
 
-    def preprocess_choice(self, s: Message) -> Message:
-        # first convert all non-text segments to private use area characters
-        # for uniform processing
-        private_use_area = 0xE000
-        non_text_mapping = {}
-        text = ""
-        for ob_seg in s:
-            seg = MessageSegment.from_onebot(ob_seg)
-            if not seg.is_text():
-                char = chr(private_use_area + len(non_text_mapping))
-                non_text_mapping[char] = seg
-                text += char
-            else:
-                text += seg.extract_text()
-        text = text.removeprefix("问")
-        # then split the replaced text by "还是"
+    def preprocess_choice(self, text: str) -> str:
+        # split the text by "还是"
         parts = re.split(
             # if punctuation is escaped, it is not a split point
             f"(?<!\\\\)([{re.escape(punctuation_choice_stop)}\n])",
@@ -112,22 +98,9 @@ class Ask:
                 sentences[i] = random.choice(choices)
                 self.replacement = self.replacement or len(choices) > 1
             # else as is
-        text = "问" + "".join(s + p for s, p in itertools.zip_longest(
+        text = "".join(s + p for s, p in itertools.zip_longest(
             sentences, punctuation, fillvalue=""))
-        # finally replace the private use area characters back
-        current_text = ""
-        segments = []
-        for char in text:
-            if char in non_text_mapping:
-                if current_text:
-                    segments.append(MessageSegment.text(current_text))
-                    current_text = ""
-                segments.append(non_text_mapping[char])
-            else:
-                current_text += char
-        if current_text:
-            segments.append(MessageSegment.text(current_text))
-        return Message(segments)
+        return text
 
     def __init__(self, bot: Bot, group_id: int, question: Message) -> None:
         self.bot = bot
@@ -137,51 +110,44 @@ class Ask:
 
     async def answer(self) -> Message | None:
         group_id = self.group_id
-        question = self.question
+        question, symtab = MessageExtension.encode(self.question)
         if not question:
             return
-        if not question[0].is_text() or not self.is_question(
-                question[0].data["text"]):
+        if not self.is_question(question):
             return
 
         member_names = await list_group_member_names(group_id=group_id)
         member_names.extend(["你", "我"])
 
+        question = question.removeprefix("问")
+        question = self.preprocess_choice(question)
+        try:
+            results = []
+            async for token in self.process(question, member_names):
+                results.append(token)
+            result = "".join(results)
+        except ValueError:
+            logger.warning("Empty corpus")
+            return
+        if result:
+            try:
+                expanded = expand_capture_group_references(result)
+                result = self.unescape(expanded)
+            except ValueError:
+                return Message("[由于循环引用，展开终止]")
+        if not self.replacement:
+            return
         processed_message = Message()
-        for i, ob_seg in enumerate(self.preprocess_choice(question)):
-            seg = MessageSegment.from_onebot(ob_seg)
-            append_seg: str | MessageSegment | None = None
+        for i, seg in enumerate(MessageExtension.decode(result, symtab)):
+            seg = MessageSegment.from_onebot(seg)
             if seg.is_at():
                 # convert to plain text
                 member_name = await get_group_member_name(
                     group_id=group_id, user_id=seg.extract_at())
-                append_seg = "@" + member_name
-            elif not seg.is_text():
-                # as is
-                append_seg = seg
+                processed_message.append(MessageSegment.at(member_name))
             else:
-                text = seg.extract_text()
-                if i == 0:
-                    text = text.removeprefix("问")
-                try:
-                    results = []
-                    async for token in self.process(text, member_names):
-                        results.append(token)
-                    result = "".join(results)
-                except ValueError:
-                    logger.warning("Empty corpus")
-                    return
-                if result:
-                    try:
-                        expanded = expand_capture_group_references(result)
-                    except ValueError:
-                        processed_message.append("[由于循环引用，展开终止]")
-                        return processed_message
-                    append_seg = self.unescape(expanded)
-            if append_seg is not None:
-                processed_message.append(append_seg)
-        if self.replacement:
-            return processed_message
+                processed_message.append(seg)
+        return processed_message
 
     async def random_corpus_entry(
         self,

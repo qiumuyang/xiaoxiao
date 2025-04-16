@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
+from src.ext import MessageExtension
 from src.plugins.language.ask import Ask, Entry
 
 
@@ -104,49 +105,49 @@ def test_ask_preprocess():
         expected: Callable[[str], bool],
     ):
         ask.replacement = False
-        result = ask.preprocess_choice(Message(question)).extract_plain_text()
+        result = ask.preprocess_choice(question)
         assert expected(result), f"{question=}, {result=}"
         assert replacement == ask.replacement, \
                 f"{question=}, {result=}, {ask.replacement=}"
 
-    test_once("问XXYYZZ", False, lambda s: s == "问XXYYZZ")
+    test_once("XXYYZZ", False, lambda s: s == "XXYYZZ")
     test_once("问", False, lambda s: s == "问")
-    test_once("问还是还是还是", False, lambda s: s == "问还是还是还是")
+    test_once("还是还是还是", False, lambda s: s == "还是还是还是")
     for _ in range(10):
-        test_once("问A还是B", True, lambda s: s in ["问A", "问B"])
-        test_once("问a还是b,\nc还是d", True,
-                  lambda s: s in ["问a,\nc", "问a,\nd", "问b,\nc", "问b,\nd"])
+        test_once("A还是B", True, lambda s: s in ["A", "B"])
+        test_once("a还是b,\nc还是d", True,
+                  lambda s: s in ["a,\nc", "a,\nd", "b,\nc", "b,\nd"])
         test_once(
-            "问XZC是/火还是水还是风还是雷还是水还是冰还是岩/属性角色", True, lambda s: s in [
-                "问XZC是/火/属性角色",
-                "问XZC是/水/属性角色",
-                "问XZC是/风/属性角色",
-                "问XZC是/雷/属性角色",
-                "问XZC是/冰/属性角色",
-                "问XZC是/岩/属性角色",
+            "XZC是/火还是水还是风还是雷还是水还是冰还是岩/属性角色", True, lambda s: s in [
+                "XZC是/火/属性角色",
+                "XZC是/水/属性角色",
+                "XZC是/风/属性角色",
+                "XZC是/雷/属性角色",
+                "XZC是/冰/属性角色",
+                "XZC是/岩/属性角色",
             ])
         test_once(r"问11:59之后是/12\:00还是00\:00", True,
                   lambda s: s in [r"问11:59之后是/12\:00", r"问11:59之后是/00\:00"])
 
+    def preprocess(message: Message) -> Message:
+        s, sym = MessageExtension.encode(message)
+        s = ask.preprocess_choice(s)
+        return MessageExtension.decode(s, sym)
+
     # more complex cases
-    ask_ = MessageSegment.text("问")
     some_text = MessageSegment.text("一些文本")
     or_ = MessageSegment.text("还是")
     at = MessageSegment.at(123456)
     image = MessageSegment.image(file="file:///path/to/image.jpg")
     face = MessageSegment.face(11)
-    complex1 = Message([ask_, at, or_, image, or_, face])
-    complex2 = Message([ask_, some_text, image, some_text, or_, at, some_text])
-    result1 = ask.preprocess_choice(complex1)
-    assert ask.replacement == True
-    assert result1 in [
-        Message([ask_, at]),
-        Message([ask_, image]),
-        Message([ask_, face])
-    ]
-    result2 = ask.preprocess_choice(complex2)
-    assert ask.replacement == True
+    complex1 = Message([at, or_, image, or_, face])
+    complex2 = Message([some_text, image, some_text, or_, at, some_text])
+    result1 = preprocess(complex1)
+    assert ask.replacement
+    assert result1 in [Message([at]), Message([image]), Message([face])]
+    result2 = preprocess(complex2)
+    assert ask.replacement
     assert result2 in [
-        Message([ask_, some_text, image, some_text]),
-        Message([ask_, at, some_text])
+        Message([some_text, image, some_text]),
+        Message([at, some_text])
     ]

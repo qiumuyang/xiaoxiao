@@ -183,6 +183,45 @@ class MessageSegment(_MessageSegment):
         return Message(segments)
 
 
+class MessageCodec:
+
+    PRIVATE_USE = 0xE000
+    PRIVATE_USE_END = 0xF8FF
+
+    @classmethod
+    def encode(cls,
+               message: Message) -> tuple[str, dict[str, _MessageSegment]]:
+        text = []
+        symbol_table = {}
+        for segment in message:
+            if segment.type == "text":
+                text.append(segment.data["text"])
+            elif cls.PRIVATE_USE + len(symbol_table) > cls.PRIVATE_USE_END:
+                raise ValueError("Too many segments")
+            else:
+                char = chr(cls.PRIVATE_USE + len(symbol_table))
+                text.append(char)
+                symbol_table[char] = segment
+        return "".join(text), symbol_table
+
+    @classmethod
+    def decode(cls, message: str,
+               symbol_table: dict[str, _MessageSegment]) -> Message:
+        segments = []
+        text = ""
+        for char in message:
+            if char in symbol_table:
+                if text:
+                    segments.append(_MessageSegment.text(text))
+                    text = ""
+                segments.append(symbol_table[char])
+            else:
+                text += char
+        if text:
+            segments.append(_MessageSegment.text(text))
+        return Message(segments)
+
+
 class MessageExtension:
 
     @classmethod
@@ -253,3 +292,18 @@ class MessageExtension:
                 except Exception:
                     pass
         return message
+
+    @classmethod
+    def encode(
+        cls,
+        message: Message,
+    ) -> tuple[str, dict[str, _MessageSegment]]:
+        return MessageCodec.encode(message)
+
+    @classmethod
+    def decode(
+        cls,
+        message: str,
+        symbol_table: dict[str, _MessageSegment],
+    ) -> Message:
+        return MessageCodec.decode(message, symbol_table)
