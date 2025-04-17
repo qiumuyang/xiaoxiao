@@ -4,7 +4,7 @@ from typing import Callable, Iterable
 from ....base import (AbsoluteSize, MinimalTextStyle, RelativeSize,
                       RenderImage, RenderObject, TextStyle, enforce_minimal)
 from ..layout import Element, ImageElement, TextElement
-from .parser import MarkupElement, MarkupNode, MarkupText
+from .parser import MarkupElement, MarkupImage, MarkupNode, MarkupText
 
 
 class OverridableStyle:
@@ -81,18 +81,17 @@ class LayoutElementGenerator:
             case MarkupText(content):
                 yield TextElement.of(text=self.unescape(content),
                                      **style_stack.style)
+            case MarkupImage(name, inline):
+                image = self.images.get(name, None)
+                if image is None:
+                    raise ValueError(f"Unknown image name: {name}")
+                if isinstance(image, RenderObject):
+                    image = image.render()
+                yield ImageElement(image, inline)
             case MarkupElement(tag, children):
-                if children is None:
-                    image = self.images.get(tag, None)
-                    if image is None:
-                        raise ValueError(f"Unknown image name: {tag}")
-                    if isinstance(image, RenderObject):
-                        image = image.render()
-                    yield ImageElement(image)
-                else:
-                    override_style = self.styles.get(tag, None)
-                    if override_style is None:
-                        raise ValueError(f"Unknown style name: {tag}")
-                    with style_stack.override(override_style):
-                        for child in children:
-                            yield from self._layout(child, style_stack)
+                override_style = self.styles.get(tag, None)
+                if override_style is None:
+                    raise ValueError(f"Unknown style name: {tag}")
+                with style_stack.override(override_style):
+                    for child in children:
+                        yield from self._layout(child, style_stack)

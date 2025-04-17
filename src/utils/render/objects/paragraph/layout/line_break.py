@@ -31,7 +31,12 @@ class LineBreaker:
     def current_width(self) -> int:
         return sum(x.width for x in self.line_buffer)
 
-    def break_lines(self, max_width: int | None) -> Iterable[list[Element]]:
+    def break_lines(
+        self,
+        max_width: int | None,
+        *,
+        disable_block: bool = False,
+    ) -> Iterable[list[Element]]:
         """
         Breaks the elements into lines based on the specified maximum width.
 
@@ -54,7 +59,17 @@ class LineBreaker:
         while True:
             current = remain or next(it, None)
             if current is None:
-                break
+                break  # no more elements
+
+            if not disable_block and not current.inline:
+                # block element (force line break before and after)
+                if self.line_buffer:
+                    yield self.flush()
+                # treat it as a single element
+                yield from LineBreaker([current], patience).break_lines(
+                    max_width, disable_block=True)
+                continue
+
             if current is not remain:
                 # reset patience if we're on a new element
                 patience = self.patience

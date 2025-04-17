@@ -13,11 +13,17 @@ class MarkupText(MarkupNode):
 
 
 @dataclass(slots=True)
+class MarkupImage(MarkupNode):
+    name: str
+    inline: bool = False
+
+
+@dataclass(slots=True)
 class MarkupElement(MarkupNode):
     # Note: be careful with children [] vs None
     # the semantics are different: None for self-closing tag
     tag: str
-    children: list[MarkupNode] | None = None
+    children: list[MarkupNode]
 
 
 class MarkupSyntaxError(ValueError):
@@ -36,9 +42,9 @@ class MarkupSyntaxError(ValueError):
 class MarkupParser:
 
     # group 1: optional closing tag
-    # group 2: tag name (alphanumeric)
+    # group 2: tag name (alphanumeric) with optional :modifier
     # group 3: optional self-closing tag
-    TAG_PATTERN = re.compile(r"<(/)?([a-zA-Z][\w\-\._]*)(/?)>")
+    TAG_PATTERN = re.compile(r"<(/)?([a-zA-Z][\w\-\._]*(?::[\w\-]+)?)(/?)>")
 
     ESCAPE_TABLE = {"&": "&amp;", "<": "&lt;", ">": "&gt;"}
 
@@ -82,7 +88,12 @@ class MarkupParser:
                     if is_closing:
                         return nodes
                     if is_self_closing:
-                        nodes.append(MarkupElement(tag_name))
+                        if ":" in tag_name:
+                            tag_name, modifier = tag_name.split(":", 1)
+                        else:
+                            tag_name, modifier = tag_name, ""
+                        nodes.append(
+                            MarkupImage(tag_name, inline=modifier == "inline"))
                     else:
                         children = self._parse_nodes(tag_name)
                         nodes.append(MarkupElement(tag_name, children))

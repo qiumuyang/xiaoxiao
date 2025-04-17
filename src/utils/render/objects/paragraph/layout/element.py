@@ -17,6 +17,10 @@ class Element(Protocol):
     def line_continue(self) -> bool:
         ...
 
+    @property
+    def inline(self) -> bool:
+        ...
+
     def split_at(self, width: int, next_width: int) -> "Split":
         """Split the element at the specified width.
 
@@ -40,5 +44,6 @@ class Element(Protocol):
 
 
 class Split(NamedTuple):
+
     current: Element | None
     remaining: Element | None

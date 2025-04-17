@@ -45,7 +45,8 @@ class Multiline:
         self.append(f"</{tag}>", inline)
 
     def append_self_closing_tag(self, tag: str, inline: bool):
-        self.append(f"<{tag}/>", inline)
+        mod = ":inline" if inline else ""
+        self.append(f"<{tag}{mod}/>", True)
 
 
 class Builder:
@@ -132,10 +133,10 @@ class Builder:
             self.name = tag
 
         def __enter__(self):
-            self.constructor._content.append_tag_begin(self.name, inline=False)
+            self.constructor._content.append_tag_begin(self.name, inline=True)
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            self.constructor._content.append_tag_end(self.name, inline=False)
+            self.constructor._content.append_tag_end(self.name, inline=True)
 
 
 class Box:

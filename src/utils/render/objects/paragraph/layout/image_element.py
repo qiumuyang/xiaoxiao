@@ -4,8 +4,9 @@ from .element import Element, Split
 
 class ImageElement:
 
-    def __init__(self, image: RenderImage):
+    def __init__(self, image: RenderImage, inline: bool = False):
         self.image = image
+        self._inline = inline
 
     @property
     def width(self) -> int:
@@ -18,6 +19,10 @@ class ImageElement:
     @property
     def line_continue(self) -> bool:
         return False
+
+    @property
+    def inline(self) -> bool:
+        return self._inline
 
     def split_at(self, width: int, next_width: int) -> Split:
         if self.width <= width:

@@ -257,3 +257,7 @@ class TextElement(RenderText):
         if self.style != other.style:
             return None
         return self.with_text(self.text + other.text)
+
+    @property
+    def inline(self) -> bool:
+        return True
