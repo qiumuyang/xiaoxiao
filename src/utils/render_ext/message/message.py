@@ -4,7 +4,7 @@ from PIL import Image
 from src.ext import MessageSegment, get_group_member_name
 from src.utils.persistence import FileStorage
 from src.utils.render import (Alignment, BoxSizing, CircleCrop, Color,
-                              Container, Decorations, Direction)
+                              Container, Decorations, Direction, FontFamily)
 from src.utils.render import Image as ImageObject
 from src.utils.render import (Interpolation, Palette, Paragraph, RectCrop,
                               RenderImage, RenderObject, Space, Spacer,
@@ -22,7 +22,23 @@ class MessageRender:
     COLOR_NICKNAME = Color.from_hex("#A1A1A1")
     COLOR_CONTENT = Color.from_hex("#02071A")
 
-    FONT = "data/static/fonts/MiSans-Regular.ttf"
+    FONT = FontFamily.of(regular="data/static/fonts/MiSans-Regular.ttf",
+                         fallbacks=[
+                             FontFamily.of(
+                                 regular="data/static/fonts/seguiemj.ttf",
+                                 embedded_color=True,
+                                 scale=0.85,
+                                 baseline_correction=True),
+                             "data/static/fonts/MiSansThai.ttf",
+                             "data/static/fonts/MiSansLao.ttf",
+                             "data/static/fonts/MiSans L3.ttf",
+                             "data/static/fonts/NotoSansJP-Regular.ttf",
+                             "data/static/fonts/MiSansArabic-Regular.ttf",
+                             "data/static/fonts/MiSansTibetan-Regular.ttf",
+                             "data/static/fonts/MiSansLatin-Regular.ttf",
+                             "data/static/fonts/MiSansTC-Regular.ttf",
+                             "data/static/fonts/arial.ttf",
+                         ])
 
     STYLE_NICKNAME = TextStyle(font=FONT, size=18, color=COLOR_NICKNAME)
     STYLE_CONTENT = TextStyle(font=FONT, size=24, color=COLOR_CONTENT)

@@ -60,10 +60,13 @@ class TextFont:
 
     @classmethod
     def supports_glyph(cls, font_path: str, glyph: str) -> bool:
-        cls.init_font(font_path)
-        for table in cls.cmaps[font_path].tables:
-            if ord(glyph) in table.cmap.keys():
-                return True
+        try:
+            cls.init_font(font_path)
+            for table in cls.cmaps[font_path].tables:
+                if ord(glyph) in table.cmap.keys():
+                    return True
+        except (KeyError, FileNotFoundError):
+            pass
         return False
 
     @classmethod
