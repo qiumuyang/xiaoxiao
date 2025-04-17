@@ -5,9 +5,8 @@ from nonebot.adapters.onebot.v11 import Message as MessageObject
 from PIL import Image
 
 from src.ext import MessageSegment
-from src.utils.render import (Container, Direction, FixedContainer,
-                              JustifyContent)
-from src.utils.render_ext.message import MessageRender
+from src.utils.render import Alignment
+from src.utils.render_ext.message import Conversation, MessageRender
 
 
 def placeholder(width: int, height: int) -> Image.Image:
@@ -34,47 +33,43 @@ async def test_render_message():
         (placeholder(200, 600), "这里是一个很长很长很长很长的昵称", "start", "200x600"),
     ]
 
-    width = 1000
     messages = []
     for i, (content, nickname, alignment, name) in enumerate(testcases):
-        message = await MessageRender.create(
-            avatar=avatar,
-            content=MessageObject(
-                MessageSegment.text(content)
-                if not isinstance(content, Image.Image) else MessageSegment.
-                image_url(
-                    filename=f"test_{i:05d}.png",
-                    url=
-                    f"https://placehold.co/{content.width}x{content.height}.png"
-                )),
-            nickname=nickname,
-            alignment=alignment)
+        msg = MessageObject(
+            MessageSegment.text(content) if
+            not isinstance(content, Image.Image) else MessageSegment.image_url(
+                filename=f"test_{i:05d}.png",
+                url=f"https://placehold.co/{content.width}x{content.height}.png"
+            ))
+        alignment = Alignment.START if alignment == "start" else Alignment.END
+        message = await MessageRender.create(avatar=avatar,
+                                             content=msg,
+                                             nickname=nickname,
+                                             alignment=alignment)
         message.render().save(out / f"{name}.png")
         messages.append(
-            FixedContainer.from_children(width,
-                                         message.height, [message],
-                                         JustifyContent.START if alignment
-                                         == "start" else JustifyContent.END,
-                                         direction=Direction.HORIZONTAL))
-    message_complex = await MessageRender.create(
-        avatar=avatar,
-        content=MessageObject([
-            MessageSegment.text("Leading text"),
-            MessageSegment.image_url(filename="test_512x512.png",
-                                     url="https://placehold.co/512x512.png"),
-            MessageSegment.text("Trailing text"),
-            MessageSegment.at(111),
-            MessageSegment.face(0),
-            MessageSegment.text("end")
-        ]),
-        nickname="nickname")
-    messages.append(
-        FixedContainer.from_children(width,
-                                     message_complex.height, [message_complex],
-                                     JustifyContent.START,
-                                     direction=Direction.HORIZONTAL))
+            Conversation(avatar=avatar,
+                         content=msg,
+                         nickname=nickname,
+                         alignment=alignment))
 
-    Container.from_children(messages,
-                            direction=Direction.VERTICAL,
-                            background=MessageRender.COLOR_BG).render().save(
-                                out / "all.png")
+    complex_msg = MessageObject([
+        MessageSegment.text("Leading text"),
+        MessageSegment.image_url(filename="test_512x512.png",
+                                 url="https://placehold.co/512x512.png"),
+        MessageSegment.text("Trailing text"),
+        MessageSegment.at(111),
+        MessageSegment.face(0),
+        MessageSegment.text("end")
+    ])
+
+    message_complex = await MessageRender.create(avatar=avatar,
+                                                 content=complex_msg,
+                                                 nickname="complex")
+    message_complex.render().save(out / "complex.png")
+
+    messages.append(
+        Conversation(avatar=avatar, content=complex_msg, nickname="complex"))
+
+    (await MessageRender.create_conversation(messages)).render().save(
+        out / "all.png")

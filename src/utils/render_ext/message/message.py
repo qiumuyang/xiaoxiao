@@ -1,16 +1,28 @@
+import asyncio
+from typing import TypedDict
+
 from nonebot.adapters.onebot.v11 import Message as MessageObject
 from PIL import Image
+from typing_extensions import NotRequired
 
 from src.ext import MessageSegment, get_group_member_name
 from src.utils.persistence import FileStorage
 from src.utils.render import (Alignment, BoxSizing, CircleCrop, Color,
-                              Container, Decorations, Direction, FontFamily)
+                              Container, Decorations, Direction,
+                              FixedContainer, FontFamily)
 from src.utils.render import Image as ImageObject
-from src.utils.render import (Interpolation, Palette, Paragraph, RectCrop,
-                              RenderImage, RenderObject, Space, Spacer,
-                              TextStyle)
+from src.utils.render import (Interpolation, JustifyContent, Palette,
+                              Paragraph, RectCrop, RenderImage, RenderObject,
+                              Space, Spacer, TextStyle)
 
 from ..markdown.components.utils.builder import Builder
+
+
+class Conversation(TypedDict):
+    avatar: str | Image.Image
+    content: MessageObject
+    nickname: NotRequired[str]
+    alignment: NotRequired[Alignment]
 
 
 class MessageRender:
@@ -43,6 +55,7 @@ class MessageRender:
     STYLE_NICKNAME = TextStyle(font=FONT, size=18, color=COLOR_NICKNAME)
     STYLE_CONTENT = TextStyle(font=FONT, size=24, color=COLOR_CONTENT)
 
+    FULL_MAX_WIDTH = 600
     MAX_WIDTH = 360
     MAX_IMAGE_DIM = MAX_WIDTH
     MIN_IMAGE_DIM = MAX_IMAGE_DIM // 6
@@ -182,4 +195,33 @@ class MessageRender:
             direction=Direction.HORIZONTAL,
             background=cls.COLOR_BG,
             padding=cls.PADDING,
+        )
+
+    @classmethod
+    async def create_conversation(
+        cls,
+        conversation: list[Conversation],
+        group_id: int | None = None,
+    ) -> RenderObject:
+        children = await asyncio.gather(*(cls.create(
+            avatar=conv["avatar"],
+            content=conv["content"],
+            nickname=conv.get("nickname", ""),
+            alignment=conv.get("alignment", Alignment.START),
+            group_id=group_id,
+        ) for conv in conversation))
+        return Container.from_children(
+            [
+                FixedContainer.from_children(
+                    width=cls.FULL_MAX_WIDTH,
+                    height=item.height,
+                    justify_content=JustifyContent.START if conv.get(
+                        "alignment", Alignment.START) == Alignment.START else
+                    JustifyContent.END,
+                    children=[item],
+                    direction=Direction.HORIZONTAL)
+                for item, conv in zip(children, conversation)
+            ],
+            direction=Direction.VERTICAL,
+            background=cls.COLOR_BG,
         )
