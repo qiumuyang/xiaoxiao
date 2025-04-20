@@ -4,7 +4,7 @@ import re
 from enum import Enum
 from textwrap import dedent
 
-from src.ext import logger_wrapper
+from src.utils.log import logger_wrapper
 
 from ..env import inject_env
 from .table import Table

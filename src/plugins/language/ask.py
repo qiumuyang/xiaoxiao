@@ -9,7 +9,8 @@ import jieba.posseg as pseg
 from nonebot.adapters.onebot.v11 import Bot, Message
 
 from src.ext import (MessageExtension, MessageSegment, get_group_member_name,
-                     list_group_member_names, logger_wrapper)
+                     list_group_member_names)
+from src.utils.log import logger_wrapper
 
 from .capture_group import expand_capture_group_references
 from .corpus import Corpus, Entry

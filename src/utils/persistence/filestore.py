@@ -10,8 +10,8 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from PIL import Image
 from pymongo.errors import DuplicateKeyError
 
-from src.ext import logger_wrapper
-from src.utils.env import inject_env
+from ..env import inject_env
+from ..log import logger_wrapper
 
 
 class StorageStat(NamedTuple):

@@ -5,9 +5,9 @@ from typing import Any, Awaitable, Callable
 from bson import ObjectId
 from nonebot.adapters.onebot.v11 import Message
 
-from src.ext import logger_wrapper
 from src.ext.message import MessageSegment as ExtMessageSegment
 
+from ..log import logger_wrapper
 from ..persistence import Collection, Mongo
 
 logger = logger_wrapper(__name__)

@@ -8,8 +8,8 @@ from nonebot.adapters.onebot.v11 import (GroupMessageEvent, Message,
                                          MessageEvent)
 
 from src.ext import MessageSegment as ExtMessageSegment
-from src.ext import logger_wrapper
 
+from ..log import logger_wrapper
 from ..persistence import Collection, Mongo
 
 logger = logger_wrapper(__name__)

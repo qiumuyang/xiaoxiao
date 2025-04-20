@@ -2,8 +2,8 @@ from aiohttp import ClientSession, ClientTimeout
 from nonebot import get_driver
 from PIL import Image
 
-from src.ext.log import logger_wrapper
 from src.utils.env import inject_env
+from src.utils.log import logger_wrapper
 
 from .fetch import Fetcher, UpdateStatus
 from .manager import Manager

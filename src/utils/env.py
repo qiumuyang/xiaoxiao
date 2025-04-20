@@ -7,7 +7,7 @@ from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
                              FileSystemEventHandler)
 from watchdog.observers import Observer
 
-from src.ext import logger_wrapper
+from .log import logger_wrapper
 
 
 def _construct_parser(type):

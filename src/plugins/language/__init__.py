@@ -118,8 +118,6 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     # - replied message sent by CURRENT USER:
     #   - check bot permission
     reply: Reply = state["reply"]
-    from src.ext.log import debug_logger
-    debug_logger.info(reply.model_dump_json())
     if str(reply.sender.user_id) == bot.self_id:  # bot.self_id is a string
         session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
             event)

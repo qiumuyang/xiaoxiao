@@ -1,21 +1,39 @@
 from typing import Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar
 
+from bson import ObjectId
 from motor.core import (AgnosticCollection, AgnosticCommandCursor,
                         AgnosticCursor, AgnosticDatabase)
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
+from pydantic import BaseModel, GetCoreSchemaHandler
+from pydantic_core import core_schema
 from pymongo.results import (DeleteResult, InsertManyResult, InsertOneResult,
                              UpdateResult)
 
-from src.ext import logger_wrapper
-from src.utils.env import inject_env
-
+from ..env import inject_env
+from ..log import logger_wrapper
 from .serialize import deserialize, serialize
 
 T = TypeVar("T")
 D = TypeVar("D", bound=Mapping[str, Any])
 
 logger = logger_wrapper(__name__)
+
+
+class PydanticObjectId(ObjectId):
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, _source,
+                                     handler: GetCoreSchemaHandler):
+        return core_schema.no_info_after_validator_function(
+            cls.validate, core_schema.any_schema())
+
+    @classmethod
+    def validate(cls, v):
+        if isinstance(v, ObjectId):
+            return v
+        if ObjectId.is_valid(v):
+            return ObjectId(v)
+        raise ValueError("Invalid ObjectId")
 
 
 class Collection(Generic[D, T]):
