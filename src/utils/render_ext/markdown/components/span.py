@@ -36,9 +36,16 @@ class SpanRenderer:
                         builder.text("[公式渲染错误]")
                 case Image():
                     try:
-                        builder.image(fetch_image(span.src))
+                        builder.image(fetch_image(span.src),
+                                      caption=(span.title,
+                                               master.style.caption))
                     except Exception:
-                        builder.text("[图片渲染错误]")
+                        alt_text = "图片渲染错误"
+                        if span.children:
+                            obj = next(iter(span.children))
+                            if isinstance(obj, RawText):
+                                alt_text = obj.content
+                        builder.text(f"[{alt_text}]")
                 case _:
                     style_with_name = master.style.span.get(type(span))
                     if not style_with_name:

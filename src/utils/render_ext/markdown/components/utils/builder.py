@@ -71,9 +71,20 @@ class Builder:
 
     def image(self,
               image: RenderObject | RenderImage,
+              caption: str | tuple[str, TextStyle] | None = None,
               tag: str = "img_",
               inline: bool = False):
         tag = deduplicate(tag, set(self._images.keys()))
+        if caption:
+            if isinstance(image, RenderObject):
+                image = image.render()
+            if isinstance(caption, tuple):
+                caption, style = caption
+            else:
+                style = self.default
+            image = RenderImage.concat_vertical(
+                [image, Paragraph.of(caption, style=style).render()],
+                alignment=Alignment.CENTER)
         self._images[tag] = image
         self._content.append_self_closing_tag(tag, inline)
 

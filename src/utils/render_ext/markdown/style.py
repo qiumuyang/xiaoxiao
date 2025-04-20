@@ -41,6 +41,7 @@ class TextPalette(NamedTuple):
     link: str = "#0969DA"
     quote: str = "#656D76"
     code_block: str = main
+    caption: str = "#666666"
 
 
 class Palette(NamedTuple):
@@ -55,8 +56,7 @@ class TextSize(NamedTuple):
     code_inline: int = 22
     unordered_bullet_scale: float = 1.0
     # measure different from pillow pixel size
-    math_inline: int = 14
-    math_block: int = 18
+    caption: int = 14
 
 
 class TextFont(NamedTuple):
@@ -247,17 +247,6 @@ class List(NamedTuple):
                          color=Color.from_hex(self.bullet_color))
 
 
-class Math(NamedTuple):
-    # shared
-    background: str
-    # matplotlib
-    size_inline: int
-    size_block: int
-    color: str
-    # katex
-    rescale: float = 0.25
-
-
 class Spacing(int):
 
     parent: "MarkdownStyle"
@@ -323,6 +312,12 @@ class MarkdownStyle(NamedTuple):
                          color=Color.from_hex(self.text_palette.main))
 
     @property
+    def caption(self) -> TextStyle:
+        return TextStyle(font=self.text_font.main,
+                         size=self.text_size.caption,
+                         color=Color.from_hex(self.text_palette.caption))
+
+    @property
     def heading(self) -> Heading:
         return Heading(font=self.text_font.main,
                        sizes=self.text_size.heading,
@@ -385,10 +380,3 @@ class MarkdownStyle(NamedTuple):
             ordered_bullet_size=self.text_size.main,
             bullet_color=self.text_palette.main,
         )
-
-    @property
-    def math(self) -> Math:
-        return Math(size_inline=self.text_size.math_inline,
-                    size_block=self.text_size.math_block,
-                    color=self.text_palette.main,
-                    background=self.bg_palette.code_block)
