@@ -4,6 +4,7 @@ from .paragraph.paragraph import Paragraph
 from .relative import RelativeContainer
 from .spacer import Spacer, ZeroSpacingSpacer
 from .stack import Stack
+from .waterfall import WaterfallContainer
 
 __all__ = [
     "Container",
@@ -14,5 +15,6 @@ __all__ = [
     "RelativeContainer",
     "Spacer",
     "Stack",
+    "WaterfallContainer",
     "ZeroSpacingSpacer",
 ]
