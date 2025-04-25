@@ -35,6 +35,7 @@ class MessageRender:
     COLOR_CONTENT = Color.from_hex("#02071A")
 
     FONT = FontFamily.of(regular="data/static/fonts/MiSans-Regular.ttf",
+                         bold="data/static/fonts/MiSans-Bold.ttf",
                          fallbacks=[
                              FontFamily.of(
                                  regular="data/static/fonts/seguiemj.ttf",
@@ -57,8 +58,8 @@ class MessageRender:
 
     FULL_MAX_WIDTH = 600
     MAX_WIDTH = 360
-    MAX_IMAGE_DIM = MAX_WIDTH
-    MIN_IMAGE_DIM = MAX_IMAGE_DIM // 6
+    MAX_IMAGE_DIM_R = 1.0
+    MIN_IMAGE_DIM_R = 1.0 / 6
     SPACE_AVATAR_CONTENT = 14
     SPACE_NAME_CONTENT = 10
     CONTENT_ROUND_RADIUS = 15
@@ -71,13 +72,20 @@ class MessageRender:
     FACE_SIZE = 30
 
     @classmethod
-    async def render_content(cls,
-                             content: MessageObject,
-                             max_width: int | None = None,
-                             group_id: int | None = None) -> RenderObject:
+    async def render_content(
+        cls,
+        content: MessageObject,
+        max_width: int | None = None,
+        group_id: int | None = None,
+        background: Color = Palette.WHITE,
+    ) -> RenderObject:
         storage = await FileStorage.get_instance()
         builder = Builder(default=cls.STYLE_CONTENT, max_width=max_width)
         shortcut = None
+        max_image_dim = round(
+            (max_width or cls.MAX_WIDTH) * cls.MAX_IMAGE_DIM_R)
+        min_image_dim = round(
+            (max_width or cls.MAX_WIDTH) * cls.MIN_IMAGE_DIM_R)
         for i, segment in enumerate(content):
             segment = MessageSegment.from_onebot(segment)
             match segment.type:
@@ -95,17 +103,17 @@ class MessageRender:
                             image,
                             decorations=cls.CONTENT_DECO,
                         ).thumbnail(
-                            cls.MAX_IMAGE_DIM,
-                            cls.MAX_IMAGE_DIM,
+                            max_image_dim,
+                            max_image_dim,
                             Interpolation.LANCZOS,
                         ).cover(
-                            cls.MIN_IMAGE_DIM,
-                            cls.MIN_IMAGE_DIM,
+                            min_image_dim,
+                            min_image_dim,
                             Interpolation.LANCZOS,
                         )
-                        if image.width > cls.MAX_IMAGE_DIM or image.height > cls.MAX_IMAGE_DIM:
-                            image.resize(min(image.width, cls.MAX_IMAGE_DIM),
-                                         min(image.height, cls.MAX_IMAGE_DIM))
+                        if image.width > max_image_dim or image.height > max_image_dim:
+                            image.resize(min(image.width, max_image_dim),
+                                         min(image.height, max_image_dim))
                         builder.image(image, inline=False)
                     else:
                         builder.text("[图片]", inline=False)
@@ -114,15 +122,14 @@ class MessageRender:
                         break
                 case "at":
                     # convert to nickname
+                    name = str(segment.extract_at())
                     try:
                         if group_id is not None:
                             name = await get_group_member_name(
                                 group_id=group_id,
                                 user_id=segment.extract_at())
-                        else:
-                            name = str(segment.extract_at())
                     except Exception:
-                        name = "error"
+                        pass
                     builder.text("@" + name)
                 case "text":
                     text = segment.extract_text()
@@ -148,10 +155,25 @@ class MessageRender:
         # When there is only one image, directly use it as the main content
         if shortcut is None:
             return builder.build(spacing=4,
-                                 background=Palette.WHITE,
+                                 background=background,
                                  padding=cls.CONTENT_PADDING,
                                  decorations=cls.CONTENT_DECO)
         return shortcut
+
+    @classmethod
+    def render_avatar(cls,
+                      avatar: str | Image.Image,
+                      avatar_size: int | None = None) -> RenderObject:
+        if avatar_size is None:
+            avatar_size = cls.AVATAR_SIZE
+        if isinstance(avatar, str):
+            avatar_ = ImageObject.from_url(avatar,
+                                           decorations=[CircleCrop.of()])
+        else:
+            avatar_ = ImageObject.from_image(avatar,
+                                             decorations=[CircleCrop.of()])
+        avatar_.resize(avatar_size, avatar_size)
+        return avatar_
 
     @classmethod
     async def create(
@@ -162,13 +184,7 @@ class MessageRender:
         alignment: Alignment = Alignment.START,
         group_id: int | None = None,
     ) -> RenderObject:
-        if isinstance(avatar, str):
-            avatar_ = ImageObject.from_url(avatar,
-                                           decorations=[CircleCrop.of()])
-        else:
-            avatar_ = ImageObject.from_image(avatar,
-                                             decorations=[CircleCrop.of()])
-        avatar_.resize(cls.AVATAR_SIZE, cls.AVATAR_SIZE)
+        avatar_ = cls.render_avatar(avatar)
         nickname_ = None
         if nickname:
             nickname_ = Paragraph.of(nickname, style=cls.STYLE_NICKNAME)
