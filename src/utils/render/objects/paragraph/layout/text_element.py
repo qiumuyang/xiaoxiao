@@ -85,7 +85,7 @@ class TextElement(RenderText):
             return Split(current=cur, remaining=rem)
 
         if nxt == " ":
-            return Split(current=self[:index], remaining=self[index:])
+            return Split(current=self[:index], remaining=self[index + 1:])
 
         # eat one newline of remaining text if any
         if self.text[index] == "\n":

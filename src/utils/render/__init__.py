@@ -45,6 +45,7 @@ __all__ = [
     "RelativeContainer",
     "Spacer",
     "Stack",
+    "WaterfallContainer",
     "ZeroSpacingSpacer",
     # decorations
     "BaseCrop",
