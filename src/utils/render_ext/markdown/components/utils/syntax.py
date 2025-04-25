@@ -1,12 +1,15 @@
-from typing import Iterable, NamedTuple
+from typing import Callable, Iterable, NamedTuple, TypeVar
 
 from pygments import lex
 from pygments.lexers import get_lexer_by_name
 from pygments.styles import get_style_by_name
+from pygments.token import _TokenType
 from pygments.util import ClassNotFound
 
 from src.utils.render import (Color, Palette, TextDecoration, TextShading,
                               TextStyle)
+
+T = TypeVar("T")
 
 
 class StyleDict(NamedTuple):
@@ -43,15 +46,27 @@ class StyleDict(NamedTuple):
         return sty
 
 
-def skip_last(iterable: Iterable) -> Iterable:
+def modify_last(
+    iterable: Iterable[T],
+    modifier: Callable[[T], T | None],
+) -> Iterable[T]:
     iterator = iter(iterable)
     try:
         current = next(iterator)
     except StopIteration:
-        return  # 空迭代对象
+        return
     for next_item in iterator:
         yield current  # 返回当前元素（非最后一个）
         current = next_item
+    if (mod := modifier(current)) is not None:
+        yield mod
+
+
+def remove_trailing_newline(t: tuple[_TokenType, str]):
+    token_type, content = t
+    content = content.removesuffix("\n")
+    if content:
+        return token_type, content
 
 
 def tokenize_code(
@@ -70,9 +85,8 @@ def tokenize_code(
     except ClassNotFound:
         style = get_style_by_name("default")
 
-    # lex unexpectedly yield an extra newline even if it is not present
-    # skip the last newline
-    for token_type, token_content in skip_last(lex(code, lexer)):
+    for token_type, token_content in modify_last(lex(code, lexer),
+                                                 remove_trailing_newline):
         token_type_str = ".".join(t for t in str(token_type).split(".")[1:])
         token_style = style.style_for_token(token_type)
         style_dict = StyleDict(**token_style)  # type: ignore
