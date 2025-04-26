@@ -241,6 +241,11 @@ class Collection(Generic[D, T]):
     async def drop(self) -> None:
         await self.collection.drop()
 
+    async def count(self, filter: dict[str, Any] | T) -> int:
+        if not isinstance(filter, dict):
+            filter = self._to_filter(filter)
+        return await self.collection.count_documents(filter)
+
 
 @inject_env()
 class Mongo:
