@@ -205,7 +205,8 @@ class FileStorage:
                 }
             }
         }]
-        result = await self.db.fs.files.aggregate(pipeline).to_list(length=1)
+        result = await self.db.fs.files.aggregate(pipeline).to_list(length=None
+                                                                    )
         if result:
             ephemeral, persistent = None, None
             for entry in result:
