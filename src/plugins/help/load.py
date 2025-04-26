@@ -36,4 +36,5 @@ def load_document_image(name: str | None = None,
 def init_cache():
     load_document_image(cached=False)
     for doc in DocManager.iter_doc():
-        load_document_image(doc.name, cached=False)
+        for name in [doc.name] + list(doc.aliases):
+            load_document_image(name, cached=False)
