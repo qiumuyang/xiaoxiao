@@ -339,14 +339,26 @@ class RenderText(_RenderTextBlock):
         result = RenderImage.concat_horizontal_baseline(
             rendered_blocks, [b.baseline for b in self.blocks])
         if self.text and self.shading:
-            im = self._apply_shading_background(result.to_pil(), self.shading)
+            # apply padding
+            padding = self.shading.padding
+            canvas = RenderImage.empty(result.width + padding.width,
+                                       result.height + padding.height)
+            canvas.replace(padding.left, padding.top, result)
+            # apply shading
+            im = self._apply_shading_background(canvas.to_pil(), self.shading)
             return RenderImage.from_pil(im)
         return result
 
     @property
     def width(self) -> int:
-        return sum(b.width for b in self.blocks)
+        w = sum(b.width for b in self.blocks)
+        if self.text and self.shading:
+            return w + self.shading.padding.width
+        return w
 
     @property
     def height(self) -> int:
-        return max((b.height for b in self.blocks), default=0)
+        h = max((b.height for b in self.blocks), default=0)
+        if self.text and self.shading:
+            return h + self.shading.padding.height
+        return h

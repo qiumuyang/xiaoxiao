@@ -80,6 +80,6 @@ def _approx(arr, k):
 
 
 def split_subarray(arr: list[int], num_subarrays: int) -> list[int]:
-    if len(arr) <= 200:
+    if len(arr) <= 200 and num_subarrays <= 4:
         return _brute_force(arr, num_subarrays)
     return _approx(arr, num_subarrays)
