@@ -17,6 +17,7 @@ class ChoiceRender:
     CARD_WIDTH_MAX = 250
 
     BASE_SIZE = cast(int, MessageRender.STYLE_CONTENT.get("size"))
+    BASE_AVATAR_SIZE = 40
 
     REF_BG = Color.from_hex("#f5faff")
     REF_BG_INVALID = Color.from_hex("#fcebec")
@@ -72,14 +73,16 @@ class ChoiceRender:
         else:
             index_obj = None
         if user_id is not None:
-            avatar = MessageRender.render_avatar(await Avatar.user(user_id),
-                                                 avatar_size=round(40 *
-                                                                   rescale))
+            avatar = MessageRender.render_avatar(
+                await Avatar.user(user_id),
+                avatar_size=round(cls.BASE_AVATAR_SIZE * rescale))
         else:
             avatar = None
 
-        heading_height = max(o.height for o in (index_obj, avatar, extra)
-                             if o is not None)
+        heading_height = max(
+            (o.height for o in (index_obj, avatar, extra) if o is not None),
+            default=round(cls.BASE_AVATAR_SIZE * rescale),
+        )
         max_heading_width = max_width or cls.CARD_WIDTH_MAX
         max_title_w = max_heading_width - sum(
             (o.width + spacing)
@@ -165,12 +168,16 @@ class ChoiceRender:
     ):
         cache_name = f"choice-cache-{item.uuid}"
         storage = await FileStorage.get_instance(db_name="cache", ttl="1d")
-        if cached:
-            image = await storage.load_image(url="", filename=cache_name)
-            if image:
+        if cached and isinstance(item, MessageItem):  # ref is not cached
+            try:
+                image = await storage.load_image(url="", filename=cache_name)
+            except Exception:
+                image = None
+            if image is not None:
                 # cache hit
+                im = Image.from_image(image)
                 await storage.refresh(cache_name)
-                return Image.from_image(image)
+                return im
         # cache miss
         if isinstance(item, MessageItem):
             content = await MessageRender.render_content(
@@ -201,7 +208,7 @@ class ChoiceRender:
             max_width=cls.CARD_WIDTH_MAX,
         )
         image = obj.render().to_pil()
-        if cached:
+        if cached and isinstance(item, MessageItem):
             await storage.store_as_temp(storage.encode_image(image),
                                         cache_name)
         return obj
@@ -255,6 +262,7 @@ class ChoiceRender:
                 children,
                 columns=num_columns,
                 alignment=Alignment.CENTER,
+                ordered=False,
             )
             num_columns = min(num_columns, len(items))
             extra = await cls.render_item_count(userlist, rescale=rescale)
@@ -285,3 +293,48 @@ class ChoiceRender:
                                        alignment=Alignment.CENTER,
                                        spacing=5,
                                        background=Palette.WHITE)
+
+    @classmethod
+    async def render_list_overview(cls, *lists: UserList):
+        columns = [[] for _ in range(3)]
+        creator_ids = list(set(userlist.creator_id for userlist in lists))
+        avatars = await asyncio.gather(*(Avatar.user(uid)
+                                         for uid in creator_ids))
+        avatar_dict = dict(zip(creator_ids, avatars))
+        for userlist in sorted(lists, key=lambda x: -len(x.items)):
+            title = Paragraph.of(userlist.name, style=cls.TITLE_STYLE)
+            count = await cls.render_item_count(userlist)
+            avatar = MessageRender.render_avatar(
+                avatar=avatar_dict[userlist.creator_id],
+                avatar_size=cls.BASE_AVATAR_SIZE,
+            )
+            columns[0].append(title)
+            columns[1].append(count)
+            columns[2].append(avatar)
+        widths = [max(obj.width for obj in column) for column in columns]
+        rows = []
+        for i, _ in enumerate(lists):
+            row_elements = [column[i] for column in columns]
+            rows.append(
+                Container.from_children(
+                    [
+                        FixedContainer.from_children(
+                            width=width, height=obj.height, children=[obj])
+                        for width, obj in zip(widths, row_elements)
+                    ],
+                    direction=Direction.HORIZONTAL,
+                    alignment=Alignment.CENTER,
+                    spacing=40,
+                ))
+        summary = Container.from_children(
+            children=rows,
+            direction=Direction.VERTICAL,
+            alignment=Alignment.CENTER,
+            spacing=10,
+            padding=Space.all(10),
+        )
+        return await cls.add_heading_and_decoration(
+            content=summary,
+            title="选择困难",
+            rescale=1.5,
+        )

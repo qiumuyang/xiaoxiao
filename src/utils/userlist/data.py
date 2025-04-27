@@ -157,6 +157,9 @@ class UserListCollection:
             "name": name
         })
 
+    def find_all(self, group_id: int):
+        return self._collection.find_all({"group_id": group_id})
+
     async def delete(self, group_id: int, name: str):
         return await self._collection.delete_one(filter={
             "group_id": group_id,

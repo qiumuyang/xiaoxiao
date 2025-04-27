@@ -3,7 +3,7 @@ from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message
 from nonebot.params import CommandArg
 
 from src.ext import MessageExtension
-from src.ext.permission import admin
+from src.ext.permission import ADMIN, SUPERUSER
 from src.utils.doc import CommandCategory, command_doc
 
 from .choice import ChoiceHandler
@@ -22,6 +22,7 @@ async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
     解决你的选择困难症
 
     Usage:
+        {cmd}                            -  显示列表总览
         {cmd} +|-`<列表名>`             -  添加/删除列表
         {cmd} `<列表名>` +`<内容>` ...  -  添加内容到指定列表
         {cmd} `<列表名>` -`<序号>` ...  -  删除列表中指定序号的项目
@@ -60,10 +61,10 @@ async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
     handler = ChoiceHandler(bot, event, make_choice)
 
     if action is None:
-        # TODO: show all lists
-        await make_choice.finish("WIP")
-
-    await handler.execute(event.user_id,
-                          action,
-                          symtab,
-                          sudo=await admin(event))
+        await handler.overview()
+    else:
+        rule = SUPERUSER | ADMIN
+        await handler.execute(event.user_id,
+                              action,
+                              symtab,
+                              sudo=await rule(bot, event))
