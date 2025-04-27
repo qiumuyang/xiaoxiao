@@ -50,27 +50,34 @@ async def _():
             size = f"{size_mb:.2f} MB"
         return size
 
-    storage = await FileStorage.get_instance()
-    stat = await storage.get_stats()
-    if not stat:
-        text = "Failed to get storage stats."
-    else:
-        header = ["Type", "Size", "Files"]
-        sep = ["-" * len(s) for s in header]
-        data = [
-            [
-                "Ephemeral",
-                format_size(stat.ephemeral_file_size),
-                str(stat.ephemeral_file_count)
-            ],
-            [
-                "Persistent",
-                format_size(stat.persistent_file_size),
-                str(stat.persistent_file_count)
-            ],
-        ]
-        text = "\n".join(
-            ["| " + " | ".join(line) + " |" for line in [header, sep, *data]])
+    instances = await FileStorage.get_instances()
+    texts = []
+    for name, storage in instances.items():
+        stat = await storage.get_stats()
+        heading = f"## {name.capitalize()}"
+        ttl = f"TTL: `{storage.ttl}`"
+        if not stat:
+            stat_tbl = "Failed to get storage stats."
+        else:
+            header = ["Type", "Size", "Files"]
+            sep = ["-" * len(s) for s in header]
+            data = [
+                [
+                    "Ephemeral",
+                    format_size(stat.ephemeral_file_size),
+                    str(stat.ephemeral_file_count)
+                ],
+                [
+                    "Persistent",
+                    format_size(stat.persistent_file_size),
+                    str(stat.persistent_file_count)
+                ],
+            ]
+            stat_tbl = "\n".join([
+                "| " + " | ".join(line) + " |"
+                for line in [header, sep, *data]
+            ])
+        texts.append("\n\n".join([heading, ttl, stat_tbl]))
 
-    im = Markdown(text).render().to_pil()
+    im = Markdown("\n\n".join(texts)).render().to_pil()
     await check_storage.finish(MessageSegment.image(im))
