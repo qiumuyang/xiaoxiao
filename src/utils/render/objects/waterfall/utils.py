@@ -1,3 +1,4 @@
+from heapq import heappop, heappush
 from itertools import combinations
 
 
@@ -80,6 +81,50 @@ def _approx(arr, k):
 
 
 def split_subarray(arr: list[int], num_subarrays: int) -> list[int]:
+    if num_subarrays <= 1:
+        return arr[:]
     if len(arr) <= 200 and num_subarrays <= 4:
         return _brute_force(arr, num_subarrays)
     return _approx(arr, num_subarrays)
+
+
+def _approx_unordered(arr, k):
+    indexed_nums = sorted(enumerate(arr), key=lambda x: -x[1])
+    sublists = [[] for _ in range(k)]
+    heap = [(0, i) for i in range(k)]
+
+    for index, num in indexed_nums:
+        current_sum, sublist_index = heappop(heap)
+        sublists[sublist_index].append(index)
+        heappush(heap, (current_sum + num, sublist_index))
+
+    return sublists
+
+
+def split_subarray_unordered(arr: list[int],
+                             num_subarrays: int) -> list[list[int]]:
+    if num_subarrays <= 1:
+        return [list(range(len(arr)))]
+    return _approx_unordered(arr, num_subarrays)
+
+
+if __name__ == "__main__":
+    import random
+    import time
+    from typing import Callable
+    n = 20
+    k = 3
+    arr = [random.randint(5, 100) for _ in range(n)]
+
+    def show_unordered(method: Callable):
+        tik = time.perf_counter()
+        result = method(arr, k)
+        tok = time.perf_counter()
+        sub_sums = [sum(arr[i] for i in sub) for sub in result]
+        print(method.__name__)
+        print(result)
+        print(f"Elapsed: {(tok - tik) * 1000:.0f}ms, "
+              f"Max Diff: {max(sub_sums) - min(sub_sums)}, "
+              f"Sub Sums: {sub_sums}")
+
+    show_unordered(_approx_unordered)
