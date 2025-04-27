@@ -23,14 +23,21 @@ class Status(TypedDict):
     running_time: timedelta
 
 
-class Checker:
+class StatusMonitor:
 
-    driver = get_driver()
+    _last_cpu = 0
+    _proc = psutil.Process()
+
+    @classmethod
+    async def sample_cpu(cls):
+        while True:
+            cls._last_cpu = round(cls._proc.cpu_percent())
+            await asyncio.sleep(1)
 
     @classmethod
     async def status(cls, group_id: int | None = None) -> Status:
         proc = psutil.Process()
-        cpu = round(proc.cpu_percent())
+        # cpu = round(proc.cpu_percent())
         memory = proc.memory_info().rss // 1024 // 1024  # MB
         memory_free = psutil.virtual_memory().available // 1024 // 1024  # MB
         create_time = datetime.fromtimestamp(proc.create_time())
@@ -44,7 +51,7 @@ class Checker:
 
         sent, recv, cmd = await asyncio.gather(sent_task, recv_task, cmd_task)
         return {
-            "cpu": cpu,
+            "cpu": cls._last_cpu,
             "memory": memory,
             "memory_free": memory_free,
             "message_sent": sent,
@@ -71,6 +78,11 @@ stat_this = stat.command("this", rule=ratelimit, force_whitespace=True)
 stat_all = stat.command("all", force_whitespace=True, permission=SUPERUSER)
 
 
+@get_driver().on_startup
+async def _():
+    asyncio.create_task(StatusMonitor.sample_cpu())
+
+
 @stat_overview.handle()
 @command_doc("status", category=CommandCategory.UTILITY)
 async def _(bot: Bot, event: GroupMessageEvent):
@@ -81,35 +93,35 @@ async def _(bot: Bot, event: GroupMessageEvent):
         {cmd}      - 运行状态概览
         {cmd}.this - 本群运行状态
     """
-    st = await Checker.status()
+    st = await StatusMonitor.status()
     name = await get_group_member_name(group_id=event.group_id,
                                        user_id=int(bot.self_id))
     prefix = f"[{name}]\n"
-    await stat_overview.finish(prefix + Checker.format(st))
+    await stat_overview.finish(prefix + StatusMonitor.format(st))
 
 
 @stat_this.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
-    st = await Checker.status(event.group_id)
+    st = await StatusMonitor.status(event.group_id)
     group = await bot.get_group_info(group_id=event.group_id)
     name = await get_group_member_name(group_id=event.group_id,
                                        user_id=int(bot.self_id))
     prefix = f"[{name}] ({group['group_name']})\n"
-    await stat_this.finish(prefix + Checker.format(st))
+    await stat_this.finish(prefix + StatusMonitor.format(st))
 
 
 @stat_all.handle()
 async def _(bot: Bot):
     group_list = await bot.get_group_list()
-    status_list = await asyncio.gather(*(Checker.status(group["group_id"])
-                                         for group in group_list))
-    global_status = await Checker.status()
+    status_list = await asyncio.gather(
+        *(StatusMonitor.status(group["group_id"]) for group in group_list))
+    global_status = await StatusMonitor.status()
     # top 5 groups with the most messages
     info_stat = sorted(zip(group_list, status_list),
                        key=lambda x:
                        (x[1]["message_sent"], x[1]["message_received"]),
                        reverse=True)[:5]
-    msg = Checker.format(global_status)
+    msg = StatusMonitor.format(global_status)
     lines = []
     for group_info, stat in info_stat:
         if not stat["message_received"]:
