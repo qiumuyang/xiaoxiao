@@ -57,27 +57,40 @@ class FileStorage:
     _instances: dict[str, "FileStorage"] = {}
     _lock = asyncio.Lock()
 
-    def __init__(self, db: AgnosticDatabase):
+    def __init__(self, db: AgnosticDatabase, ttl: str = ""):
         self.db = db
         self.fs_bucket = AsyncIOMotorGridFSBucket(self.db)
         self.semaphore = asyncio.Semaphore(self.FILE_STORAGE_CONCURRENCY)
-        self.ttl = _parse_timedelta(self.FILE_STORAGE_TTL)
+        self.ttl = _parse_timedelta(ttl or self.FILE_STORAGE_TTL)
 
     @classmethod
-    async def get_instance(cls, db_name: str = "files") -> "FileStorage":
+    async def get_instance(cls,
+                           db_name: str = "files",
+                           ttl: str = "") -> "FileStorage":
         async with cls._lock:
             if db_name in cls._instances:
                 return cls._instances[db_name]
             client = AsyncIOMotorClient()
-            instance = cls(client[db_name])
+            instance = cls(client[db_name], ttl)
             await instance._ensure_index()
             cls._instances[db_name] = instance
             return instance
+
+    @classmethod
+    async def get_instances(cls):
+        async with cls._lock:
+            return cls._instances
 
     async def _ensure_index(self):
         await self.db.fs.files.create_index([("metadata.expire_at", 1)],
                                             expireAfterSeconds=0)
         await self.db.fs.files.create_index([("filename", 1)], unique=True)
+
+    @classmethod
+    def encode_image(cls, image: Image.Image) -> bytes:
+        io = BytesIO()
+        image.save(io, format="PNG")
+        return io.getvalue()
 
     async def _download(self,
                         url: str,
@@ -90,7 +103,7 @@ class FileStorage:
                         async with session.get(url) as resp:
                             if resp.status != 200:
                                 raise ValueError(f"HTTP {resp.status}")
-                            await self._store_temp(resp.content, filename)
+                            await self.store_as_temp(resp.content, filename)
                 return True
             except DuplicateKeyError:
                 logger.info(f"File already exists: {filename}")
@@ -102,7 +115,8 @@ class FileStorage:
                 logger.info(f"Download failed [{filename}] from {url}: {e}")
         return False
 
-    async def _store_temp(self, content: aiohttp.StreamReader, filename: str):
+    async def store_as_temp(self, content: aiohttp.StreamReader | bytes,
+                            filename: str):
         existing = await self.db.fs.files.find_one({"filename": filename})
         if existing and existing["metadata"]["storage_type"] != "persistent":
             try:
@@ -120,9 +134,12 @@ class FileStorage:
                 "references": 0,
             },
         )
-        async for chunk in content.iter_chunked(1024 * 1024):  # 1MB
-            await grid_in.write(chunk)  # type: ignore
-        await grid_in.close()  # type: ignore
+        if isinstance(content, bytes):
+            grid_in.write(content)
+        else:
+            async for chunk in content.iter_chunked(1024 * 1024):  # 1MB
+                grid_in.write(chunk)
+        grid_in.close()
         return filename
 
     async def promote(self, filename: str) -> bool:
@@ -145,10 +162,22 @@ class FileStorage:
         )
         return result.modified_count > 0
 
+    async def refresh(self, filename: str) -> bool:
+        """Extend the expiration time of an ephemeral file."""
+        new_expire_time = datetime.now(timezone.utc) + self.ttl
+        result = await self.db.fs.files.update_one(
+            {
+                "filename": filename,
+                "metadata.storage_type": "ephemeral",
+            }, {"$set": {
+                "metadata.expire_at": new_expire_time
+            }})
+        return result.modified_count > 0
+
     async def load(self, url: str, filename: str) -> bytes | None:
         try:
             doc = await self.db.fs.files.find_one({"filename": filename})
-            if not doc:
+            if not doc and url:
                 await self._download(url, filename)
             grid_out = await self.fs_bucket.open_download_stream_by_name(
                 filename)
