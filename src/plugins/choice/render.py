@@ -2,12 +2,16 @@ import asyncio
 from typing import cast
 
 from src.utils.image.avatar import Avatar
+from src.utils.persistence import FileStorage
 from src.utils.render import *
 from src.utils.render_ext.message import MessageRender
-from src.utils.userlist import MessageItem, ReferenceItem, UserList
+from src.utils.userlist import (MessageItem, ReferenceItem, UserList,
+                                UserListPagination)
 
 
 class ChoiceRender:
+
+    PAGE_SIZE = 15
 
     CARD_WIDTH = 220
     CARD_WIDTH_MAX = 250
@@ -30,6 +34,9 @@ class ChoiceRender:
                             color=INDEX_COLOR)
     TITLE_STYLE = MessageRender.STYLE_CONTENT.copy()
     TITLE_STYLE["color"] = Palette.BLACK
+    PAGE_STYLE = MessageRender.STYLE_CONTENT.copy()
+    PAGE_STYLE["color"] = INDEX_COLOR
+    PAGE_STYLE["size"] = round(BASE_SIZE * 0.8)
 
     @classmethod
     async def add_heading_and_decoration(
@@ -154,7 +161,17 @@ class ChoiceRender:
         index: int,
         item: MessageItem | ReferenceItem,
         valid: bool = True,
+        cached: bool = True,
     ):
+        cache_name = f"choice-cache-{item.uuid}"
+        storage = await FileStorage.get_instance(db_name="cache", ttl="1d")
+        if cached:
+            image = await storage.load_image(url="", filename=cache_name)
+            if image:
+                # cache hit
+                await storage.refresh(cache_name)
+                return Image.from_image(image)
+        # cache miss
         if isinstance(item, MessageItem):
             content = await MessageRender.render_content(
                 item.content,
@@ -177,11 +194,31 @@ class ChoiceRender:
                                                direction=Direction.VERTICAL,
                                                background=background,
                                                decorations=decoration)
-        return await cls.add_heading_and_decoration(
+        obj = await cls.add_heading_and_decoration(
             content=content,
             index=index,
             user_id=item.creator_id,
             max_width=cls.CARD_WIDTH_MAX,
+        )
+        image = obj.render().to_pil()
+        if cached:
+            await storage.store_as_temp(storage.encode_image(image),
+                                        cache_name)
+        return obj
+
+    @classmethod
+    async def render_item_count(cls, userlist: UserList, rescale: float = 1.0):
+        num_msg = sum(isinstance(_, MessageItem) for _ in userlist.items)
+        num_ref = sum(isinstance(_, ReferenceItem) for _ in userlist.items)
+        style = TextStyle(
+            size=round(cls.BASE_SIZE * rescale * 0.8),
+            color=cls.INDEX_COLOR,
+            shading=TextShading(color=cls.MSG_BG, padding=Space.of_side(8, 2)),
+        )
+        return Paragraph.of(
+            f"{num_msg}📝 {num_ref}🔗",
+            style=cls.TITLE_STYLE | style,
+            margin=Space.of_side(5, 0),
         )
 
     @classmethod
@@ -190,42 +227,42 @@ class ChoiceRender:
         *,
         group_id: int,
         userlist: UserList,
+        cached: bool = True,
+        pagination: UserListPagination | None = None,
+        items: list[tuple[int, MessageItem | ReferenceItem]] | None = None,
+        deleted_uuids: list[str] | None = None,
     ):
-        num_columns = max(3, len(userlist.items) // 15)
-        rescale = max(min(len(userlist.items) / 2, 2.0), 1.0)
-        if userlist.items:
+        deleted_uuids = deleted_uuids or []
+        if pagination is not None and items is not None:
+            raise ValueError("Cannot specify both page_id and items")
+        elif pagination is not None:
+            items = list(pagination.enumerate())
+        elif items is None:
+            items = list(enumerate(userlist.items))
+
+        num_columns = max(3, len(items) // 15)
+        rescale = max(min(len(items) / 2, 2.0), 1.0)
+        if items:
             valid_ref = await userlist.valid_references
-            children = await asyncio.gather(
-                *(cls.render_item_card(group_id=group_id,
-                                       index=index,
-                                       item=item,
-                                       valid=isinstance(item, MessageItem)
-                                       or item.name in valid_ref)
-                  for index, item in enumerate(userlist.items)))
+            children = await asyncio.gather(*(cls.render_item_card(
+                group_id=group_id,
+                index=index,
+                item=item,
+                cached=cached,
+                valid=isinstance(item, MessageItem) or item.name in valid_ref)
+                                              for index, item in items))
             content = WaterfallContainer.from_children(
                 children,
                 columns=num_columns,
                 alignment=Alignment.CENTER,
             )
-            num_columns = min(num_columns, len(userlist.items))
-            num_msg = sum(isinstance(_, MessageItem) for _ in userlist.items)
-            num_ref = sum(isinstance(_, ReferenceItem) for _ in userlist.items)
-            extra_style = TextStyle(
-                size=round(cls.BASE_SIZE * rescale * 0.8),
-                color=cls.INDEX_COLOR,
-                shading=TextShading(color=cls.MSG_BG,
-                                    padding=Space.of_side(8, 2)),
-            )
-            extra = Paragraph.of(
-                f"{num_msg}📝 {num_ref}🔗",
-                style=cls.TITLE_STYLE | extra_style,
-                margin=Space.of_side(5, 0),
-            )
+            num_columns = min(num_columns, len(items))
+            extra = await cls.render_item_count(userlist, rescale=rescale)
         else:
             num_columns = 1
             content = Paragraph.of("空空如也", style=cls.TITLE_STYLE)
             extra = None
-        return await cls.add_heading_and_decoration(
+        main_list = await cls.add_heading_and_decoration(
             content=content,
             title=userlist.name,
             user_id=userlist.creator_id,
@@ -234,3 +271,17 @@ class ChoiceRender:
             rescale=rescale,
             max_width=max(cls.CARD_WIDTH_MAX * num_columns, content.width),
         )
+        if not pagination or pagination.num_pages == 1:
+            return main_list
+        # add page info
+        page_info = Paragraph.of(
+            (f"第 {pagination.page_id + 1} / {pagination.num_pages} 页\n"
+             f"输入 “帮助 选择困难” 以查看翻页指令\n"),
+            style=cls.PAGE_STYLE,
+            alignment=Alignment.CENTER,
+            max_width=main_list.width)
+        return Container.from_children([main_list, page_info],
+                                       direction=Direction.VERTICAL,
+                                       alignment=Alignment.CENTER,
+                                       spacing=5,
+                                       background=Palette.WHITE)

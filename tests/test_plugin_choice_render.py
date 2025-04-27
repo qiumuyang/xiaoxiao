@@ -122,6 +122,17 @@ async def test_render_list():
                                   interpolation=Interpolation.LANCZOS).save(
                                       out / "list.png")
 
+        for page_id in [0, 1, 100]:
+            mock.return_value = valid_references()
+            result = await ChoiceRender.render_list(
+                group_id=999,
+                userlist=lst,
+                pagination=lst.paginate(page_id, page_size=13),
+            )
+            result.render().thumbnail(
+                max_height=2500, interpolation=Interpolation.LANCZOS).save(
+                    out / f"list-page{page_id}.png")
+
         for k in range(6):
             mock.return_value = valid_references()
             lst = UserList(

@@ -1,6 +1,7 @@
 import asyncio
+import math
 from datetime import datetime
-from typing import Any, Awaitable, ClassVar, Iterable, Literal
+from typing import Any, Awaitable, ClassVar, Iterable, Literal, NamedTuple
 from uuid import uuid4
 
 from nonebot.adapters.onebot.v11 import Message
@@ -29,6 +30,16 @@ class ReferenceItem(BaseModel):
         return f"[{self.name}]"
 
 
+class Pagination(NamedTuple):
+    page_id: int
+    page_size: int
+    num_pages: int
+    items: list[MessageItem | ReferenceItem]
+
+    def enumerate(self):
+        return enumerate(self.items, start=self.page_id * self.page_size)
+
+
 class UserList(BaseModel):
     id: PydanticObjectId | None = Field(alias="_id", default=None)
     name: str
@@ -51,11 +62,25 @@ class UserList(BaseModel):
             self.items = [i for i in self.items if i.uuid not in uuids]
         return result
 
+    def paginate(self, page_id: int, page_size: int, strict: bool = False):
+        if page_size <= 0:
+            raise ValueError("page_size must be greater than 0")
+        num_pages = max(math.ceil(len(self.items) / page_size), 1)
+        if strict and not 0 <= page_id < num_pages:
+            raise IndexError(f"{page_id} out of page range")
+        page_id = max(0, min(page_id, num_pages - 1))
+        return Pagination(
+            page_id, page_size, num_pages,
+            self.items[page_id * page_size:(page_id + 1) * page_size])
+
     @property
     def expanded_items(self) -> Awaitable[list[Message]]:
         collection = UserListCollection()
         raw = [i.content for i in self.items if isinstance(i, MessageItem)]
-        ref = [i for i in self.items if isinstance(i, ReferenceItem)]
+        ref = [
+            i for i in self.items
+            if isinstance(i, ReferenceItem) and i.name != self.name
+        ]
 
         async def load_message(group_id: int, name: str):
             lst = await collection.find(group_id, name)

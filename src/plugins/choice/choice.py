@@ -8,6 +8,7 @@ from nonebot.matcher import Matcher
 from src.ext import MessageExtension
 from src.ext import MessageSegment as ExtMessageSegment
 from src.utils.log import logger_wrapper
+from src.utils.render import Interpolation
 from src.utils.userlist import (ListPermissionError, TooManyItemsError,
                                 TooManyListsError, UserListError,
                                 UserListService)
@@ -44,8 +45,8 @@ class NonPlainTextError(ChoiceError):
 
 class InvalidIndexError(ChoiceError):
 
-    def __init__(self, index: str):
-        super().__init__(f"无效的索引: {index}")
+    def __init__(self, index: str, name: str = "索引"):
+        super().__init__(f"无效的{name}: {index}")
 
 
 class InvalidListNameError(ChoiceError):
@@ -60,9 +61,32 @@ class InvalidItemOpError(ChoiceError):
         super().__init__("列表项目仅可使用+/-操作")
 
 
+def extract_plain_text(content: str,
+                       symtab: dict[str, MessageSegment],
+                       exception: Exception | None = None):
+    message = MessageExtension.decode(content, symtab)
+    if any(not seg.is_text() for seg in message) and exception is not None:
+        raise exception
+    return message.extract_plain_text()
+
+
+def parse_page_number(
+    action: Action,
+    symtab: dict[str, MessageSegment],
+) -> int:
+    if not action.items:
+        return 0
+    page_str = extract_plain_text(action.items[0].content, symtab,
+                                  NonPlainTextError("页码"))
+    if not page_str.isdecimal():
+        raise InvalidIndexError(page_str, "页码")
+    return int(page_str) - 1
+
+
 class ChoiceHandler:
 
     MAX_LIST_NAME_LEN = 20
+    NUM_ITEMS_PER_PAGE = ChoiceRender.PAGE_SIZE
 
     ERR_MSG = {
         ListPermissionError: "仅创建者或管理员可进行该操作",
@@ -88,10 +112,8 @@ class ChoiceHandler:
         sudo: bool = False,
     ):
         try:
-            lst = MessageExtension.decode(action.name, symtab)
-            if not all(seg.is_text() for seg in lst):
-                raise NonPlainTextError("列表名称")
-            lst_name = lst.extract_plain_text()
+            lst_name = extract_plain_text(action.name, symtab,
+                                          NonPlainTextError("列表名称"))
             if len(lst_name) > self.MAX_LIST_NAME_LEN:
                 raise InvalidListNameError(
                     f"列表名称至多包含{self.MAX_LIST_NAME_LEN}个字符")
@@ -100,16 +122,18 @@ class ChoiceHandler:
 
             match action.op:
                 case Op.SHOW | Op.ADD | Op.REMOVE:
-                    await self.handle_list(operator_id, lst_name, action.op,
-                                           sudo)
+                    handler = self.handle_list
                 case Op.NONE:
-                    await self.handle_list_items(operator_id, lst_name, action,
-                                                 symtab, sudo)
+                    handler = self.handle_list_items
+                case _:
+                    assert False, "unexpected list operation"
+            await handler(operator_id, lst_name, action, symtab, sudo)
         except ChoiceError as e:
             await self.matcher.finish(str(e))
         except UserListError as e:
             await self.matcher.finish(self.ERR_MSG[type(e)])
         except FinishedException:
+            # caused by matcher.finish
             raise
         except Exception as e:
             logger.error("Unexpected error", exception=e)
@@ -119,24 +143,38 @@ class ChoiceHandler:
         self,
         operator_id: int,
         list_name: str,
-        op: Op,
+        action: Action,
+        symtab: dict[str, MessageSegment],
         sudo: bool,
     ):
         lst = await UserListService.find_list(self.group_id, list_name)
-        match op:
+        match action.op:
             case Op.SHOW:
                 if lst is None:
                     raise ListNotExistsError(list_name)
+                page = parse_page_number(action, symtab)
+                pagination = lst.paginate(page, self.NUM_ITEMS_PER_PAGE)
                 obj = await ChoiceRender.render_list(group_id=self.group_id,
-                                                     userlist=lst)
+                                                     userlist=lst,
+                                                     pagination=pagination)
                 await self.matcher.finish(
-                    ExtMessageSegment.image(obj.render().to_pil()))
+                    ExtMessageSegment.image(obj.render().thumbnail(
+                        max_height=2000,
+                        interpolation=Interpolation.LANCZOS).to_pil()))
             case Op.REMOVE:
                 if lst is None:
                     raise ListNotExistsError(list_name)
                 await UserListService.remove_list(self.group_id, list_name,
                                                   operator_id, sudo)
-                await self.matcher.finish(f"列表 [{list_name}] 已删除")
+                # display a grayscale image for the deleted list
+                obj = await ChoiceRender.render_list(group_id=self.group_id,
+                                                     userlist=lst)
+                await self.matcher.finish(
+                    Message([
+                        ExtMessageSegment.text(f"列表 [{list_name}] 已删除"),
+                        ExtMessageSegment.image(
+                            obj.render().to_grayscale().to_pil())
+                    ]))
             case Op.ADD:
                 if lst is not None:
                     raise ListExistsError(list_name)
@@ -164,7 +202,7 @@ class ChoiceHandler:
             # random choice
             choices = await lst.expanded_items
             if not choices:
-                await self.matcher.finish("[null]")
+                await self.matcher.finish("(null)")
             choice = random.choice(choices)
             choice = await MessageExtension.replace_with_local_image(choice)
             await self.matcher.finish(choice)
@@ -187,6 +225,7 @@ class ChoiceHandler:
                     else:
                         add_msg.append(content)
                 case Op.REMOVE:
+                    # TODO: support remove by text
                     if not plain_text.isdecimal():
                         raise InvalidIndexError(plain_text)
                     index = int(plain_text) - 1
