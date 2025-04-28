@@ -40,6 +40,18 @@ class Pagination(NamedTuple):
         return enumerate(self.items, start=self.page_id * self.page_size)
 
 
+class UserListMetadata(BaseModel):
+    name: str
+    group_id: int
+    creator_id: int
+    num_messages: int
+    num_references: int
+
+    @property
+    def num_items(self):
+        return self.num_messages + self.num_references
+
+
 class UserList(BaseModel):
     id: PydanticObjectId | None = Field(alias="_id", default=None)
     name: str
@@ -157,8 +169,42 @@ class UserListCollection:
             "name": name
         })
 
-    def find_all(self, group_id: int):
-        return self._collection.find_all({"group_id": group_id})
+    async def find_all(self, group_id: int) -> list[UserListMetadata]:
+        pipeline = [{
+            "$match": {
+                "group_id": group_id
+            }
+        }, {
+            "$project": {
+                "name": 1,
+                "group_id": 1,
+                "creator_id": 1,
+                "num_messages": {
+                    "$size": {
+                        "$filter": {
+                            "input": "$items",
+                            "as": "item",
+                            "cond": {
+                                "$eq": ["$$item.type", "message"]
+                            }
+                        }
+                    }
+                },
+                "num_references": {
+                    "$size": {
+                        "$filter": {
+                            "input": "$items",
+                            "as": "item",
+                            "cond": {
+                                "$eq": ["$$item.type", "reference"]
+                            }
+                        }
+                    }
+                }
+            }
+        }]
+        cursor = self._collection.aggregate(pipeline)
+        return [UserListMetadata(**doc) async for doc in cursor]
 
     async def delete(self, group_id: int, name: str):
         return await self._collection.delete_one(filter={

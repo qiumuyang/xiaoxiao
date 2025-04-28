@@ -62,6 +62,10 @@ class UserListService:
         return await cls.collection.find(group_id, name)
 
     @classmethod
+    async def find_all_list_meta(cls, group_id: int):
+        return await cls.collection.find_all(group_id)
+
+    @classmethod
     async def create_list(cls, group_id: int, name: str, creator_id: int):
         if await cls.collection.count_lists(group_id) >= cls.MAX_LISTS:
             raise TooManyListsError

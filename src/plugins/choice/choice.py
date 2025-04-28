@@ -105,14 +105,10 @@ class ChoiceHandler:
         return self.event.group_id
 
     async def overview(self):
-        # TODO: optimize by querying metadata only
-        lsts = [
-            lst
-            async for lst in UserListService.collection.find_all(self.group_id)
-        ]
-        if not lsts:
+        lst_meta = await UserListService.find_all_list_meta(self.group_id)
+        if not lst_meta:
             await self.matcher.finish("还没有创建任何列表")
-        obj = await ChoiceRender.render_list_overview(*lsts)
+        obj = await ChoiceRender.render_list_overview(*lst_meta)
         await self.matcher.finish(
             ExtMessageSegment.image(obj.render().to_pil()))
 

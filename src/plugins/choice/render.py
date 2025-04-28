@@ -6,7 +6,7 @@ from src.utils.persistence import FileStorage
 from src.utils.render import *
 from src.utils.render_ext.message import MessageRender
 from src.utils.userlist import (MessageItem, ReferenceItem, UserList,
-                                UserListPagination)
+                                UserListMetadata, UserListPagination)
 
 
 class ChoiceRender:
@@ -214,9 +214,15 @@ class ChoiceRender:
         return obj
 
     @classmethod
-    async def render_item_count(cls, userlist: UserList, rescale: float = 1.0):
-        num_msg = sum(isinstance(_, MessageItem) for _ in userlist.items)
-        num_ref = sum(isinstance(_, ReferenceItem) for _ in userlist.items)
+    async def render_item_count(cls,
+                                userlist: UserList | UserListMetadata,
+                                rescale: float = 1.0):
+        if isinstance(userlist, UserListMetadata):
+            num_msg = userlist.num_messages
+            num_ref = userlist.num_references
+        else:
+            num_msg = sum(isinstance(_, MessageItem) for _ in userlist.items)
+            num_ref = sum(isinstance(_, ReferenceItem) for _ in userlist.items)
         style = TextStyle(
             size=round(cls.BASE_SIZE * rescale * 0.8),
             color=cls.INDEX_COLOR,
@@ -295,13 +301,13 @@ class ChoiceRender:
                                        background=Palette.WHITE)
 
     @classmethod
-    async def render_list_overview(cls, *lists: UserList):
+    async def render_list_overview(cls, *lists: UserListMetadata):
         columns = [[] for _ in range(3)]
         creator_ids = list(set(userlist.creator_id for userlist in lists))
         avatars = await asyncio.gather(*(Avatar.user(uid)
                                          for uid in creator_ids))
         avatar_dict = dict(zip(creator_ids, avatars))
-        for userlist in sorted(lists, key=lambda x: -len(x.items)):
+        for userlist in sorted(lists, key=lambda x: -x.num_items):
             title = Paragraph.of(userlist.name, style=cls.TITLE_STYLE)
             count = await cls.render_item_count(userlist)
             avatar = MessageRender.render_avatar(
