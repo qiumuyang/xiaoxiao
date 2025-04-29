@@ -12,6 +12,7 @@ __all__ = [
     "ButtonStyle",
     "MessageExtension",
     "MessageSegment",
+    "MessageType",
     "RateLimit",
     "RateLimiter",
     "get_group_member_name",

@@ -1,3 +1,5 @@
+import shlex as shlex_
+from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -13,6 +15,15 @@ from typing_extensions import override
 from src.utils.persistence import FileStorage
 
 from .button import ButtonGroup
+
+
+class MessageType(Enum):
+    AT = "at"
+    FACE = "face"
+    IMAGE = "image"
+    MFACE = "mface"
+    REPLY = "reply"
+    TEXT = "text"
 
 
 class MessageSegment(_MessageSegment):
@@ -146,10 +157,19 @@ class MessageSegment(_MessageSegment):
             raise ValueError("Not a text segment")
         return self.data["text"]
 
-    def extract_text_args(self) -> list[str]:
+    def extract_text_args(self,
+                          shlex: bool = False,
+                          quiet_errors: bool = False) -> list[str]:
         if not self.is_text():
             raise ValueError("Not a text segment")
-        return [_.strip() for _ in self.data["text"].split(" ") if _.strip()]
+        if not shlex:
+            return self.data["text"].split()
+        try:
+            return shlex_.split(self.data["text"])
+        except ValueError:
+            if not quiet_errors:
+                raise
+            return []
 
     def extract_at(self) -> int:
         if not self.is_at():
@@ -194,7 +214,8 @@ class MessageCodec:
 
     @classmethod
     def encode(cls,
-               message: Message) -> tuple[str, dict[str, _MessageSegment]]:
+               message: Message,
+               start: int = 0) -> tuple[str, dict[str, _MessageSegment]]:
         text = []
         symbol_table = {}
         for segment in message:
@@ -203,7 +224,7 @@ class MessageCodec:
             elif cls.PRIVATE_USE + len(symbol_table) > cls.PRIVATE_USE_END:
                 raise ValueError("Too many segments")
             else:
-                char = chr(cls.PRIVATE_USE + len(symbol_table))
+                char = chr(cls.PRIVATE_USE + len(symbol_table) + start)
                 text.append(char)
                 symbol_table[char] = segment
         return "".join(text), symbol_table
@@ -301,8 +322,9 @@ class MessageExtension:
     def encode(
         cls,
         message: Message,
+        start: int = 0,
     ) -> tuple[str, dict[str, _MessageSegment]]:
-        return MessageCodec.encode(message)
+        return MessageCodec.encode(message, start)
 
     @classmethod
     def decode(
@@ -311,3 +333,32 @@ class MessageExtension:
         symbol_table: dict[str, _MessageSegment],
     ) -> Message:
         return MessageCodec.decode(message, symbol_table)
+
+    @classmethod
+    def discard(
+        cls,
+        message: Message,
+        *discard_type: str | MessageType,
+    ) -> Message:
+        t = [
+            t.value if isinstance(t, MessageType) else t for t in discard_type
+        ]
+        return Message([seg for seg in message if seg.type not in t])
+
+    @classmethod
+    def filter(
+        cls,
+        message: Message,
+        *allow_type: str | MessageType,
+    ) -> Message:
+        t = [t.value if isinstance(t, MessageType) else t for t in allow_type]
+        return Message([seg for seg in message if seg.type in t])
+
+    @classmethod
+    def fix_mface(cls, message: Message):
+        if (len(message) == 2 and message[0].type == "mface"
+                and message[1].type == "text"):
+            mface, text = message
+            if mface.data.get("summary", "") == text.data["text"]:
+                return message[:1]
+        return message

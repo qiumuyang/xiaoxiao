@@ -244,9 +244,19 @@ class ReplyRule:
         return True
 
 
+class NotReplyRule:
+
+    def __call__(self, event: MessageEvent) -> bool:
+        return not event.reply
+
+
 def reply(*startswith: str, force_whitespace: bool = True) -> Rule:
     """匹配包含回复的消息，且文本部分满足指定前缀。"""
     return Rule(ReplyRule(*startswith, force_whitespace=force_whitespace))
+
+
+def not_reply() -> Rule:
+    return Rule(NotReplyRule())
 
 
 class EnabledRule:

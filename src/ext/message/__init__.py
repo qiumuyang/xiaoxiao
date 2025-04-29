@@ -1,6 +1,6 @@
 from .button import (Button, ButtonAction, ButtonGroup, ButtonPermission,
                      ButtonStyle)
-from .segment import MessageExtension, MessageSegment
+from .segment import MessageExtension, MessageSegment, MessageType
 
 __all__ = [
     "Button",
@@ -10,4 +10,5 @@ __all__ = [
     "ButtonStyle",
     "MessageExtension",
     "MessageSegment",
+    "MessageType",
 ]

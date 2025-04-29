@@ -31,6 +31,9 @@ class ItemAction(NamedTuple):
     content: str
     type: Literal["message", "reference"]
 
+    def with_content(self, content: str):
+        return ItemAction(self.op, content, self.type)
+
 
 class Action(NamedTuple):
     op: Op
