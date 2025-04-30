@@ -69,8 +69,8 @@ class AbbreviationTranslate:
 
         includes = includes or {}
         excludes = excludes or {}
-        if len(results) > 1 and (choices := includes.get(abbr, [])):
-            # only enable when there are multiple parts
+        if len(results) != 1 and (choices := includes.get(abbr, [])):
+            # only enable when there are no/multiple parts
             return random.choice(choices)
 
         text = []
