@@ -166,7 +166,7 @@ class ChoiceRender:
         valid: bool = True,
         cached: bool = True,
     ):
-        cache_name = f"choice-cache-{item.uuid}"
+        cache_name = f"choice-cache-{item.uuid}-{index}"
         storage = await FileStorage.get_instance(db_name="cache", ttl="1d")
         if cached and isinstance(item, MessageItem):  # ref is not cached
             try:
