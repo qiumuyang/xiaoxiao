@@ -13,7 +13,7 @@ from nonebot.matcher import Matcher
 from typing_extensions import NotRequired
 
 from src.ext import RateLimit, RateLimiter
-from src.ext.config import Config, ConfigManager
+from src.ext.config import Config
 from src.utils.doc import CommandCategory, command_doc
 
 
@@ -115,7 +115,7 @@ async def _(
         {cmd} `<缩写>`               - 翻译缩写
         {cmd} `开|关`                - 开启或关闭快捷翻译缩写
         {cmd} +|-`<缩写>`->`<翻译>`  - 添加或删除缩写翻译
-        `<缩写>`                      - 快捷翻译缩写
+        `<缩写>`                      - 快捷翻译缩写 （无需指令前缀）
 
     Examples:
         >>> {cmd} +dsa->大神啊
@@ -125,7 +125,7 @@ async def _(
     Notes:
         - 来源: [https://lab.magiconch.com/nbnhhsh/](https://lab.magiconch.com/nbnhhsh/)
     """
-    cfg = await ConfigManager.get_group(event.group_id, AbbrTranslateConfig)
+    cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
     abbr = event.get_message().extract_plain_text()
     is_cmd = abbr.startswith("翻译缩写")
     abbr = abbr.removeprefix("翻译缩写").strip()
@@ -148,7 +148,7 @@ async def config_abbr(
     event: GroupMessageEvent,
     message: str,
 ):
-    cfg = await ConfigManager.get_group(event.group_id, AbbrTranslateConfig)
+    cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
     abbrs = set()
     # for config_match in AbbreviationTranslate.CFG_PATTERN.finditer(message):
     for part in shlex.split(message):
@@ -178,7 +178,7 @@ async def config_abbr(
         else:
             raise ValueError(f"Unknown operation: {op}")
         abbrs.add(abbr)
-    await ConfigManager.set_group(event.group_id, cfg)
+    await AbbrTranslateConfig.set(cfg, group_id=event.group_id)
 
     lines = []
     for abbr in sorted(abbrs):
@@ -202,10 +202,10 @@ async def toggle_abbr(
     event: GroupMessageEvent,
     enabled: bool,
 ):
-    cfg = await ConfigManager.get_group(event.group_id, AbbrTranslateConfig)
+    cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
     inform = cfg.enabled != enabled
     cfg.enabled = enabled
-    await ConfigManager.set_group(event.group_id, cfg)
+    await AbbrTranslateConfig.set(cfg, group_id=event.group_id)
     if inform:
-        await matcher.finish(f"翻译缩写已{'开启' if enabled else '关闭'}")
+        await matcher.finish(f"快捷翻译缩写已{'开启' if enabled else '关闭'}")
     await matcher.finish()

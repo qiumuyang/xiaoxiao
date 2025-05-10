@@ -10,7 +10,7 @@ from nonebot.rule import Rule
 from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
 from typing_extensions import override
 
-from .config import ConfigManager, T_Config
+from .config import T_Config
 from .ratelimit import (RateLimiter, RateLimitManager, RateLimitType,
                         TokenBucketRateLimiter)
 
@@ -265,11 +265,11 @@ class EnabledRule:
         self.config = config
 
     async def __call__(self, event: MessageEvent) -> bool:
-        user = await ConfigManager.get_user(event.user_id, self.config)
+        user = await self.config.get(user_id=event.user_id)
         if not user.enabled:
             return False
         if isinstance(event, GroupMessageEvent):
-            group = await ConfigManager.get_group(event.group_id, self.config)
+            group = await self.config.get(group_id=event.group_id)
             return group.enabled
         return True
 

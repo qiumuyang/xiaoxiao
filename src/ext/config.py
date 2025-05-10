@@ -1,9 +1,9 @@
-from dataclasses import dataclass, field
-from enum import IntEnum
+from contextlib import asynccontextmanager
 from typing import ClassVar, TypeVar, cast
 
 from nonebot import get_driver
 from pydantic import BaseModel
+from typing_extensions import Self
 
 from src.utils.log import logger_wrapper
 from src.utils.persistence.mongo import Collection, Mongo
@@ -22,30 +22,56 @@ class Config(BaseModel):
     # whether the feature is enabled
     enabled: bool = True
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        ConfigManager.register(cls)
 
-class ConfigType(IntEnum):
-    GROUP = 1
-    USER = 2
+    @classmethod
+    async def get(
+        cls,
+        *,
+        user_id: int | None = None,
+        group_id: int | None = None,
+    ) -> Self:
+        return await ConfigManager.get(cls, user_id=user_id, group_id=group_id)
+
+    @classmethod
+    async def set(
+        cls,
+        value: Self,
+        *,
+        user_id: int | None = None,
+        group_id: int | None = None,
+    ):
+        await ConfigManager.set(value, user_id=user_id, group_id=group_id)
+
+    @classmethod
+    @asynccontextmanager
+    async def edit(
+        cls,
+        *,
+        user_id: int | None = None,
+        group_id: int | None = None,
+    ):
+        cfg = await ConfigManager.get(cls, user_id=user_id, group_id=group_id)
+        yield cfg
+        await ConfigManager.set(cfg, user_id=user_id, group_id=group_id)
 
 
-@dataclass
-class StoreConfig:
-    id: int
-    type: ConfigType
+class StoreConfig(BaseModel):
+    user_id: int | None
+    group_id: int | None
     name: str
-    config: Config = field(default_factory=Config)
+    config: Config
 
 
 class ConfigManager:
 
-    config: Collection[dict, StoreConfig] = Mongo.collection("config")
+    config: Collection[dict, StoreConfig] = Mongo.collection("config_v2")
 
     name_to_cfg: dict[str, type[Config]] = {}
     cfg_to_name: dict[type[Config], str] = {}
     user_friendly_to_cfg: dict[str, type[Config]] = {}
-
-    PRIVATE = 0
-    ANY_USER = 0
 
     @classmethod
     def config_name(cls, cfg: type[Config]) -> str:
@@ -56,43 +82,38 @@ class ConfigManager:
         return name
 
     @classmethod
-    def init(cls):
+    def register(cls, cfg: type[Config]):
         """检查所有继承自 Config 的类，并将其注册到 ConfigManager 中。
 
         """
-        queue = [Config]
-        while queue:
-            cfg = queue.pop()
-            for sub_cfg in cfg.__subclasses__():
-                queue.append(sub_cfg)
-            if cfg is Config:
-                continue
-
-            name = cls.config_name(cfg)
-            if name in cls.name_to_cfg:
-                raise ValueError(f"Duplicate config name: {name}")
-            if not hasattr(cfg, "user_friendly"):
-                raise ValueError(f"Expected user_friendly classvar in {cfg}")
-            if cfg.user_friendly in cls.user_friendly_to_cfg:
-                raise ValueError(f"Duplicate user friendly name: "
-                                 f"{cfg.user_friendly}")
-            cls.name_to_cfg[name] = cfg
-            cls.cfg_to_name[cfg] = name
-            cls.user_friendly_to_cfg[cfg.user_friendly] = cfg
+        if cfg in set(cls.name_to_cfg.values()):
+            return
+        name = cls.config_name(cfg)
+        if name in cls.name_to_cfg:
+            raise ValueError(f"Duplicate config name: {name}")
+        if not hasattr(cfg, "user_friendly"):
+            raise ValueError(f"Expected user_friendly classvar in {cfg}")
+        if cfg.user_friendly in cls.user_friendly_to_cfg:
+            raise ValueError(f"Duplicate user friendly name: "
+                             f"{cfg.user_friendly}")
+        cls.name_to_cfg[name] = cfg
+        cls.cfg_to_name[cfg] = name
+        cls.user_friendly_to_cfg[cfg.user_friendly] = cfg
 
     @classmethod
     async def get(
         cls,
-        id: int,
-        type: ConfigType,
         config: type[T_Config],
+        *,
+        user_id: int | None = None,
+        group_id: int | None = None,
     ) -> T_Config:
-        name = cls.config_name(config)
-        result = await cls.config.find_one({
-            "id": id,
-            "type": type,
-            "name": name
-        })
+        filter = {
+            "name": cls.config_name(config),
+            "user_id": user_id,
+            "group_id": group_id,
+        }
+        result = await cls.config.find_one(filter)
         if result is not None:
             return cast(T_Config, result.config)
         return config()
@@ -100,16 +121,16 @@ class ConfigManager:
     @classmethod
     async def set(
         cls,
-        id: int,
-        type: ConfigType,
         value: Config,
+        *,
+        user_id: int | None = None,
+        group_id: int | None = None,
     ) -> None:
-        name = cls.config_name(value.__class__)
         await cls.config.update_one(
             {
-                "id": id,
-                "type": type,
-                "name": name
+                "name": cls.config_name(value.__class__),
+                "user_id": user_id,
+                "group_id": group_id,
             },
             {"$set": {
                 "config": value.model_dump(mode="json")
@@ -117,67 +138,21 @@ class ConfigManager:
             upsert=True,
         )
 
-    @classmethod
-    async def get_user(cls, user_id: int, config: type[T_Config]) -> T_Config:
-        return await cls.get(user_id, ConfigType.USER, config)
-
-    @classmethod
-    async def set_user(cls, user_id: int, value: Config) -> None:
-        await cls.set(user_id, ConfigType.USER, value)
-
-    @classmethod
-    async def get_group(cls, group_id: int,
-                        config: type[T_Config]) -> T_Config:
-        return await cls.get(group_id, ConfigType.GROUP, config)
-
-    @classmethod
-    async def set_group(cls, group_id: int, value: Config) -> None:
-        await cls.set(group_id, ConfigType.GROUP, value)
-
 
 @get_driver().on_startup
 async def _():
-    ConfigManager.init()
     await ConfigManager.config.collection.create_index(
-        keys=[("id", 1), ("type", 1), ("name", 1)])
+        keys=[("user_id", 1), ("group_id", 1), ("name", 1)])
 
     cfg = " | ".join(c.__name__ for c in ConfigManager.cfg_to_name)
     logger.info(f"Registered {len(ConfigManager.name_to_cfg)} configs: "
                 f"{cfg}")
 
 
-@ConfigManager.config.serialize()
-def serialize_config(cfg: StoreConfig):
-    return {
-        "id": cfg.id,
-        "type": cfg.type,
-        "name": cfg.name,
-        "config": cfg.config.model_dump(mode="json"),
-    }
-
-
 @ConfigManager.config.deserialize()
-def deserialize_config(data: dict):
+def _(data: dict) -> StoreConfig:
     cls = ConfigManager.name_to_cfg[data["name"]]
-    # since config class may be modified (inconsistent with the database),
-    # we only load fields from database that are present in the class
-    fields = [key for key in cls.model_fields]
-    config = {
-        key: value
-        for key, value in data["config"].items() if key in fields
-    }
-    # warn the missing and duplicated fields
-    name = (f"{'user' if data['type'] == ConfigType.USER else 'group'}"
-            f"{data['id']}")
-    miss = set(cls.model_fields) - set(data["config"].keys())
-    if miss:
-        logger.warning(f"Missing fields in {cls.__name__} ({name}): {miss}")
-    dup = set(data["config"].keys()) - set(cls.model_fields)
-    if dup:
-        logger.warning(f"Duplicated fields in {cls.__name__} ({name}): {dup}")
-    return StoreConfig(
-        id=data["id"],
-        type=ConfigType(data["type"]),
-        name=data["name"],
-        config=cls(**config),
-    )
+    return StoreConfig(user_id=data["user_id"],
+                       group_id=data["group_id"],
+                       name=data["name"],
+                       config=cls.model_validate(data["config"]))

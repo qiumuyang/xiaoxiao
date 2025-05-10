@@ -1,6 +1,6 @@
 from typing import ClassVar
 
-from src.ext.config import Config, ConfigManager
+from src.ext.config import Config
 
 
 class RandomResponseConfig(Config):
@@ -14,11 +14,11 @@ class RandomResponseConfig(Config):
 
 async def toggle_user_response(*, user_id: int, enabled: bool) -> bool:
     """Toggle user's random response."""
-    user = await ConfigManager.get_user(user_id, RandomResponseConfig)
+    user = await RandomResponseConfig.get(user_id=user_id)
     if user.enabled == enabled:
         return False
     user.enabled = enabled
-    await ConfigManager.set_user(user_id, user)
+    await RandomResponseConfig.set(user, user_id=user_id)
     return True
 
 
@@ -33,7 +33,7 @@ async def toggle_group_response_request(
     If there are enough users requesting to toggle the group, return True.
     Otherwise, return the current number of requests.
     """
-    group = await ConfigManager.get_group(group_id, RandomResponseConfig)
+    group = await RandomResponseConfig.get(group_id=group_id)
     if group.enabled == enabled:
         return False
     if user_id not in group.toggle_requests:
@@ -41,7 +41,7 @@ async def toggle_group_response_request(
     if len(group.toggle_requests) >= RandomResponseConfig.num_reqs_to_toggle:
         group.enabled = enabled
         group.toggle_requests.clear()
-        await ConfigManager.set_group(group_id, group)
+        await RandomResponseConfig.set(group, group_id=group_id)
         return True
-    await ConfigManager.set_group(group_id, group)
+    await RandomResponseConfig.set(group, group_id=group_id)
     return len(group.toggle_requests)

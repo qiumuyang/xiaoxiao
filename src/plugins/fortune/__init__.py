@@ -4,7 +4,6 @@ from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot.params import CommandArg
 
 from src.ext import MessageSegment, get_user_name
-from src.ext.config import ConfigManager
 from src.utils.doc import CommandCategory, command_doc
 
 from .config import FortuneConfig, RenderBackground
@@ -37,7 +36,7 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
     """
     user_id = event.user_id
     color = arg.extract_plain_text().strip()
-    cfg = await ConfigManager.get_user(user_id, FortuneConfig)
+    cfg = await FortuneConfig.get(user_id=user_id)
 
     if color:
         mapping = {
@@ -49,7 +48,7 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
         if color not in mapping:
             await matcher.finish("可选背景色：自动/白/黑/透明")
         cfg.render_bg = mapping[color]
-        await ConfigManager.set_user(user_id, cfg)
+        await FortuneConfig.set(cfg, user_id=user_id)
 
     bg = cfg.render_bg
     user_name = await get_user_name(event)
