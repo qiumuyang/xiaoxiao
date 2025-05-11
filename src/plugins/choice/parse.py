@@ -23,6 +23,7 @@ class Op(Enum):
     ADD = "+"
     REMOVE = "-"
     SHOW = "?"
+    TOGGLE = "*"
     NONE = ""
 
 

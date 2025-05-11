@@ -13,6 +13,7 @@ from src.utils.userlist import (ListPermissionError, TooManyItemsError,
                                 TooManyListsError, UserListError,
                                 UserListService)
 
+from .config import ChoiceConfig
 from .parse import Action, Op
 from .render import ChoiceRender
 
@@ -58,7 +59,7 @@ class InvalidListNameError(ChoiceError):
 class InvalidItemOpError(ChoiceError):
 
     def __init__(self):
-        super().__init__("列表项目仅可使用+/-操作")
+        super().__init__("列表项目仅可使用增删(+-)操作")
 
 
 def extract_plain_text(content: str,
@@ -129,7 +130,7 @@ class ChoiceHandler:
                 raise InvalidListNameError("列表名称不可为空")
 
             match action.op:
-                case Op.SHOW | Op.ADD | Op.REMOVE:
+                case Op.SHOW | Op.ADD | Op.REMOVE | Op.TOGGLE:
                     handler = self.handle_list
                 case Op.NONE:
                     handler = self.handle_list_items
@@ -189,8 +190,31 @@ class ChoiceHandler:
                 await UserListService.create_list(self.group_id, list_name,
                                                   operator_id)
                 await self.matcher.finish(f"列表 [{list_name}] 已创建")
+            case Op.TOGGLE:
+                async with ChoiceConfig.edit(user_id=operator_id,
+                                             group_id=self.group_id) as cfg:
+                    if list_name not in cfg.shortcuts:
+                        if lst is None:
+                            raise ListNotExistsError(list_name)
+                        cfg.shortcuts.append(list_name)
+                        op = "添加"
+                    else:
+                        cfg.shortcuts.remove(list_name)
+                        op = "移除"
+                await self.matcher.finish(f"列表 [{list_name}] {op}快捷随机")
             case _:
                 assert False, "unreachable"
+
+    async def random_list_items(self, list_name: str) -> Message | None:
+        lst = await UserListService.find_list(self.group_id, list_name)
+        if lst is None:
+            return
+
+        choices = await lst.expanded_items
+        if not choices:
+            await self.matcher.finish("(null)")
+        choice = random.choice(choices)
+        return await MessageExtension.replace_with_local_image(choice)
 
     async def handle_list_items(
         self,

@@ -1,4 +1,4 @@
-from nonebot import on_command
+from nonebot import on_command, on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
@@ -11,8 +11,8 @@ from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import not_reply
 from src.utils.doc import CommandCategory, command_doc
 
-from .choice import ChoiceHandler
-from .parse import Action, parse_action
+from .choice import ChoiceConfig, ChoiceHandler
+from .parse import Action, Op, parse_action
 
 make_choice_reply = on_reply(("选择困难", "xzkn"), block=True)
 make_choice = on_command("选择困难",
@@ -20,6 +20,7 @@ make_choice = on_command("选择困难",
                          aliases={"xzkn"},
                          block=True,
                          force_whitespace=True)
+choice_shortcut = on_message(priority=2, block=False)
 
 
 async def _parse(cmd: str, matcher: type[Matcher]) -> Action | None:
@@ -46,11 +47,12 @@ async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
         {cmd} `<列表名>` -`<序号>` ...  -  删除列表中指定序号的项目
         {cmd} `<列表名>`                -  随机选择列表中的一个项目
         {cmd} ?`<列表名>` [页码]        -  显示指定列表内容
+        {cmd} *`<列表名>`                -  设置/取消指定列表快捷访问
         `引用` {cmd} `<列表名>` +       -  将引用消息添加到指定列表
         其中:
         * `<内容>`允许**无嵌套引用**其他列表，用`[列表名]`表示
         * 添加带有**空格**的内容时，需要使用引号`"`将其包裹
-        * 包含指令字符(`+` `-` `?`)且会引起歧义时，需要在其之前添加转义符`\\`
+        * 包含指令字符(`+` `-` `?` `*`)且会引起歧义时，需要在其之前添加转义符`\\`
 
     Examples:
         >>> {cmd} +炸鸡汉堡
@@ -96,7 +98,7 @@ async def _(bot: Bot,
     if not action:
         return
     if (not action.items or len(action.items) != 1 or action.items[0].content):
-        await make_choice_reply.finish("选择困难快捷添加语法: <列表名> +")
+        await make_choice_reply.finish(f"选择困难快捷添加语法: <列表名> {Op.ADD}")
 
     # rewrite action with reply content
     reply: Reply = state["reply"]
@@ -112,3 +114,16 @@ async def _(bot: Bot,
                           action,
                           symtab | symtab_content,
                           sudo=await (SUPERUSER | ADMIN)(bot, event))
+
+
+@choice_shortcut.handle()
+async def _(bot: Bot, event: GroupMessageEvent):
+    if not all(seg.is_text() for seg in event.message):
+        return
+    name = event.message.extract_plain_text()
+    cfg = await ChoiceConfig.get(user_id=event.user_id,
+                                 group_id=event.group_id)
+    if name in cfg.shortcuts:
+        handler = ChoiceHandler(bot, event, make_choice_reply)
+        if msg := await handler.random_list_items(name):
+            await choice_shortcut.finish(msg)
