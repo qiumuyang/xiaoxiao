@@ -92,10 +92,10 @@ class FileStorage:
         image.save(io, format="PNG")
         return io.getvalue()
 
-    async def _download(self,
-                        url: str,
-                        filename: str,
-                        retries: int = 3) -> bool:
+    async def _download_and_store(self,
+                                  url: str,
+                                  filename: str,
+                                  retries: int = 3) -> bool:
         for attempt in range(retries + 1):
             try:
                 async with self.semaphore:
@@ -132,6 +132,7 @@ class FileStorage:
                 "expire_at": datetime.now(timezone.utc) + self.ttl,
                 "created_at": datetime.now(timezone.utc),
                 "references": 0,
+                "ready": False,
             },
         )
         if isinstance(content, bytes):
@@ -140,6 +141,13 @@ class FileStorage:
             async for chunk in content.iter_chunked(1024 * 1024):  # 1MB
                 grid_in.write(chunk)
         grid_in.close()
+
+        await self.db.fs.files.update_one(
+            {"filename": filename},
+            {"$set": {
+                "metadata.ready": True,
+            }},
+        )
         return filename
 
     async def promote(self, filename: str) -> bool:
@@ -178,13 +186,19 @@ class FileStorage:
         try:
             doc = await self.db.fs.files.find_one({"filename": filename})
             if not doc and url:
-                await self._download(url, filename)
-            grid_out = await self.fs_bucket.open_download_stream_by_name(
-                filename)
-            return await grid_out.read()  # type: ignore
+                await self._download_and_store(url, filename)
+            if doc and doc["metadata"].get("ready"):
+                grid_out = await self.fs_bucket.open_download_stream_by_name(
+                    filename)
+                return await grid_out.read()  # type: ignore
+            elif url:
+                # directly download and return
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        resp.raise_for_status()
+                        return await resp.read()
         except Exception as e:
             logger.info(f"Load file failed: {e}")
-            return None
 
     async def load_image(self, url: str, filename: str) -> Image.Image | None:
         data = await self.load(url, filename)
