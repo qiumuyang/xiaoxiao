@@ -9,57 +9,18 @@ from src.ext import MessageExtension
 from src.ext import MessageSegment as ExtMessageSegment
 from src.utils.log import logger_wrapper
 from src.utils.render import Interpolation
-from src.utils.userlist import (ListPermissionError, TooManyItemsError,
-                                TooManyListsError, UserListError,
-                                UserListService)
+from src.utils.userlist import (ListPermissionError, MessageItem,
+                                TooManyItemsError, TooManyListsError,
+                                UserListError, UserListService)
 
 from .config import ChoiceConfig
+from .exception import *
 from .parse import Action, Op
 from .render import ChoiceRender
 
 logger = logger_wrapper(__name__)
 
-
-class ChoiceError(Exception):
-
-    def __str__(self) -> str:
-        return self.args[0]
-
-
-class ListNotExistsError(ChoiceError):
-
-    def __init__(self, name: str):
-        super().__init__(f"列表 [{name}] 不存在")
-
-
-class ListExistsError(ChoiceError):
-
-    def __init__(self, name: str):
-        super().__init__(f"列表 [{name}] 已存在")
-
-
-class NonPlainTextError(ChoiceError):
-
-    def __init__(self, where: str):
-        super().__init__(f"{where}仅允许包含文本")
-
-
-class InvalidIndexError(ChoiceError):
-
-    def __init__(self, index: str, name: str = "索引"):
-        super().__init__(f"无效的{name}: {index}")
-
-
-class InvalidListNameError(ChoiceError):
-
-    def __init__(self, reason: str):
-        super().__init__(reason)
-
-
-class InvalidItemOpError(ChoiceError):
-
-    def __init__(self):
-        super().__init__("列表项目仅可使用增删(+-)操作")
+IS_PAGE = bool
 
 
 def extract_plain_text(content: str,
@@ -71,17 +32,21 @@ def extract_plain_text(content: str,
     return message.extract_plain_text()
 
 
-def parse_page_number(
+def parse_page_or_item_number(
     action: Action,
     symtab: dict[str, MessageSegment],
-) -> int:
+) -> tuple[int, IS_PAGE]:
     if not action.items:
-        return 0
-    page_str = extract_plain_text(action.items[0].content, symtab,
-                                  NonPlainTextError("页码"))
-    if not page_str.isdecimal():
-        raise InvalidIndexError(page_str, "页码")
-    return int(page_str) - 1
+        return 0, True
+    s = extract_plain_text(action.items[0].content, symtab,
+                           NonPlainTextError("页码/索引"))
+    if s.startswith("#"):
+        if not s[1:].isdecimal():
+            raise InvalidIndexError(s[1:], "索引")
+        return int(s[1:]) - 1, False
+    if not s.isdecimal():
+        raise InvalidIndexError(s, "页码")
+    return int(s) - 1, True
 
 
 class ChoiceHandler:
@@ -161,11 +126,18 @@ class ChoiceHandler:
             case Op.SHOW:
                 if lst is None:
                     raise ListNotExistsError(list_name)
-                page = parse_page_number(action, symtab)
-                pagination = lst.paginate(page, self.NUM_ITEMS_PER_PAGE)
-                obj = await ChoiceRender.render_list(group_id=self.group_id,
-                                                     userlist=lst,
-                                                     pagination=pagination)
+                num, is_page = parse_page_or_item_number(action, symtab)
+                if is_page:
+                    pagination = lst.paginate(num, self.NUM_ITEMS_PER_PAGE)
+                    obj = await ChoiceRender.render_list(
+                        group_id=self.group_id,
+                        userlist=lst,
+                        pagination=pagination)
+                elif not 0 <= num < len(lst):
+                    raise InvalidIndexError(str(num + 1))
+                else:
+                    obj = await ChoiceRender.render_item_card(
+                        group_id=self.group_id, index=num, item=lst.items[num])
                 await self.matcher.finish(
                     ExtMessageSegment.image(obj.render().thumbnail(
                         max_height=2000,
@@ -243,6 +215,8 @@ class ChoiceHandler:
         add_msg: list[Message] = []
         add_ref: list[str] = []
         remove_index: list[int] = []
+        remove_fail: list[str] = []
+        updated = False
         for item in action.items:
             content = MessageExtension.decode(item.content, symtab)
             if not content:
@@ -250,6 +224,7 @@ class ChoiceHandler:
             plain_text = content.extract_plain_text()
             match item.op:
                 case Op.ADD:
+                    updated = True
                     if item.type == "reference":
                         if not all(seg.is_text() for seg in content):
                             raise NonPlainTextError("引用条目")
@@ -257,20 +232,30 @@ class ChoiceHandler:
                     else:
                         add_msg.append(content)
                 case Op.REMOVE:
-                    # TODO: support remove by text
-                    if not plain_text.isdecimal():
-                        raise InvalidIndexError(plain_text)
-                    index = int(plain_text) - 1
-                    if not 0 <= index < len(lst.items):
-                        raise InvalidIndexError(plain_text)
-                    remove_index.append(index)
+                    if plain_text.isdecimal():
+                        index = int(plain_text) - 1
+                        if not 0 <= index < len(lst.items):
+                            raise InvalidIndexError(plain_text)
+                        remove_index.append(index)
+                        updated = True
+                    else:
+                        for i, lst_item in enumerate(lst.items):
+                            if isinstance(lst_item, MessageItem):
+                                content = lst_item.content
+                                if all(seg.is_text() for seg in
+                                       content) and content.extract_plain_text(
+                                       ) == plain_text:
+                                    remove_index.append(i)
+                                    updated = True
+                                    break  # only remove the first match
+                        else:
+                            remove_fail.append(plain_text)
                 case _:
                     raise InvalidItemOpError
-
         if remove_index:
             # perform remove before add
             await UserListService.remove_by_index(self.group_id, list_name,
-                                                  *remove_index)
+                                                  *set(remove_index))
         if add_msg:
             await UserListService.append_message(self.group_id, list_name,
                                                  operator_id, *add_msg)
@@ -281,9 +266,18 @@ class ChoiceHandler:
         lst = await UserListService.find_list(self.group_id, list_name)
         if lst is None:
             raise RuntimeError("List missing")
+
         # TODO: render diff instead of whole list
         # obj = await ChoiceRender.render_list(group_id=self.group_id,
         #                                      userlist=lst)
         # await self.matcher.finish(
         #     ExtMessageSegment.image(obj.render().to_pil()))
-        await self.matcher.finish(f"列表 [{list_name}] 已更新")
+
+        if updated:
+            if not remove_fail:
+                await self.matcher.finish(f"列表 [{list_name}] 已更新")
+            else:
+                await self.matcher.finish(f"列表 [{list_name}] 已更新\n"
+                                          f"未匹配的条目: {', '.join(remove_fail)}")
+        else:
+            await self.matcher.finish(f"列表 [{list_name}] 未更新")

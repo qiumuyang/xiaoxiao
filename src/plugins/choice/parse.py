@@ -26,6 +26,9 @@ class Op(Enum):
     TOGGLE = "*"
     NONE = ""
 
+    def __str__(self) -> str:
+        return self.value
+
 
 class ItemAction(NamedTuple):
     op: Op
