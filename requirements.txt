@@ -1,6 +1,7 @@
 aiohttp
 async-lru
 cairosvg
+emoji
 fonttools
 jieba
 matplotlib

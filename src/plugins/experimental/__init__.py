@@ -1,11 +1,16 @@
+import emoji
 from nonebot import on_command, on_notice
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
+from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.permission import SUPERUSER
+from nonebot.typing import T_State
 
 from src.ext.event import GroupReactionAdd, GroupReactionAddEvent
 from src.ext.message import (Button, ButtonAction, ButtonStyle,
                              MessageExtension, MessageSegment)
+from src.ext.on import on_reply
 
+reaction_reply = on_reply("贴", block=True)
 send_keyboard = on_command("keyboard", permission=SUPERUSER, block=True)
 send_reply = on_command("reply_me", permission=SUPERUSER, block=True)
 # cannot use default permission since notice event does not have user_id
@@ -44,3 +49,51 @@ async def _(bot: Bot, event: GroupReactionAddEvent = GroupReactionAdd()):
                                      message_id=event.message_id,
                                      code=event.code,
                                      is_add=True)
+
+
+EXCLUDE_CODEPOINTS = {
+    # zero-width joiner
+    "\u200d",
+    # variation selectors
+    "\ufe0e",
+    "\ufe0f",
+    # male and female symbols
+    "\u2640",
+    "\u2642",
+    # skin tones
+    *(chr(c) for c in range(0x1F3FB, 0x1F400)),
+    # regional indicators
+    *(chr(c) for c in range(0x1F1E6, 0x1F200)),
+}
+
+
+@reaction_reply.handle()
+async def _(bot: Bot, event: GroupMessageEvent, state: T_State):
+    reply: Reply = state["reply"]
+    content = reply.message
+    max_count = 5
+    for seg in content:
+        seg = MessageSegment.from_onebot(seg)
+        if seg.is_face():
+            id = seg.extract_face()
+            await bot.set_group_reaction(group_id=event.group_id,
+                                         message_id=event.message_id,
+                                         code=str(id),
+                                         is_add=True)
+            max_count -= 1
+            if max_count == 0:
+                break
+        elif seg.is_text():
+            text = seg.extract_text().strip()
+            for e in emoji.emoji_list(text):
+                emj = e["emoji"]
+                if emj in EXCLUDE_CODEPOINTS or len(emj) != 1:
+                    continue
+                await bot.set_group_reaction(group_id=event.group_id,
+                                             message_id=event.message_id,
+                                             code=str(ord(emj)),
+                                             is_add=True)
+                max_count -= 1
+                if max_count == 0:
+                    break
+    await reaction_reply.finish()
