@@ -101,6 +101,8 @@ class TextFont:
         draw2.text(xy=(0, 0), text=text, fill=(0, 0, 0), font=font)
         bbox1 = im1.getbbox()
         bbox2 = im2.getbbox()
-        assert bbox1 is not None
-        assert bbox2 is not None
+        # assert bbox1 is not None
+        # assert bbox2 is not None
+        if bbox1 is None or bbox2 is None:
+            return 0
         return max(bbox2[3] - bbox1[3] + bbox1[1] - bbox2[1], 0)

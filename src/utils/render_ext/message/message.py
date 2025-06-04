@@ -95,14 +95,16 @@ class MessageRender:
                     try:
                         filename = segment.extract_filename()
                         url = segment.extract_url()
-                        image = await storage.load_image(url, filename)
+                        data = await storage.load_image(url, filename)
+                        if data is not None:
+                            image = ImageObject.from_image(
+                                data,
+                                decorations=cls.CONTENT_DECO,
+                            )
                     except Exception:
                         pass
                     if image is not None:
-                        image = ImageObject.from_image(
-                            image,
-                            decorations=cls.CONTENT_DECO,
-                        ).thumbnail(
+                        image = image.thumbnail(
                             max_image_dim,
                             max_image_dim,
                             Interpolation.LANCZOS,
@@ -117,6 +119,7 @@ class MessageRender:
                         builder.image(image, inline=False)
                     else:
                         builder.text("[图片]", inline=False)
+                        # TODO: invalidate storage
                     if len(content) == 1:
                         shortcut = image
                         break

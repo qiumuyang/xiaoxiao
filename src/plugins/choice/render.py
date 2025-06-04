@@ -171,13 +171,12 @@ class ChoiceRender:
         if cached and isinstance(item, MessageItem):  # ref is not cached
             try:
                 image = await storage.load_image(url="", filename=cache_name)
+                if image is not None:
+                    image = Image.from_image(image)
+                    await storage.refresh(cache_name)
+                    return image
             except Exception:
-                image = None
-            if image is not None:
-                # cache hit
-                im = Image.from_image(image)
-                await storage.refresh(cache_name)
-                return im
+                pass
         # cache miss
         if isinstance(item, MessageItem):
             content = await MessageRender.render_content(
