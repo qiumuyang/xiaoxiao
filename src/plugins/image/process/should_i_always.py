@@ -26,7 +26,7 @@ class ShouldIAlways(ImageProcessor):
     HORIZONTAL_SPACING_RATIO = 0.3
     VERTICAL_SPACING_RATIO = 0.25
 
-    TEMPLATE = "要我一直  <image/>  吗"
+    TEMPLATE = "要我一直  <image:inline/>  吗"
 
     def process_frame(self, image: Image.Image, *args,
                       **kwargs) -> Image.Image:

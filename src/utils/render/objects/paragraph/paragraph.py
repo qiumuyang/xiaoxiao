@@ -148,11 +148,13 @@ class Paragraph(RenderObject):
         Args:
             markup: Markup string (plain-text with HTML-like tags).
                 Syntax:
-                1. To apply text styles, use the format <tag-name>text</tag-name>.
+                1. To apply text styles, use the format
+                        <tag-name>text</tag-name>.
                     Styles can be nested, with inner tags overriding outer ones.
                     If a required attribute is missing in an inner tag, the attribute
                     from the outer tag will be used, defaulting to the base style if needed.
-                2. To insert inline images, use the self-closing tag format <image-name/>.
+                2. To insert inline images, use the self-closing tag format
+                        <image-name[:inline]/>.
             default: Default / fallback text style.
             styles: Mapping of style names to text styles.
             images: Mapping of image names to images.
