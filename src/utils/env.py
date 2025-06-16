@@ -40,7 +40,7 @@ def set_class_var_by_env(cls) -> dict[str, Any]:
         setattr(
             cls, key,
             value_type(env_value)
-            if value_type != bool else env_value.lower() in {"true", "1"})
+            if value_type is not bool else env_value.lower() in {"true", "1"})
         injected[key] = getattr(cls, key)
     return injected
 
