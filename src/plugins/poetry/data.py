@@ -1,6 +1,5 @@
 import re
 import sqlite3
-from functools import lru_cache
 from pathlib import Path
 from typing import TypedDict
 
@@ -16,11 +15,10 @@ class PoetryItem(TypedDict):
 
 class Poetry:
 
-    poetry_table: list[PoetryItem] = []
+    db_path = Path("~/.cache/nonebot/poetry.db").expanduser()
+    poetry_path = Path("data/static/chinese/poetry")
 
-    # map part to poetry
-    reverse_db: sqlite3.Connection | None = None
-    reverse_path = "~/.cache/nonebot/poetry_reverse.db"
+    _conn: sqlite3.Connection | None = None
 
     p_pattern = re.compile(r"[,，\.。!！\?？、《》；]")
 
@@ -31,46 +29,100 @@ class Poetry:
     ]
 
     @classmethod
+    def get_conn(cls) -> sqlite3.Connection:
+        if cls._conn is None:
+            cls.db_path.parent.mkdir(parents=True, exist_ok=True)
+            cls._conn = sqlite3.connect(cls.db_path)
+            cls._conn.execute("PRAGMA journal_mode=WAL")
+            cls._conn.execute("PRAGMA synchronous=NORMAL")
+            cls._init_db()
+        return cls._conn
+
+    @classmethod
+    def _init_db(cls):
+        conn = cls.get_conn()
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS poetry (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            dynasty TEXT,
+            author TEXT,
+            content TEXT
+        );
+        CREATE VIRTUAL TABLE IF NOT EXISTS poetry_fts USING fts5(
+            content, title, dynasty, author,
+            content='poetry', content_rowid='id'
+        );
+        CREATE TABLE IF NOT EXISTS poetry_parts (
+            part TEXT,
+            poetry_id INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_part ON poetry_parts(part);
+        """)
+        conn.commit()
+
+    @classmethod
     def init(cls):
-        root = Path("data/static/chinese/poetry")
-        for file in root.glob("*.json"):
-            cls.poetry_table.extend(orjson.loads(file.read_bytes()))
-        cls._init_reverse_db()
-
-    @classmethod
-    def _init_reverse_db(cls):
-        if cls.reverse_db is not None:
-            return
-        db_path = Path(cls.reverse_path).expanduser()
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        cls.reverse_db = sqlite3.connect(db_path)
-        if cls.reverse_db.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='poetry'"
-        ).fetchone():
+        conn = cls.get_conn()
+        if conn.execute("SELECT EXISTS("
+                        "SELECT 1 FROM poetry LIMIT 1)").fetchone()[0]:
             return
 
-        cls.reverse_db.execute("CREATE TABLE poetry (part TEXT, idx INT)")
-        cls.reverse_db.execute("CREATE INDEX part_index ON poetry (part, idx)")
-        cls.reverse_db.commit()
+        files = list(cls.poetry_path.glob("*.json"))
+        items = []
+        for file in files:
+            items.extend(orjson.loads(file.read_bytes()))
 
-        buffer = []
-        limit = 10000
-        for i, poetry in enumerate(cls.poetry_table):
-            for part in cls.separate(poetry["content"]):
-                buffer.append((part, i))
-            if len(buffer) >= limit:
-                cls.reverse_db.executemany("INSERT INTO poetry VALUES (?, ?)",
-                                           buffer)
-                buffer.clear()
-        if buffer:
-            cls.reverse_db.executemany("INSERT INTO poetry VALUES (?, ?)",
-                                       buffer)
-        cls.reverse_db.commit()
+        # Bulk insert in a single transaction
+        with conn:
+            # main table
+            poetry_values = [(p["title"], p["dynasty"], p["author"],
+                              p["content"]) for p in items]
+            conn.executemany(
+                "INSERT INTO poetry "
+                "(title, dynasty, author, content) VALUES "
+                "(?, ?, ?, ?)",
+                poetry_values,
+            )
+            # retrieve all ids and contents
+            rows = conn.execute(
+                "SELECT id, content FROM poetry "
+                "WHERE rowid <= last_insert_rowid()").fetchall()
+            # build parts
+            parts = []
+            for row in rows:
+                pid = row[0]
+                for part in cls.separate(row[1]):
+                    parts.append((part, pid))
+            conn.executemany(
+                "INSERT INTO poetry_parts "
+                "(part, poetry_id) VALUES (?, ?)",
+                parts,
+            )
+            # FTS index populate
+            conn.execute(
+                "INSERT INTO poetry_fts "
+                "(rowid, content, title, dynasty, author)"
+                " SELECT id, content, title, dynasty, author FROM poetry")
 
     @classmethod
-    @lru_cache(maxsize=64)
     def search(cls, keyword: str) -> list[PoetryItem]:
-        return [p for p in cls.poetry_table if keyword in p["content"]]
+        conn = cls.get_conn()
+        cursor = conn.execute(
+            "SELECT p.title, p.dynasty, p.author, p.content "
+            "FROM poetry_fts f JOIN poetry p ON f.rowid = p.id "
+            "WHERE poetry_fts MATCH ?",
+            (keyword, ),
+        )
+        result = []
+        for row in cursor:
+            result.append({
+                "title": row[0],
+                "dynasty": row[1],
+                "author": row[2],
+                "content": row[3],
+            })
+        return result
 
     @classmethod
     def separate(cls, content: str) -> list[str]:
@@ -81,16 +133,36 @@ class Poetry:
         parts = cls.separate(content)
         if not parts:
             return []
-        assert cls.reverse_db is not None
-        indices = cls.reverse_db.execute(
-            "SELECT idx FROM poetry WHERE part = ?", (parts[0], )).fetchall()
+        conn = cls.get_conn()
+
+        # get candidate ids by intersecting parts
+        placeholder = ",".join("?" for _ in parts)
+        query = (f"SELECT poetry_id FROM poetry_parts "
+                 f"WHERE part IN ({placeholder}) "
+                 f"GROUP BY poetry_id HAVING COUNT(DISTINCT part)=?")
+        args = parts + [len(parts)]
+        candidates = {r[0] for r in conn.execute(query, args)}
+        if not candidates:
+            return []
+
+        # verify sequence match
         result = []
-        for i in indices:
-            poetry = cls.poetry_table[i[0]]
-            poetry_parts = cls.separate(poetry["content"])
-            for j in range(len(poetry_parts) - len(parts) + 1):
-                if poetry_parts[j:j + len(parts)] == parts:
-                    result.append(poetry)
+        sel = conn.execute(
+            f"SELECT id, content, title, dynasty, author"
+            f"FROM poetry WHERE id IN ({','.join('?' for _ in candidates)})",
+            tuple(candidates),
+        )
+        for row in sel:
+            _, poetry_content, title, dynasty, author = row
+            pparts = cls.separate(poetry_content)
+            # sliding window
+            for i in range(len(pparts) - len(parts) + 1):
+                if pparts[i:i + len(parts)] == parts:
+                    result.append(
+                        PoetryItem(title=title,
+                                   dynasty=dynasty,
+                                   author=author,
+                                   content=poetry_content))
                     break
         return result
 
