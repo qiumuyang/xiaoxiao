@@ -62,48 +62,58 @@ class Poetry:
         conn.commit()
 
     @classmethod
-    def init(cls):
+    def init(cls, batch_size: int = 1000):
         conn = cls.get_conn()
         if conn.execute("SELECT EXISTS("
                         "SELECT 1 FROM poetry LIMIT 1)").fetchone()[0]:
             return
 
         files = list(cls.poetry_path.glob("*.json"))
-        items = []
         for file in files:
-            items.extend(orjson.loads(file.read_bytes()))
+            poems = orjson.loads(file.read_bytes())
+            batch_poetry = []
+            batch_parts = []
+            with conn:
+                for p in poems:
+                    batch_poetry.append(
+                        (p["title"], p["dynasty"], p["author"], p["content"]))
+                    if len(batch_poetry) >= batch_size:
+                        cls._insert_batch_in_tx(conn, batch_poetry,
+                                                batch_parts)
+                        batch_poetry.clear()
+                        batch_parts.clear()
+                if batch_poetry:
+                    cls._insert_batch_in_tx(conn, batch_poetry, batch_parts)
 
-        # Bulk insert in a single transaction
-        with conn:
-            # main table
-            poetry_values = [(p["title"], p["dynasty"], p["author"],
-                              p["content"]) for p in items]
-            conn.executemany(
-                "INSERT INTO poetry "
-                "(title, dynasty, author, content) VALUES "
-                "(?, ?, ?, ?)",
-                poetry_values,
-            )
-            # retrieve all ids and contents
-            rows = conn.execute(
-                "SELECT id, content FROM poetry "
-                "WHERE rowid <= last_insert_rowid()").fetchall()
-            # build parts
-            parts = []
-            for row in rows:
-                pid = row[0]
-                for part in cls.separate(row[1]):
-                    parts.append((part, pid))
-            conn.executemany(
-                "INSERT INTO poetry_parts "
-                "(part, poetry_id) VALUES (?, ?)",
-                parts,
-            )
-            # FTS index populate
-            conn.execute(
-                "INSERT INTO poetry_fts "
-                "(rowid, content, title, dynasty, author)"
-                " SELECT id, content, title, dynasty, author FROM poetry")
+    @classmethod
+    def _insert_batch_in_tx(cls, conn: sqlite3.Connection, batch_poetry,
+                            batch_parts):
+        # main table
+        conn.executemany(
+            "INSERT INTO poetry "
+            "(title, dynasty, author, content) VALUES (?, ?, ?, ?)",
+            batch_poetry,
+        )
+
+        last_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        start_id = last_id - len(batch_poetry) + 1
+
+        for offset, poetry in enumerate(batch_poetry):
+            pid = start_id + offset
+            for part in cls.separate(poetry[3]):
+                batch_parts.append((part, pid))
+
+        conn.executemany(
+            "INSERT INTO poetry_parts "
+            "(part, poetry_id) VALUES (?, ?)",
+            batch_parts,
+        )
+        # FTS index populate
+        conn.execute(
+            "INSERT INTO poetry_fts "
+            "(rowid, content, title, dynasty, author)"
+            " SELECT id, content, title, dynasty, author FROM poetry "
+            "WHERE id BETWEEN ? AND ?", (start_id, last_id))
 
     @classmethod
     def search(cls, keyword: str) -> list[PoetryItem]:
@@ -148,7 +158,7 @@ class Poetry:
         # verify sequence match
         result = []
         sel = conn.execute(
-            f"SELECT id, content, title, dynasty, author"
+            f"SELECT id, content, title, dynasty, author "
             f"FROM poetry WHERE id IN ({','.join('?' for _ in candidates)})",
             tuple(candidates),
         )
