@@ -22,7 +22,7 @@ REMOTE_DB_HOST="localhost"
 REMOTE_DB_PORT="27017"
 
 # Export local MongoDB database
-mongodump --host $LOCAL_DB_HOST --port $LOCAL_DB_PORT --db $LOCAL_DB_NAME --out $BACKUP_DIR
+mongodump --host $LOCAL_DB_HOST --port $LOCAL_DB_PORT --db $LOCAL_DB_NAME --out $BACKUP_DIR --gzip
 
 # Transfer backup to remote host
 scp -P $REMOTE_PORT -r $BACKUP_DIR $REMOTE_USER@$REMOTE_HOST:~/
