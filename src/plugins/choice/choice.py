@@ -8,10 +8,11 @@ from nonebot.matcher import Matcher
 from src.ext import MessageExtension
 from src.ext import MessageSegment as ExtMessageSegment
 from src.utils.log import logger_wrapper
-from src.utils.render import Interpolation
+from src.utils.render import Interpolation, RenderObject
 from src.utils.userlist import (ListPermissionError, MessageItem,
-                                TooManyItemsError, TooManyListsError,
-                                UserListError, UserListService)
+                                ReferenceItem, TooManyItemsError,
+                                TooManyListsError, UserListError,
+                                UserListService)
 
 from .config import ChoiceConfig
 from .exception import *
@@ -136,12 +137,20 @@ class ChoiceHandler:
                 elif not 0 <= num < len(lst):
                     raise InvalidIndexError(str(num + 1))
                 else:
-                    obj = await ChoiceRender.render_item_card(
-                        group_id=self.group_id, index=num, item=lst.items[num])
-                await self.matcher.finish(
-                    ExtMessageSegment.image(obj.render().thumbnail(
+                    item = lst.items[num]
+                    if isinstance(item, ReferenceItem):
+                        obj = f"[引用] {item.name}"
+                    else:
+                        obj = item.content
+                        obj = await MessageExtension.replace_with_local_image(
+                            obj)
+                if isinstance(obj, RenderObject):
+                    result = ExtMessageSegment.image(obj.render().thumbnail(
                         max_height=2000,
-                        interpolation=Interpolation.LANCZOS).to_pil()))
+                        interpolation=Interpolation.LANCZOS).to_pil())
+                else:
+                    result = obj
+                await self.matcher.finish(result)
             case Op.REMOVE:
                 if lst is None:
                     raise ListNotExistsError(list_name)

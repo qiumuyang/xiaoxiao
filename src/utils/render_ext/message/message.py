@@ -78,6 +78,7 @@ class MessageRender:
         max_width: int | None = None,
         group_id: int | None = None,
         background: Color = Palette.WHITE,
+        text_truncate: int | None = None,
     ) -> RenderObject:
         storage = await FileStorage.get_instance()
         builder = Builder(default=cls.STYLE_CONTENT, max_width=max_width)
@@ -140,6 +141,10 @@ class MessageRender:
                         next_seg = MessageSegment.from_onebot(content[i + 1])
                         if next_seg.type in ("image", "mface"):
                             text = text.removesuffix("\n")
+                    if text_truncate:
+                        text_truncate = max(text_truncate, 3)
+                        if len(text) >= text_truncate - 3:
+                            text = text[:text_truncate - 3] + "..."
                     builder.text(text)
                 case "face":
                     face_id = segment.extract_face()

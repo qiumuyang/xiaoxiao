@@ -183,7 +183,8 @@ class ChoiceRender:
                 item.content,
                 max_width=cls.CARD_WIDTH,
                 group_id=group_id,
-                background=cls.MSG_BG)
+                background=cls.MSG_BG,
+                text_truncate=40)
             background = Palette.TRANSPARENT
             decoration = Decorations.of()
         else:
