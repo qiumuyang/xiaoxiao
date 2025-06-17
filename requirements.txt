@@ -7,6 +7,8 @@ jieba
 matplotlib
 mistletoe
 motor
+nonebot-adapter-onebot
+nonebot2[fastapi]
 numpy
 opencv-python>=4.5.4.58
 orjson
@@ -19,6 +21,7 @@ pymixbox==2.0.0
 pyphen>=0.13.2
 pypinyin
 pytest-asyncio
+pytest-cov
 requests
 typing_extensions>=4.10.0
 watchdog
