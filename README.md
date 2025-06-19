@@ -6,11 +6,11 @@
 
 0. ~~Use `nb-cli` to create a project.~~ (Don't know how to manage an existing project)
 
-1. Setup `katexsvg` [setup.md](src/utils/render_ext/markdown/katexsvg/setup.md)
+1. Setup `katexsvg` [setup.md](src/utils/render_ext/markdown/components/utils/katexsvg/setup.md) for math rendering
 
-2. Install mongodb
+2. Install MongoDB
 
-3. Install pip dependencies
+3. Install nb-cli using pipx and other pip dependencies
 
 ---
 
