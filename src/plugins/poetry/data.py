@@ -5,6 +5,10 @@ from typing import TypedDict
 
 import orjson
 
+from src.utils.log import logger_wrapper
+
+logger = logger_wrapper("poetry")
+
 
 class PoetryItem(TypedDict):
     title: str
@@ -17,6 +21,7 @@ class Poetry:
 
     db_path = Path("~/.cache/nonebot/poetry.db").expanduser()
     poetry_path = Path("data/static/chinese/poetry")
+    fix_path = Path("data/static/chinese/fix_poetry.txt")
 
     _conn: sqlite3.Connection | None = None
 
@@ -64,26 +69,75 @@ class Poetry:
     @classmethod
     def init(cls, batch_size: int = 1000):
         conn = cls.get_conn()
-        if conn.execute("SELECT EXISTS("
-                        "SELECT 1 FROM poetry LIMIT 1)").fetchone()[0]:
-            return
-
-        files = list(cls.poetry_path.glob("*.json"))
-        for file in files:
-            poems = orjson.loads(file.read_bytes())
-            batch_poetry = []
-            batch_parts = []
-            with conn:
-                for p in poems:
-                    batch_poetry.append(
-                        (p["title"], p["dynasty"], p["author"], p["content"]))
-                    if len(batch_poetry) >= batch_size:
+        if not conn.execute("SELECT EXISTS("
+                            "SELECT 1 FROM poetry LIMIT 1)").fetchone()[0]:
+            files = list(cls.poetry_path.glob("*.json"))
+            for file in files:
+                poems = orjson.loads(file.read_bytes())
+                batch_poetry = []
+                batch_parts = []
+                with conn:
+                    for p in poems:
+                        batch_poetry.append((p["title"], p["dynasty"],
+                                             p["author"], p["content"]))
+                        if len(batch_poetry) >= batch_size:
+                            cls._insert_batch_in_tx(conn, batch_poetry,
+                                                    batch_parts)
+                            batch_poetry.clear()
+                            batch_parts.clear()
+                    if batch_poetry:
                         cls._insert_batch_in_tx(conn, batch_poetry,
                                                 batch_parts)
-                        batch_poetry.clear()
-                        batch_parts.clear()
-                if batch_poetry:
-                    cls._insert_batch_in_tx(conn, batch_poetry, batch_parts)
+        # always apply fix
+        cls._apply_fix()
+
+    @classmethod
+    def _apply_fix(cls):
+        if not cls.fix_path.exists():
+            return
+
+        conn = cls.get_conn()
+        with conn:
+            raw = cls.fix_path.read_text(encoding="utf-8")
+            for entry in raw.split("====="):
+                lines = [
+                    _ for line in entry.strip().splitlines()
+                    if (_ := line.strip())
+                ]
+                if len(lines) != 2:
+                    logger.warning(f"Skipping invalid entry: \n{entry}")
+                    continue
+                original, repl = lines
+                row = conn.execute(
+                    "SELECT id, content FROM poetry WHERE content=?",
+                    (original, ),
+                ).fetchone()
+                if row:
+                    poetry_id = row[0]
+                    conn.execute(
+                        "UPDATE poetry SET content=? WHERE id=?",
+                        (repl, poetry_id),
+                    )
+                    conn.execute("DELETE FROM poetry_fts WHERE rowid = ?",
+                                 (poetry_id, ))
+                    conn.execute(
+                        "INSERT INTO poetry_fts "
+                        "(rowid, content, title, dynasty, author)"
+                        " SELECT id, content, title, dynasty, author FROM poetry "
+                        "WHERE id = ?", (poetry_id, ))
+                    conn.execute(
+                        "DELETE FROM poetry_parts WHERE poetry_id=?",
+                        (poetry_id, ),
+                    )
+                    for part in cls.separate(repl):
+                        conn.execute(
+                            "INSERT INTO poetry_parts "
+                            "(part, poetry_id) VALUES (?, ?)",
+                            (part, poetry_id),
+                        )
+                    logger.info(f"Fixed poetry {poetry_id}: \n"
+                                f"   {original}\n"
+                                f"-> {repl}")
 
     @classmethod
     def _insert_batch_in_tx(cls, conn: sqlite3.Connection, batch_poetry,
