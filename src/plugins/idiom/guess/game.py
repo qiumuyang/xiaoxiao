@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import pypinyin
+
 from src.ext import MessageSegment
 
 from ..data import Diff, Idiom
@@ -40,8 +42,20 @@ class SyllableLengthMismatch(InvalidInput):
 
 class GuessIdiom:
 
+    explicit_only = (SyllableParseFailure, SyllableLengthMismatch)
+
     def __init__(self, group_id: int):
         self.group_id = group_id
+
+    async def match_target(self, word: str) -> tuple[bool, str]:
+        group = await GuessIdiomData.get(self.group_id)
+        if group.current:
+            target = "".join(Idiom.get_pinyin(group.current.word))
+            if word == group.current.word:
+                return True, target
+            input_ = "".join(pypinyin.lazy_pinyin(word))
+            return target == input_, target
+        return False, ""
 
     @classmethod
     def _new_guess(cls, global_data: GroupData) -> GroupData:
@@ -108,7 +122,7 @@ class GuessIdiom:
                 "没有正在进行的猜成语游戏")
         try:
             provided = self._check_answer(input_, group.current)
-        except SyllableParseFailure as e:
+        except self.explicit_only as e:
             return None if not explicit else MessageSegment.text(str(e))
         except InvalidInput as e:
             return MessageSegment.text(str(e))
