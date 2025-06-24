@@ -250,7 +250,8 @@ class GuessAttempt:
 
 class IdiomRender:
 
-    STLITI = "data/static/fonts/STLITI.TTF"
+    WORD_FONT = FontFamily.of(regular="data/static/fonts/STLITI.TTF",
+                              fallbacks=["data/static/fonts/MiSans L3.ttf"])
     STKAITI = "data/static/fonts/STKAITI.TTF"
     MS_YAHEI = "data/static/fonts/MSYAHEI.ttc"
 
@@ -260,7 +261,7 @@ class IdiomRender:
         color=Palette.BLACK,
     )
     EXT_TEXT_STYLES = {
-        "w": TextStyle(font=STLITI, size=2.0),
+        "w": TextStyle(font=WORD_FONT, size=2.0),
         "p": TextStyle(font=MS_YAHEI, decoration=TextDecoration.underline()),
         "d": TextStyle(font=STKAITI),
     }
