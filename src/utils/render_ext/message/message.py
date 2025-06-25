@@ -15,6 +15,7 @@ from src.utils.render import (Interpolation, JustifyContent, Palette,
                               Paragraph, RectCrop, RenderImage, RenderObject,
                               Space, Spacer, TextStyle)
 
+from ..font import FontUtils
 from ..markdown.components.utils.builder import Builder
 
 
@@ -36,22 +37,7 @@ class MessageRender:
 
     FONT = FontFamily.of(regular="data/static/fonts/MiSans-Regular.ttf",
                          bold="data/static/fonts/MiSans-Bold.ttf",
-                         fallbacks=[
-                             FontFamily.of(
-                                 regular="data/static/fonts/seguiemj.ttf",
-                                 embedded_color=True,
-                                 scale=0.85,
-                                 baseline_correction=True),
-                             "data/static/fonts/MiSansThai.ttf",
-                             "data/static/fonts/MiSansLao.ttf",
-                             "data/static/fonts/MiSans L3.ttf",
-                             "data/static/fonts/NotoSansJP-Regular.ttf",
-                             "data/static/fonts/MiSansArabic-Regular.ttf",
-                             "data/static/fonts/MiSansTibetan-Regular.ttf",
-                             "data/static/fonts/MiSansLatin-Regular.ttf",
-                             "data/static/fonts/MiSansTC-Regular.ttf",
-                             "data/static/fonts/arial.ttf",
-                         ])
+                         fallbacks=FontUtils.FALLBACK)
 
     STYLE_NICKNAME = TextStyle(font=FONT, size=18, color=COLOR_NICKNAME)
     STYLE_CONTENT = TextStyle(font=FONT, size=24, color=COLOR_CONTENT)

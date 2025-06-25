@@ -3,6 +3,7 @@ from enum import Enum
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar
 from src.utils.render import *
+from src.utils.render_ext.font import FontUtils
 
 
 class Item(Enum):
@@ -15,7 +16,6 @@ class Item(Enum):
 RenderItem = Item | Paragraph | Spacer
 
 NotoSansHansBold = "data/static/fonts/NotoSansHans-Bold.otf"
-SegUIEmoji = "data/static/fonts/seguiemj.ttf"
 
 
 class GroupMemberAvatar:
@@ -32,11 +32,7 @@ class GroupMemberAvatar:
 
     TITLE_TEMPLATE = "{nickname}"
     TITLE_FONT = FontFamily.of(regular=NotoSansHansBold,
-                               fallbacks=FontFamily.of(
-                                   regular=SegUIEmoji,
-                                   embedded_color=True,
-                                   scale=0.85,
-                                   baseline_correction=True))
+                               fallbacks=FontUtils.FALLBACK)
     TITLE_FONT_SIZE_RANGE = (4, 28)
     TITLE_ASPECT = 0.25
     TITLE_FILL = Palette.BLACK
