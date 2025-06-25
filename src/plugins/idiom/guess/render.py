@@ -250,10 +250,11 @@ class GuessAttempt:
 
 class IdiomRender:
 
-    WORD_FONT = FontFamily.of(regular="data/static/fonts/STLITI.TTF",
-                              fallbacks=["data/static/fonts/MiSans L3.ttf"])
     STKAITI = "data/static/fonts/STKAITI.TTF"
     MS_YAHEI = "data/static/fonts/MSYAHEI.ttc"
+    WORD_FONT = FontFamily.of(regular="data/static/fonts/STLITI.TTF",
+                              fallbacks=FontFamily.of(regular=STKAITI,
+                                                      scale=0.9))
 
     DEFAULT_TEXT_STYLE = TextStyle(
         font=MS_YAHEI,

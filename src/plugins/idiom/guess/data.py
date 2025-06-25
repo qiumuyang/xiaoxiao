@@ -5,8 +5,8 @@ from src.utils.persistence import Collection, Mongo
 
 MAX_GUESS = 6
 GLOBAL_HISTORY = 100  # should not repeat in the last 100
-UPDATE_INTERVAL = timedelta(minutes=10)
-UPDATE_INTERVAL_STR = "10分钟"
+UPDATE_INTERVAL = timedelta(minutes=1)
+UPDATE_INTERVAL_STR = "1分钟"
 
 
 @dataclass
