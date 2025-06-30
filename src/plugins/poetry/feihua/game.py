@@ -13,6 +13,7 @@ class FeiHua:
     GAME_RAND_START = "飞花令开始！鸮鸮帮你出题：【{keywords}】"
     GAME_NORM_START = "飞花令开始！题目是：【{keywords}】"
     GAME_STOP = "飞花令结束啦~来看看得分吧\n{ranking}"
+    GAME_STOP_NO_RANKING = "飞花令结束啦~"
 
     E_NO_GAME = "没有正在进行的飞花令游戏"
     E_NO_KW = "这句诗词根本就没提到【{keywords}】吧"
@@ -45,8 +46,9 @@ class FeiHua:
 
     async def stop(self) -> MessageSegment | None:
         group = await FeiHuaData.get(self.group_id)
-        if not group.in_progress or not group.score:
-            return
+        if not group.in_progress:
+            return MessageSegment.text(self.E_NO_GAME)
+
         score = dict(
             sorted(group.score.items(), key=lambda x: x[1], reverse=True))
         members = await asyncio.gather(*[
@@ -59,6 +61,9 @@ class FeiHua:
 
         group.stop()
         await FeiHuaData.set(self.group_id, group)
+
+        if not group.score:
+            return MessageSegment.text(self.GAME_STOP_NO_RANKING)
         return MessageSegment.text(self.GAME_STOP.format(ranking=ranking))
 
     async def answer(
@@ -81,7 +86,7 @@ class FeiHua:
         group = await FeiHuaData.get(self.group_id)
         if not group.in_progress:
             return None if not explicit else MessageSegment.text(
-                "没有正在进行的飞花令游戏")
+                self.E_NO_GAME)
         parts = Poetry.separate(input_)
         if sum(len(_) for _ in parts) < self.MIN_LENGTH:
             return None if not explicit else MessageSegment.text(self.E_LENGTH)
