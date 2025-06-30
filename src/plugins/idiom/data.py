@@ -47,13 +47,19 @@ class Idiom:
         root = Path("data/static/chinese")
         # ==== fix pinyin ====
         fix_dict = {}
+        removes = set()
         for line in (root / "fix_pinyin.txt").read_text().splitlines():
             word, *syllables = line.strip().split(" ")
+            if not syllables:
+                removes.add(word)
+                continue
             fix_dict[word] = [[s] for s in syllables]
         load_phrases_dict(fix_dict)
 
         # ==== load idioms ====
         for item in orjson.loads((root / "idiom.json").read_bytes()):
+            if item["word"] in removes:
+                continue
             cls.idiom_table[item["word"]] = IdiomItem(
                 word=item["word"],
                 pinyin=lazy_pinyin(item["word"], style=PinyinStyle.NORMAL),

@@ -3,6 +3,7 @@
 层出叠见 céng chū dié xiàn
 层见错出 céng xiàn cuò chū
 层见叠出 céng xiàn dié chū
+待贾而沽 dài jià ér gū
 道微德薄 dào wēi dé bó
 得薄能鲜 dé bó néng xiǎn
 德薄才鲜 dé bó cái xiǎn
@@ -11,12 +12,17 @@
 饿殍枕藉 è piǎo zhěn jiè
 犯而勿校 fàn ér wù jiào
 浮瓜沈李 fú guā chén lǐ
+富商大贾 fù shāng dà gǔ
+富商蓄贾 fù shāng xù gǔ
 根孤伎薄 gēn gū jì bó
 寡情薄意 guǎ qíng bó yì
+豪商巨贾 háo shāng jù gǔ
+鸿商富贾 hóng shāng fù gǔ
 厚往薄来 hòu wǎng bó lái
 剪发被褐 jiǎn fà pī hè
 校短推长 jiào duǎn tuī cháng
 口谐辞给 kǒu xié cí jǐ
+良贾深藏 liáng gǔ shēn cáng
 门衰祚薄 mén shuāi zuò bó
 命薄缘悭 mìng bó yuán qiān
 冯河暴虎 píng hé bào hǔ
@@ -41,8 +47,12 @@
 铜臭熏天 tóng xiù xūn tiān
 帏薄不修 wéi bó bù xiū
 西山日薄 xī shān rì bó
+衒玉贾石 xuàn yù gǔ shí
+衒玉求售 xuàn yù qiú shòu
+衒玉自售 xuàn yù zì shòu
 寻行逐队 xún háng zhú duì
 鲜廉寡耻 xiǎn lián guǎ chǐ
 闲见层出 xián xiàn céng chū
 夜行被绣 yè xíng pī xiù
 铢铢校量 zhū zhū jiào liàng
+衔玉贾石
