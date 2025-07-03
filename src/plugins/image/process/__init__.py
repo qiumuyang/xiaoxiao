@@ -1,5 +1,6 @@
 from .flip_flop import FlipFlop
-from .processor import ImageProcessor
+from .my_waifu import ThisIsMyWaifu
+from .processor import ImageAvatarProcessor, ImageProcessor
 from .rotate import MultiRotate
 from .shake import Shake
 from .should_i_always import ShouldIAlways
@@ -13,11 +14,13 @@ __all__ = [
     "FourColorGrid",
     "FourColorGridV2",
     "GrayScale",
+    "ImageAvatarProcessor",
     "ImageProcessor",
     "Reflect",
     "Reverse",
     "MultiRotate",
     "Shake",
     "ShouldIAlways",
+    "ThisIsMyWaifu",
     "Zoom",
 ]

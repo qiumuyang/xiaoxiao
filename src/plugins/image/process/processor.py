@@ -130,3 +130,16 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
     @classmethod
     def format_example(cls, prefix: str = ">>> [引用] {cmd} ") -> str:
         return prefix + cls._class_parsers[cls].format_example()
+
+
+class ImageAvatarProcessor(ImageProcessor):
+
+    @abstractmethod
+    def process_frame(self, image: Image.Image, avatar: Image.Image, *args,
+                      **kwargs) -> Image.Image:
+        return image
+
+    def __call__(self, image: Image.Image, avatar: Image.Image, *args,
+                 **kwargs):
+        args = self._parser.parse_args(args[1:])
+        return self.process(image, avatar, **vars(args))
