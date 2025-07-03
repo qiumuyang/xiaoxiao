@@ -56,9 +56,16 @@ class FileStorage:
 
     _instances: dict[str, "FileStorage"] = {}
     _lock = asyncio.Lock()
+    _session: aiohttp.ClientSession | None = None
 
-    def __init__(self, db: AgnosticDatabase, ttl: str = ""):
+    def __init__(
+        self,
+        db: AgnosticDatabase,
+        session: aiohttp.ClientSession,
+        ttl: str = "",
+    ):
         self.db = db
+        self.session = session
         self.fs_bucket = AsyncIOMotorGridFSBucket(self.db)
         self.semaphore = asyncio.Semaphore(self.FILE_STORAGE_CONCURRENCY)
         self.ttl = _parse_timedelta(ttl or self.FILE_STORAGE_TTL)
@@ -70,8 +77,10 @@ class FileStorage:
         async with cls._lock:
             if db_name in cls._instances:
                 return cls._instances[db_name]
+            if cls._session is None:
+                cls._session = aiohttp.ClientSession()
             client = AsyncIOMotorClient()
-            instance = cls(client[db_name], ttl)
+            instance = cls(client[db_name], cls._session, ttl)
             await instance._ensure_index()
             cls._instances[db_name] = instance
             return instance
@@ -99,11 +108,10 @@ class FileStorage:
         for attempt in range(retries + 1):
             try:
                 async with self.semaphore:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(url) as resp:
-                            if resp.status != 200:
-                                raise ValueError(f"HTTP {resp.status}")
-                            await self.store_as_temp(resp.content, filename)
+                    async with self.session.get(url) as resp:
+                        if resp.status != 200:
+                            raise ValueError(f"HTTP {resp.status}")
+                        await self.store_as_temp(resp.content, filename)
                 return True
             except DuplicateKeyError:
                 logger.info(f"File already exists: {filename}")
@@ -136,11 +144,11 @@ class FileStorage:
             },
         )
         if isinstance(content, bytes):
-            grid_in.write(content)
+            await grid_in.write(content)
         else:
             async for chunk in content.iter_chunked(1024 * 1024):  # 1MB
-                grid_in.write(chunk)
-        grid_in.close()
+                await grid_in.write(chunk)
+        await grid_in.close()
 
         await self.db.fs.files.update_one(
             {"filename": filename},
@@ -193,10 +201,9 @@ class FileStorage:
                 return await grid_out.read()  # type: ignore
             elif url:
                 # directly download and return
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as resp:
-                        resp.raise_for_status()
-                        return await resp.read()
+                async with self.session.get(url) as resp:
+                    resp.raise_for_status()
+                    return await resp.read()
         except Exception as e:
             logger.info(f"Load file failed: {e}")
 
