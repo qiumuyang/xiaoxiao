@@ -24,7 +24,7 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
 
     MIN_WIDTH = 128
     MAX_WIDTH = 512
-    FONT_RATIO = 0.3
+    FONT_RATIO = 0.2
     VSPACE_RATIO = 0.25
 
     TEMPLATE = ("如果你的老婆长这样\n"
@@ -32,7 +32,7 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
                 "那么这就不是你的老婆\n"
                 "这是我的老婆")
 
-    POINT_RATIO = 0.8
+    POINT_RATIO = 0.6
     POINT_ASSET = "data/static/image/point.png"
     TEXT_POINT = "滚去找你\n自己的老婆去"
 
@@ -54,8 +54,8 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
                           font_size: int) -> RenderObject:
         text = cls.point_text(font_size)
         size = width - text.width - font_size // 2
-        psize = round(size * cls.POINT_RATIO)
-        point = ImageR.from_file(cls.POINT_ASSET).thumbnail(psize, psize)
+        point = ImageR.from_file(cls.POINT_ASSET)
+        point = point.rescale(cls.POINT_RATIO * size / point.width)
         pavatar = Stack.from_children(
             [ImageR.from_image(avatar).resize(size, size), point],
             vertical_alignment=Alignment.END,
@@ -66,6 +66,14 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
             direction=Direction.HORIZONTAL,
             spacing=font_size // 2,
         )
+
+    def _make_avatar_point(self, avatar: Image.Image, width: int,
+                           font_size: int) -> RenderObject:
+        ctx = self._context.get()
+        if "avatar_point" not in ctx:
+            ctx["avatar_point"] = self.make_avatar_point(
+                avatar, width, font_size)
+        return ctx["avatar_point"]
 
     def process_frame(self, image: Image.Image, avatar: Image.Image, *args,
                       **kwargs) -> Image.Image:
@@ -86,7 +94,7 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
             alignment=Alignment.CENTER,
             line_spacing=vspace,
         )
-        point = self.make_avatar_point(avatar, main.width, font_size)
+        point = self._make_avatar_point(avatar, main.width, font_size)
         return Container.from_children(
             [main, point],
             alignment=Alignment.CENTER,

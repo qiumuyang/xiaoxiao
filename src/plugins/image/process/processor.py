@@ -1,5 +1,6 @@
 import inspect
 from abc import ABC, abstractmethod
+from contextvars import ContextVar
 from io import BytesIO
 from typing import Iterable, Literal
 
@@ -11,6 +12,7 @@ from src.utils.auto_arg import AutoArgumentParser, AutoArgumentParserMixin
 class ImageProcessor(ABC, AutoArgumentParserMixin):
 
     _class_parsers: dict[type["ImageProcessor"], AutoArgumentParser] = {}
+    _context = ContextVar("image_processor", default={})
 
     def __init__(self) -> None:
         cls = self.__class__
@@ -89,7 +91,11 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
 
     def __call__(self, image: Image.Image, *args, **kwargs):
         args = self._parser.parse_args(args[1:])
-        return self.process(image, **vars(args))
+        context_token = self._context.set({})
+        try:
+            return self.process(image, **vars(args))
+        finally:
+            self._context.reset(context_token)
 
     def process(self, image: Image.Image, *args,
                 **kwargs) -> BytesIO | Image.Image | None:
@@ -142,4 +148,8 @@ class ImageAvatarProcessor(ImageProcessor):
     def __call__(self, image: Image.Image, avatar: Image.Image, *args,
                  **kwargs):
         args = self._parser.parse_args(args[1:])
-        return self.process(image, avatar, **vars(args))
+        context_token = self._context.set({})
+        try:
+            return self.process(image, avatar, **vars(args))
+        finally:
+            self._context.reset(context_token)
