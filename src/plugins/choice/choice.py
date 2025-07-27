@@ -1,4 +1,5 @@
 import random
+from typing import NamedTuple
 
 from nonebot.adapters.onebot.v11 import (Bot, GroupMessageEvent, Message,
                                          MessageSegment)
@@ -21,7 +22,11 @@ from .render import ChoiceRender
 
 logger = logger_wrapper(__name__)
 
-IS_PAGE = bool
+
+class Number(NamedTuple):
+    num: int
+    is_page: bool
+    is_all: bool = False
 
 
 def extract_plain_text(content: str,
@@ -36,18 +41,24 @@ def extract_plain_text(content: str,
 def parse_page_or_item_number(
     action: Action,
     symtab: dict[str, MessageSegment],
-) -> tuple[int, IS_PAGE]:
+) -> Number:
     if not action.items:
-        return 0, True
+        return Number(0, True)
     s = extract_plain_text(action.items[0].content, symtab,
                            NonPlainTextError("页码/索引"))
+    if s.lower() == "all":
+        return Number(0, True, True)
     if s.startswith("#"):
         if not s[1:].isdecimal():
             raise InvalidIndexError(s[1:], "索引")
-        return int(s[1:]) - 1, False
-    if not s.isdecimal():
+        return Number(int(s[1:]) - 1, False)
+    try:
+        num = int(s)
+        if num == 0:
+            raise ValueError
+    except ValueError:
         raise InvalidIndexError(s, "页码")
-    return int(s) - 1, True
+    return Number(num - 1 if num > 0 else num, True)
 
 
 class ChoiceHandler:
@@ -127,17 +138,21 @@ class ChoiceHandler:
             case Op.SHOW:
                 if lst is None:
                     raise ListNotExistsError(list_name)
-                num, is_page = parse_page_or_item_number(action, symtab)
-                if is_page:
-                    pagination = lst.paginate(num, self.NUM_ITEMS_PER_PAGE)
+                parsed = parse_page_or_item_number(action, symtab)
+                if parsed.is_page:
+                    if parsed.is_all:
+                        pagination = None
+                    else:
+                        pagination = lst.paginate(parsed.num,
+                                                  self.NUM_ITEMS_PER_PAGE)
                     obj = await ChoiceRender.render_list(
                         group_id=self.group_id,
                         userlist=lst,
                         pagination=pagination)
-                elif not 0 <= num < len(lst):
-                    raise InvalidIndexError(str(num + 1))
+                elif not 0 <= parsed.num < len(lst):
+                    raise InvalidIndexError(str(parsed.num + 1))
                 else:
-                    item = lst.items[num]
+                    item = lst.items[parsed.num]
                     if isinstance(item, ReferenceItem):
                         obj = f"[引用] {item.name}"
                     else:

@@ -11,7 +11,7 @@ from src.utils.userlist import (MessageItem, ReferenceItem, UserList,
 
 class ChoiceRender:
 
-    PAGE_SIZE = 15
+    PAGE_SIZE = 20
 
     CARD_WIDTH = 220
     CARD_WIDTH_MAX = 250

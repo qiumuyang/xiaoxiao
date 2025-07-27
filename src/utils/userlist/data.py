@@ -75,9 +75,9 @@ class UserList(BaseModel):
         return result
 
     def paginate(self, page_id: int, page_size: int, strict: bool = False):
-        if page_size <= 0:
-            raise ValueError("page_size must be greater than 0")
         num_pages = max(math.ceil(len(self.items) / page_size), 1)
+        if page_id < 0:
+            page_id = num_pages + page_id
         if strict and not 0 <= page_id < num_pages:
             raise IndexError(f"{page_id} out of page range")
         page_id = max(0, min(page_id, num_pages - 1))

@@ -47,7 +47,7 @@ async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
         {cmd} `<列表名>` {Op.REMOVE}`<序号>` ...         -  删除列表中指定序号的项目
         {cmd} `<列表名>` {Op.REMOVE}`<内容>` ...         -  删除列表中首个匹配的项目
         {cmd} `<列表名>`                                 -  随机选择列表中的一个项目
-        {cmd} {Op.SHOW}`<列表名>` `[页码]`               -  显示指定页码的列表内容
+        {cmd} {Op.SHOW}`<列表名>` `[页码]|all`           -  显示指定页码/全部的列表内容
         {cmd} {Op.SHOW}`<列表名>` `#<序号>`              -  显示指定序号的列表项目
         {cmd} {Op.TOGGLE}`<列表名>`                      -  设置/取消指定列表快捷访问
         `引用` {cmd} `<列表名>` {Op.ADD}                 -  将引用消息添加到指定列表
