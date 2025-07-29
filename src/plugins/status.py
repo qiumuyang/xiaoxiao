@@ -16,6 +16,7 @@ from src.utils.message import SentMessageTracker as SMT
 class Status(TypedDict):
     cpu: int
     memory: int
+    memory_mongo: int
     memory_free: int
     message_sent: int
     message_received: int
@@ -23,10 +24,18 @@ class Status(TypedDict):
     running_time: timedelta
 
 
+def find_process(name: str) -> psutil.Process:
+    for proc_info in psutil.process_iter(["pid", "name"]):
+        if proc_info.info["name"] == name:
+            return psutil.Process(proc_info.info["pid"])
+    raise ValueError(f"Process '{name}' not found.")
+
+
 class StatusMonitor:
 
     _last_cpu = 0
     _proc = psutil.Process()
+    _proc_mongo = find_process("mongod")
 
     @classmethod
     async def sample_cpu(cls):
@@ -36,9 +45,9 @@ class StatusMonitor:
 
     @classmethod
     async def status(cls, group_id: int | None = None) -> Status:
-        proc = psutil.Process()
-        # cpu = round(proc.cpu_percent())
+        proc = cls._proc
         memory = proc.memory_info().rss // 1024 // 1024  # MB
+        memory_mongo = cls._proc_mongo.memory_info().rss // 1024 // 1024
         memory_free = psutil.virtual_memory().available // 1024 // 1024  # MB
         create_time = datetime.fromtimestamp(proc.create_time())
         running_time = datetime.now() - create_time
@@ -53,6 +62,7 @@ class StatusMonitor:
         return {
             "cpu": cls._last_cpu,
             "memory": memory,
+            "memory_mongo": memory_mongo,
             "memory_free": memory_free,
             "message_sent": sent,
             "message_received": recv,
@@ -66,6 +76,7 @@ class StatusMonitor:
         fmt = ("Uptime: {tm}\n"
                "CPU: {cpu}%\n"
                "Mem: {memory}MB (Free: {memory_free}MB)\n"
+               "Mongo: {memory_mongo}MB\n"
                "Messages (Sent/Recv): {message_sent}/{message_received}\n"
                "Handle Commands: {commands_handled}")
         return fmt.format(tm=tm, **status)
