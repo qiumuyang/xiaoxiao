@@ -177,6 +177,6 @@ class GuessIdiom:
             attempts=attempts,
             syllables=target_syl_len,
             key_state=None if stop else keyboards,
-            answer=Idiom.idiom_table[current.word] if stop else None,
+            answer=Idiom.load_idiom(current.word) if stop else None,
         )
         return MessageSegment.image(obj.render().to_pil())
