@@ -37,10 +37,11 @@ class AbbreviationTranslate:
 
     PATTERN = r"^[a-zA-Z\d]{2,10}$"  # requires fullmatch
     CFG_PATTERN = re.compile(r"([+-])([a-zA-Z\d]{2,10})(?:->|→)(.+)")
+    CFG_USER_PATTERN = re.compile(r"([+-])([a-zA-Z\d]{2,10})")
     CUSTOM_MAX_LEN = 20
 
     @staticmethod
-    @alru_cache(maxsize=256)
+    @alru_cache(maxsize=32)
     async def fetch(abbr: str) -> list[Response]:
         """Query abbreviation from nbnhhsh API.
 
@@ -114,7 +115,8 @@ async def _(
     Usage:
         {cmd} `<缩写>`               - 翻译缩写
         {cmd} `开|关`                - 开启或关闭快捷翻译缩写
-        {cmd} +|-`<缩写>`->`<翻译>`  - 添加或删除缩写翻译
+        {cmd} +|-`<缩写>`->`<翻译>`  - 添加或删除自定义缩写翻译（群内共享）
+        {cmd} +|-`<缩写>`             - 启用或禁用特定缩写 （个人）
         `<缩写>`                      - 快捷翻译缩写 （无需指令前缀）
 
     Examples:
@@ -126,6 +128,8 @@ async def _(
         - 来源: [https://lab.magiconch.com/nbnhhsh/](https://lab.magiconch.com/nbnhhsh/)
     """
     cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
+    cfg_user = await AbbrTranslateConfig.get(group_id=event.group_id,
+                                             user_id=event.user_id)
     abbr = event.get_message().extract_plain_text()
     is_cmd = abbr.startswith("翻译缩写")
     abbr = abbr.removeprefix("翻译缩写").strip()
@@ -135,6 +139,9 @@ async def _(
         await toggle_abbr(matcher, event, abbr == "开")
     if not is_cmd and not cfg.enabled:
         # only disable implicit call by msg
+        await matcher.finish()
+    if not is_cmd and abbr in cfg_user.excludes:
+        # use excludes in user config as user-level blacklist
         await matcher.finish()
     translation = await AbbreviationTranslate.query(abbr, cfg.includes,
                                                     cfg.excludes)
@@ -149,36 +156,52 @@ async def config_abbr(
     message: str,
 ):
     cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
+    cfg_user = await AbbrTranslateConfig.get(group_id=event.group_id,
+                                             user_id=event.user_id)
     abbrs = set()
-    # for config_match in AbbreviationTranslate.CFG_PATTERN.finditer(message):
+    abbrs_user = set()
     for part in shlex.split(message):
-        if not (config_match :=
-                AbbreviationTranslate.CFG_PATTERN.fullmatch(part)):
-            continue
-        op, abbr, trans = config_match.groups()
-        abbr = abbr.lower()
-        trans = trans.strip()
-        include_list = cfg.includes.setdefault(abbr, [])
-        exclude_list = cfg.excludes.setdefault(abbr, [])
-        # Note: here we use a 2-step config
-        # if already configured, remove from the configuration
-        # else add to the configuration
-        if op == "+":
-            if len(trans) > AbbreviationTranslate.CUSTOM_MAX_LEN:
-                continue
-            if trans in exclude_list:
-                exclude_list.remove(trans)
-            elif trans not in include_list:
-                include_list.append(trans)
-        elif op == "-":
-            if trans in include_list:
-                include_list.remove(trans)
-            elif trans not in exclude_list:
-                exclude_list.append(trans)
-        else:
-            raise ValueError(f"Unknown operation: {op}")
-        abbrs.add(abbr)
+        if config_match := AbbreviationTranslate.CFG_PATTERN.fullmatch(part):
+            # group-level configuration
+            op, abbr, trans = config_match.groups()
+            abbr = abbr.lower()
+            trans = trans.strip()
+            include_list = cfg.includes.setdefault(abbr, [])
+            exclude_list = cfg.excludes.setdefault(abbr, [])
+            # Note: here we use a 2-step config
+            # if already configured, remove from the configuration
+            # else add to the configuration
+            if op == "+":
+                if len(trans) > AbbreviationTranslate.CUSTOM_MAX_LEN:
+                    continue
+                if trans in exclude_list:
+                    exclude_list.remove(trans)
+                elif trans not in include_list:
+                    include_list.append(trans)
+            elif op == "-":
+                if trans in include_list:
+                    include_list.remove(trans)
+                elif trans not in exclude_list:
+                    exclude_list.append(trans)
+            else:
+                assert False, "unreachable"
+            abbrs.add(abbr)
+        elif config_user_match := AbbreviationTranslate.CFG_USER_PATTERN.fullmatch(
+                part):
+            # user-level configuration
+            op, abbr = config_user_match.groups()
+            abbr = abbr.lower()
+            if op == "+":
+                cfg_user.excludes.pop(abbr, None)
+            elif op == "-":
+                cfg_user.excludes[abbr] = []
+            else:
+                assert False, "unreachable"
+            abbrs_user.add(abbr)
     await AbbrTranslateConfig.set(cfg, group_id=event.group_id)
+    await AbbrTranslateConfig.set(cfg_user,
+                                  group_id=event.group_id,
+                                  user_id=event.user_id)
 
     lines = []
     for abbr in sorted(abbrs):
@@ -192,6 +215,11 @@ async def config_abbr(
         if not include_list and not exclude_list:
             line += " 无"
         lines.append(line)
+    for abbr in sorted(abbrs_user):
+        if abbr in cfg_user.excludes:
+            lines.append(f"- {abbr}")
+        else:
+            lines.append(f"+ {abbr}")
     if lines:
         await matcher.finish("\n".join(lines))
     await matcher.finish()
