@@ -18,13 +18,19 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
         cls = self.__class__
         if cls not in self._class_parsers:
             parser = AutoArgumentParser.from_class(cls)
+
             # check parser arguments match process signature
-            params = inspect.signature(self.process).parameters
-            params = [
-                p for p in inspect.signature(self.process).parameters
-                if p not in ["self", "image", "args", "kwargs"]
-            ]
-            if set(params) != set(parser.dests):
+            def get_params(func):
+                return [
+                    p for p in inspect.signature(func).parameters
+                    if p not in ["self", "image", "args", "kwargs"]
+                ]
+
+            params = get_params(self.process)
+            params_frame = get_params(self.process_frame)
+
+            if (set(params) != set(parser.dests)
+                    and set(params_frame) != set(parser.dests)):
                 raise ValueError(f"{self.__class__.__name__} arguments do not "
                                  f"match process signature: \n"
                                  f"  - {sorted(params)}\n"

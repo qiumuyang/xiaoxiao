@@ -1,0 +1,27 @@
+start: layout "->" build
+
+layout: layout_row (";" layout_row)*
+layout_row: cell ("|" cell)* vratio?
+cell: TILE hratio?
+
+build: build_row (";" build_row)*
+build_row: build_cell ("|" build_cell)*
+build_cell: suffix_tile | func_call
+suffix_tile: TILE SUFFIX*
+
+func_call: FUNC_NAME "(" func_args? ")"
+func_args: (arg ("," arg)*)?
+?arg: suffix_tile | NUMBER | PIXEL | func_call
+
+hratio: RATIO | PIXEL
+vratio: "<" RATIO ">" | "<" PIXEL ">"
+
+TILE: /[_A-Z]+/
+SUFFIX: /'|\^|@\d+(\.\d+)?/  // ' for horizontal flip, ^ for vertical flip, @ for rotation
+FUNC_NAME: /[a-z]+/
+NUMBER: /\d+(\.\d+)?/
+PIXEL: /\d+(\.\d+)?px/
+RATIO: /\d+(\.\d+)?/
+
+%import common.WS
+%ignore WS

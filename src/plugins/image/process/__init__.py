@@ -1,4 +1,5 @@
 from .flip_flop import FlipFlop
+from .imops import TileScript
 from .my_waifu import ThisIsMyWaifu
 from .processor import ImageAvatarProcessor, ImageProcessor
 from .rotate import MultiRotate
@@ -22,5 +23,6 @@ __all__ = [
     "Shake",
     "ShouldIAlways",
     "ThisIsMyWaifu",
+    "TileScript",
     "Zoom",
 ]

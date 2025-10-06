@@ -4,6 +4,7 @@ cairosvg
 emoji
 fonttools
 jieba
+lark
 matplotlib
 mistletoe
 motor

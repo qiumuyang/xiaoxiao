@@ -9,11 +9,12 @@ from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar
 from src.utils.persistence import FileStorage
+from src.utils.render_ext.markdown import Markdown
 
 from ..process import (Flip, FlipFlop, FourColorGrid, FourColorGridV2,
                        GrayScale, ImageAvatarProcessor, ImageProcessor,
                        MultiRotate, Reflect, Reverse, Shake, ShouldIAlways,
-                       ThisIsMyWaifu, Zoom)
+                       ThisIsMyWaifu, TileScript, Zoom)
 from .share import driver, logger
 
 image_procs = {
@@ -35,6 +36,7 @@ image_procs = {
     "拉近": Zoom("in"),
     "拉远": Zoom("out"),
     "我老婆": ThisIsMyWaifu(),
+    "tile": TileScript(),
 }
 
 
@@ -86,11 +88,15 @@ async def process_image_message(
             image = await storage.load_image(url, filename)
             if not image or not processor.supports(image):
                 continue
-            if isinstance(processor, ImageAvatarProcessor):
-                avatar = await Avatar.user(event.user_id)
-                result = processor(image, avatar, *args)
-            else:
-                result = processor(image, *args)
+            try:
+                if isinstance(processor, ImageAvatarProcessor):
+                    avatar = await Avatar.user(event.user_id)
+                    result = processor(image, avatar, *args)
+                else:
+                    result = processor(image, *args)
+            except Exception as e:
+                image = Markdown(f"```python\n{e}\n```").render().to_pil()
+                await matcher.finish(MessageSegment.image(image))
             if result is not None:
                 await matcher.finish(MessageSegment.image(result,
                                                           summary=name))
