@@ -33,3 +33,9 @@ exclude = [
 ignore = [
     "src/utils/render_ext/markdown/components/utils/katexsvg/svgmath"
 ]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    ".",
+    "src",
+]

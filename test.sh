@@ -4,8 +4,6 @@ set -e # Stop on errors
 
 source .venv/bin/activate
 
-export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-
 print_center() {
     text="$1"
     width=$(($(tput cols) - 2))
