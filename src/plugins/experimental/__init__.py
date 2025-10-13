@@ -5,6 +5,7 @@ from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
 
+from src.ext import api
 from src.ext.event import GroupReactionAdd, GroupReactionAddEvent
 from src.ext.message import (Button, ButtonAction, ButtonStyle,
                              MessageExtension, MessageSegment)
@@ -45,10 +46,9 @@ async def _(event: GroupMessageEvent):
 @follow_reaction.handle()
 async def _(bot: Bot, event: GroupReactionAddEvent = GroupReactionAdd()):
     if event.count == 3:
-        await bot.set_group_reaction(group_id=event.group_id,
+        await api.set_emoji_reaction(group_id=event.group_id,
                                      message_id=event.message_id,
-                                     code=event.code,
-                                     is_add=True)
+                                     emoji=event.code)
 
 
 EXCLUDE_CODEPOINTS = {
@@ -76,10 +76,9 @@ async def _(bot: Bot, event: GroupMessageEvent, state: T_State):
         seg = MessageSegment.from_onebot(seg)
         if seg.is_face():
             id = seg.extract_face()
-            await bot.set_group_reaction(group_id=event.group_id,
+            await api.set_emoji_reaction(group_id=event.group_id,
                                          message_id=event.message_id,
-                                         code=str(id),
-                                         is_add=True)
+                                         emoji=str(id))
             max_count -= 1
             if max_count == 0:
                 break
@@ -89,10 +88,9 @@ async def _(bot: Bot, event: GroupMessageEvent, state: T_State):
                 emj = e["emoji"]
                 if emj in EXCLUDE_CODEPOINTS or len(emj) != 1:
                     continue
-                await bot.set_group_reaction(group_id=event.group_id,
+                await api.set_emoji_reaction(group_id=event.group_id,
                                              message_id=event.message_id,
-                                             code=str(ord(emj)),
-                                             is_add=True)
+                                             emoji=str(ord(emj)))
                 max_count -= 1
                 if max_count == 0:
                     break

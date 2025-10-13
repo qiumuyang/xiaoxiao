@@ -187,6 +187,8 @@ class MessageSegment(_MessageSegment):
     def extract_filename(self) -> str:
         if "filename" in self.data:
             return self.data["filename"]
+        if "file" in self.data:
+            return self.data["file"]
         if self.is_mface():
             return self.data["emoji_id"] + ".emoji"
         raise ValueError("Segment does not contain a filename")

@@ -1,3 +1,4 @@
+from .api import api
 from .message import *
 from .ratelimit import RateLimiter
 from .rule import RateLimit, ratelimit, reply
@@ -15,6 +16,7 @@ __all__ = [
     "MessageType",
     "RateLimit",
     "RateLimiter",
+    "api",
     "get_group_member_name",
     "get_user_name",
     "list_group_member_names",

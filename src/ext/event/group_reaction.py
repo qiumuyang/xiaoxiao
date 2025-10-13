@@ -34,3 +34,6 @@ def GroupReactionAdd():
 
 def GroupReactionRemove():
     return Depends(EventConvert(GroupReactionRemoveEvent))
+
+
+# TODO: llonebot compatibility
