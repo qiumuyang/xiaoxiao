@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from nonebot.adapters.onebot.v11 import Bot, Message
 
 from src.ext import MessageExtension, MessageSegment, get_group_member_name
+from src.ext.api.base import ForwardMessage
 from src.utils.env import inject_env
 from src.utils.message.receive import MessageData as ReceiveMessageData
 from src.utils.message.receive import ReceivedMessageTracker as RMT
@@ -27,7 +28,7 @@ class History:
         group_id: int,
         *,
         index: int = 1,
-    ) -> Message | None:
+    ) -> Message | ForwardMessage | None:
         since = datetime.now() - timedelta(days=cls.MAX_HISTORY_INTERVAL_DAYS)
         recv = await RMT.find(group_id=group_id, since=since)
         sent = await SMT.find(group_id=group_id, since=since)
@@ -55,14 +56,7 @@ class History:
                 return content
 
         content = await MessageExtension.replace_with_local_image(content)
-        forward_id = await bot.call_api("send_forward_msg",
-                                        messages=[
-                                            MessageSegment.node_lagrange(
-                                                user_id=user_id,
-                                                nickname=nickname,
-                                                content=content)
-                                        ])
-        return Message(MessageSegment.forward(id_=forward_id))
+        return {"user_id": user_id, "nickname": nickname, "content": content}
 
     @classmethod
     async def find(
@@ -72,7 +66,7 @@ class History:
         *,
         senders: list[int] | None = None,
         keywords: list[str] | None = None,
-    ) -> Message | None:
+    ) -> list[ForwardMessage]:
         """Find messages by senders and keywords.
 
         Bot messages are not included by default.
@@ -140,7 +134,7 @@ class History:
 
         filtered = filtered[-cls.FORWARD_MESSAGE_LIMIT:]
         if not filtered:
-            return
+            return []
 
         user_ids = set(m.user_id for m in filtered
                        if isinstance(m, ReceiveMessageData))
@@ -159,14 +153,8 @@ class History:
             *(MessageExtension.replace_with_local_image(message.content)
               for message, _ in message_uid))
 
-        # Reference:
-        # https://lagrangedev.github.io/Lagrange.Doc/Lagrange.OneBot/API/Extend/#发送合并转发-群聊
-        nodes = [
-            MessageSegment.node_lagrange(
-                user_id=user_id,
-                nickname=uin_to_nicknames.get(user_id, str(user_id)),
-                content=content,
-            ) for (_, user_id), content in zip(message_uid, content)
-        ]
-        forward_id = await bot.call_api("send_forward_msg", messages=nodes)
-        return Message(MessageSegment.forward(id_=forward_id))
+        return [{
+            "user_id": user_id,
+            "nickname": uin_to_nicknames.get(user_id, str(user_id)),
+            "content": content,
+        } for (_, user_id), content in zip(message_uid, content)]

@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-
-from nonebot.adapters import Bot
-from nonebot.adapters.onebot.v11 import Message
 from typing import TypedDict
 
+from nonebot.adapters.onebot.v11 import Bot, Message
 
-class UserMessage(TypedDict):
+
+class ForwardMessage(TypedDict):
     user_id: int
     nickname: str
     content: Message
@@ -28,5 +27,5 @@ class API(ABC):
 
     @abstractmethod
     async def send_group_forward_msg(self, group_id: int,
-                                     messages: list[UserMessage]) -> None:
+                                     messages: list[ForwardMessage]) -> None:
         ...

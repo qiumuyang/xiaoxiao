@@ -14,7 +14,7 @@ from nonebot.params import CommandArg
 from nonebot.typing import T_State
 from pymongo.errors import DocumentTooLarge
 
-from src.ext import MessageSegment, get_group_member_name
+from src.ext import MessageSegment, api, get_group_member_name
 from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import RateLimit, RateLimiter, enabled, ratelimit, reply
 from src.utils.doc import CommandCategory, command_doc
@@ -347,9 +347,13 @@ async def _(bot: OnebotBot,
     else:
         index = 1
 
-    await trace_single.finish(await History.find_single_message(bot,
-                                                                event.group_id,
-                                                                index=index))
+    result = await History.find_single_message(bot,
+                                               event.group_id,
+                                               index=index)
+    if isinstance(result, Message) or result is None:
+        await trace_single.finish(result)
+    else:
+        await api.send_group_forward_msg(event.group_id, [result])
 
 
 @trace_search.handle()
@@ -364,10 +368,13 @@ async def _(bot: OnebotBot,
             senders.append(segment.extract_at())
         elif segment.is_text():
             keywords.extend(segment.extract_text_args())
-    await trace_single.finish(await History.find(bot,
-                                                 event.group_id,
-                                                 senders=senders,
-                                                 keywords=keywords))
+
+    results = await History.find(bot,
+                                 event.group_id,
+                                 senders=senders,
+                                 keywords=keywords)
+    if results:
+        await api.send_group_forward_msg(event.group_id, results)
 
 
 @disable_response.handle()

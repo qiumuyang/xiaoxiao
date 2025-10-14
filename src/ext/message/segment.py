@@ -110,7 +110,7 @@ class MessageSegment(_MessageSegment):
         return cls(obseg.type, obseg.data)
 
     @classmethod
-    def node_lagrange(
+    def node_message(
         cls,
         user_id: int,
         nickname: str,
@@ -293,12 +293,12 @@ class MessageExtension:
             message = markdown + buttons
         else:
             message = Message(markdown)
-        node = MessageSegment.node_lagrange(user_id, nickname, message)
+        node = MessageSegment.node_message(user_id, nickname, message)
         forward_id = await bot.call_api("send_forward_msg",
                                         messages=Message(node))
         # return Message(MessageSegment.longmsg(id_=forward_id))
         return Message(
-            MessageSegment.node_lagrange(
+            MessageSegment.node_message(
                 user_id=user_id,
                 nickname=nickname,
                 content=Message(MessageSegment.forward(id_=forward_id)),

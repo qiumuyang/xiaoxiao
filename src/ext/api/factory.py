@@ -1,4 +1,5 @@
 from nonebot import get_bot
+from nonebot.adapters.onebot.v11 import Bot
 
 from src.utils.env import inject_env
 
@@ -18,6 +19,9 @@ class _APIFactory:
     def get_instance(cls) -> API:
         if cls._instance is None:
             bot = get_bot()
+            if not isinstance(bot, Bot):
+                raise RuntimeError(
+                    f"Expect OneBot v11 instance, got {type(bot)}")
             match cls.BACKEND.lower():
                 case "llonebot":
                     cls._instance = LLOneBotAPI(bot)

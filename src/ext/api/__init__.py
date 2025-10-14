@@ -3,7 +3,7 @@ from typing import cast
 
 from typing_extensions import Protocol
 
-from .base import UserMessage
+from .base import ForwardMessage
 from .factory import _get_api
 
 
@@ -18,7 +18,7 @@ class _APIAlias(Protocol):
         ...
 
     async def send_group_forward_msg(self, group_id: int,
-                                     messages: list[UserMessage]) -> None:
+                                     messages: list[ForwardMessage]) -> None:
         ...
 
 

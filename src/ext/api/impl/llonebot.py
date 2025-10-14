@@ -1,4 +1,6 @@
-from ..base import API, UserMessage
+from src.ext.message import MessageSegment
+
+from ..base import API, ForwardMessage
 
 
 class LLOneBotAPI(API):
@@ -14,5 +16,8 @@ class LLOneBotAPI(API):
                                             emoji_id=int(emoji))
 
     async def send_group_forward_msg(self, group_id: int,
-                                     messages: list[UserMessage]) -> None:
-        pass
+                                     messages: list[ForwardMessage]) -> None:
+        await self.bot.send_group_forward_msg(
+            group_id=group_id,
+            messages=[MessageSegment.node_message(**msg) for msg in messages],
+        )
