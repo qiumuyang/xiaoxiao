@@ -14,4 +14,4 @@
 
 ---
 
-Thank [LagrangeDev](https://github.com/LagrangeDev) for their great work.
+Thank [LagrangeDev](https://github.com/LagrangeDev) and [LLOneBot](https://github.com/LLOneBot) for their great work.
