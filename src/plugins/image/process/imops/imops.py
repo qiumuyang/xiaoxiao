@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 from lark import Lark, exceptions
@@ -15,6 +16,18 @@ from .utils import calculate_real_size
 grammar = (Path(__file__).parent / "grammar.lark").read_text(encoding="utf-8")
 parser = Lark(grammar, start="start", parser="lalr")
 transformer = ImOpsTransformer()
+
+
+class ConcatArgParser:
+
+    def __init__(self, dest: str, joiner: str = " ") -> None:
+        self.dest = dest
+        self.joiner = joiner
+
+    def parse_args(self, args=None, namespace=None) -> argparse.Namespace:
+        result = argparse.Namespace()
+        setattr(result, self.dest, self.joiner.join(args) if args else "")
+        return result
 
 
 @command_doc("tile", category=CommandCategory.IMAGE, visible_in_overview=False)
@@ -50,6 +63,10 @@ class TileScript(ImageProcessor):
     """
 
     expr = Argument("", positional=True, doc="操作定义")
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._parser = ConcatArgParser("expr")
 
     def process_frame(self, image: Image.Image, expr: str) -> Image.Image:
         try:

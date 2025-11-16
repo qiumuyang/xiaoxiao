@@ -1,3 +1,4 @@
+import argparse
 import inspect
 from abc import ABC, abstractmethod
 from contextvars import ContextVar
@@ -5,14 +6,22 @@ from io import BytesIO
 from typing import Iterable, Literal
 
 from PIL import Image
+from typing_extensions import Protocol
 
 from src.utils.auto_arg import AutoArgumentParser, AutoArgumentParserMixin
+
+
+class ArgParser(Protocol):
+
+    def parse_args(self, args=None, namespace=None) -> argparse.Namespace:
+        ...
 
 
 class ImageProcessor(ABC, AutoArgumentParserMixin):
 
     _class_parsers: dict[type["ImageProcessor"], AutoArgumentParser] = {}
     _context = ContextVar("image_processor", default={})
+    _parser: ArgParser
 
     def __init__(self) -> None:
         cls = self.__class__
