@@ -12,6 +12,7 @@ class FontUtils:
         "data/static/fonts/MiSansLao.ttf",
         "data/static/fonts/MiSans L3.ttf",
         "data/static/fonts/NotoSansJP-Regular.ttf",
+        "data/static/fonts/NotoSansLisu-Regular.ttf",
         "data/static/fonts/MiSansArabic-Regular.ttf",
         "data/static/fonts/MiSansTibetan-Regular.ttf",
         "data/static/fonts/MiSansLatin-Regular.ttf",
