@@ -16,8 +16,13 @@ from src.utils.message.receive import ReceivedMessageTracker
 async def main():
 
     for group_id in await ReceivedMessageTracker.list_distinct_groups():
-        await AnnualStatistics.process_group(int(group_id))
-        print(f"Group {group_id} processed")
+        print(f"Processing group {group_id}...")
+        try:
+            await AnnualStatistics.process_group(int(group_id))
+        except Exception as e:
+            print(f"Error processing group {group_id}: {e}")
+            raise e
+        print(f"done")
 
 
 if __name__ == "__main__":

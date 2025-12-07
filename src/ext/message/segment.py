@@ -73,13 +73,33 @@ class MessageSegment(_MessageSegment):
 
     @classmethod
     def deserialize(cls, data: list[dict[str, Any]]) -> Message:
-        return Message([
-            _MessageSegment(
-                segment["type"], {
-                    k: cls.deserialize(v) if isinstance(v, list) else v
-                    for k, v in segment["data"].items()
-                }) for segment in data
-        ])
+        try:
+            return Message(
+                [cls._deserialize_segment(segment) for segment in data])
+        except Exception as e:
+            raise ValueError("Invalid data", data) from e
+
+    @classmethod
+    def _deserialize_segment(cls, segment: dict[str, Any]) -> _MessageSegment:
+
+        if "type" not in segment or "data" not in segment:
+            raise ValueError("Invalid message segment", segment)
+
+        return _MessageSegment(segment["type"],
+                               cls._deep_deserialize_data(segment["data"]))
+
+    @classmethod
+    def _deep_deserialize_data(cls, value: Any) -> Any:
+        # dict → 递归处理
+        if isinstance(value, dict):
+            return {k: cls._deep_deserialize_data(v) for k, v in value.items()}
+
+        # list → 递归处理，但不当成 message segment list
+        if isinstance(value, list):
+            return [cls._deep_deserialize_data(v) for v in value]
+
+        # 其他 → 原样返回
+        return value
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, _MessageSegment):
