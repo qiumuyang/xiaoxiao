@@ -493,6 +493,7 @@ class AnnualReportRenderer:
 
     @classmethod
     @lru_cache
+    # FIXME: clear cache when ANNUAL_STATISTICS_END changes
     def _render_footer(cls):
         return Paragraph.of(
             f"* 数据起止：{cls.ANNUAL_STATISTICS_BEGIN} ~"

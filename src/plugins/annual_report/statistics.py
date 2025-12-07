@@ -16,6 +16,7 @@ class AnnualStatistics:
     USER_LOCAL = "data/dynamic/annual_report/{year}/{group_id}/{user_id}.json"
 
     ANNUAL_STATISTICS_END: str
+    GROUP_INHERIT: dict[int, int]  # {new_group_id: old_group_id}
 
     @classmethod
     def _load(cls, path: Path, model):
@@ -95,6 +96,13 @@ class AnnualStatistics:
         messages = await RMT.find(group_id,
                                   since=datetime(year, 1, 1),
                                   until=ends)
+        if group_id in cls.GROUP_INHERIT:
+            # fetch old group messages and merge
+            old_group_id = cls.GROUP_INHERIT[group_id]
+            old_messages = await RMT.find(old_group_id,
+                                          since=datetime(year, 1, 1),
+                                          until=ends)
+            messages.extend(old_messages)
         group, users = collect_statistics(messages, year)
         # dump
         cls._dump(Path(cls.GROUP_LOCAL.format(group_id=group_id, year=year)),
