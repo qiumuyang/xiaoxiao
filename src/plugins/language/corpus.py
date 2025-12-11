@@ -58,6 +58,8 @@ class Corpus:
 
     SHARED_GROUP_ID = 1
 
+    CORPUS_STALE_DAYS: int = 90
+
     KEY = "corpus"
     corpus: Collection[dict, Entry] = Mongo.collection(KEY)
 
@@ -70,6 +72,8 @@ class Corpus:
     @classmethod
     async def init(cls) -> None:
         await cls.corpus.collection.create_index({"keywords": 1})
+        await cls.corpus.collection.create_index({"group_id": 1, "created": 1})
+        await cls.corpus.collection.create_index({"group_id": 1, "used": 1})
 
     @classmethod
     def maintain(cls) -> None:
@@ -119,50 +123,72 @@ class Corpus:
         filter: dict[str, Any] | None = None,
         sample: int | None = None,
         *,
-        no_shared: bool = False,
+        include_shared: bool = True,
     ):
         cls.maintain()
         now = datetime.now()
-        filter = filter or {}
-        recent_text = set(text for _, text in cls.recently_sent)
-        not_recent_sent = {"text": {"$nin": list(recent_text)}}
-        not_recent_added = {
-            # case 1: not used, and created > FIRST_TIME_SAMPLE_INTERVAL
-            # case 2: used, and used > USED_SAMPLE_INTERVAL
-            "$or": [{
-                "$and": [{
-                    "created": {
-                        "$eq": "used"
-                    }
-                }, {
-                    "used": {
-                        "$lt": now - cls.FIRST_TIME_SAMPLE_INTERVAL
-                    }
-                }]
-            }, {
-                "used": {
-                    "$lt": now - cls.USED_SAMPLE_INTERVAL
-                }
-            }]
-        }
-        if no_shared:
-            group_id = [group_id] if isinstance(group_id, int) else group_id
-        else:
-            group_id = [group_id, cls.SHARED_GROUP_ID] if isinstance(
-                group_id, int) else group_id + [cls.SHARED_GROUP_ID]
+
+        # 1. Group ID filter
+        group_id = [group_id] if isinstance(group_id, int) else group_id[:]
+        if include_shared:
+            group_id.append(cls.SHARED_GROUP_ID)
         match_group_id = {"group_id": {"$in": group_id}}
-        pipeline: list[dict[str, Any]] = [{
-            "$match": m
-        } for m in (match_group_id, not_recent_sent, not_recent_added)]
-        if length is not None:
-            match_length = {
-                "length": length
-            } if isinstance(length, int) else {
-                "length": {
-                    "$gte": length[0],
-                    "$lte": length[1]
-                }
+
+        # 2. Staleness filter
+        not_stale = {
+            "created": {
+                "$gte": now - timedelta(days=cls.CORPUS_STALE_DAYS)
             }
+        }
+
+        # 3. Not recently added filter
+        # case 1: not used (used == created), and created before FIRST_TIME_SAMPLE_INTERVAL
+        # case 2: used, and used before USED_SAMPLE_INTERVAL
+        cutoff_first_use = now - cls.FIRST_TIME_SAMPLE_INTERVAL
+        cutoff_used = now - cls.USED_SAMPLE_INTERVAL
+        # yapf: disable
+        not_recent_added = {
+            "$or": [
+                {
+                    "$and": [
+                        {"$expr": {"$eq": ["$used", "$created"]}},
+                        {"created": {"$lt": cutoff_first_use}},
+                    ]
+                },
+                {
+                    "used": {"$lt": cutoff_used}
+                },
+            ]
+        }
+        # yapf: enable
+
+        # 4. Recently sent filter
+        recent_text = {text for _, text in cls.recently_sent}
+        not_recent_sent = {"text": {"$nin": list(recent_text)}}
+
+        combined_match = {
+            "$and": [
+                match_group_id,
+                not_stale,
+                not_recent_sent,
+                not_recent_added,
+            ]
+        }
+
+        pipeline: list[dict[str, Any]] = [{"$match": combined_match}]
+
+        # options
+        if length is not None:
+            if isinstance(length, int):
+                match_length = {"length": length}
+            else:
+                match_length = {
+                    "length": {
+                        "$gte": length[0],
+                        "$lte": length[1]
+                    }
+                }
+            # put length match at the beginning for efficiency
             pipeline.insert(0, {"$match": match_length})
         if keywords is not None:
             pipeline.append({"$match": {"keywords": {"$in": keywords}}})
@@ -184,7 +210,7 @@ class Corpus:
         matched = await cls.find(group_id,
                                  keywords=keywords,
                                  sample=sample,
-                                 no_shared=True).to_list(length=sample)
+                                 include_shared=False).to_list(length=sample)
         if not matched:
             return None
         periods = [(entry["created"], entry["created"] + after)
