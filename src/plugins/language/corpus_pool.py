@@ -1,9 +1,23 @@
+import random
 import re
 from collections import OrderedDict
+from typing import Callable
 
 from src.utils.env import inject_env
 
 from .corpus import Corpus, Entry, deserialize
+
+
+def weighted_sample(entries: list[Entry], scorer: Callable[[Entry], float],
+                    k: int) -> list[Entry]:
+    """Sample k entries from entries with weights from scorer."""
+    if len(entries) <= k:
+        return entries
+
+    weights = [scorer(entry) for entry in entries]
+    if all(w == 0 for w in weights):
+        weights = [1.0] * len(entries)
+    return random.choices(entries, weights=weights, k=k)
 
 
 @inject_env()
@@ -13,7 +27,7 @@ class CorpusPool:
     CORPUS_CACHE_ENABLED: bool = True
 
     NUM_CORPUS_POOL: int = 16
-    CORPUS_THRESH_LO: int = 10  # if lower, fetch more
+    CORPUS_THRESH_LO: int = 32  # if lower, fetch more
     CORPUS_BATCH_SIZE: int = 128
 
     _pool: OrderedDict[tuple[int, int | tuple[int, int] | None, str],
@@ -37,12 +51,17 @@ class CorpusPool:
             entries = await cls._fetch_from_db(group_id, length, startswith,
                                                count + cls.CORPUS_BATCH_SIZE)
             cls._pool.setdefault(cache_key, []).extend(entries)
+            # evict if over size
             if len(cls._pool) > cls.NUM_CORPUS_POOL:
                 cls._pool.popitem(last=False)  # remove the first (oldest)
 
-        result, cls._pool[cache_key] = (cls._pool[cache_key][:count],
-                                        cls._pool[cache_key][count:])
-        return result
+        selected = weighted_sample(cls._pool[cache_key],
+                                   lambda e: e.chinese_ratio, count)
+        remaining = [e for e in cls._pool[cache_key] if e not in selected]
+        cls._pool[cache_key] = remaining
+        # result, cls._pool[cache_key] = (cls._pool[cache_key][:count],
+        #                                 cls._pool[cache_key][count:])
+        return selected
 
     @classmethod
     async def _fetch_from_db(

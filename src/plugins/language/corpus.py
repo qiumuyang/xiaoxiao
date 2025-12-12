@@ -29,6 +29,13 @@ class Entry:
     def posseg(self) -> list[tuple[str, str]]:
         return [(word, tag) for word, tag in pseg.cut(self.text)]
 
+    @cached_property
+    def chinese_ratio(self) -> float:
+        if not self.text:
+            return 0.0
+        chinese_chars = sum(1 for ch in self.text if "\u4e00" <= ch <= "\u9fff")
+        return chinese_chars / len(self.text)
+
     def remove_prefix(self, prefix: str) -> str:
         return self.text.removeprefix(prefix)
 
