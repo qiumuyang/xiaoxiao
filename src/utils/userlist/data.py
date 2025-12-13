@@ -203,7 +203,7 @@ class UserListCollection:
                 }
             }
         }]
-        cursor = self._collection.aggregate(pipeline)
+        cursor = await self._collection.aggregate(pipeline)
         return [UserListMetadata(**doc) async for doc in cursor]
 
     async def delete(self, group_id: int, name: str):

@@ -2,12 +2,13 @@ import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 import aiohttp
-from motor.core import AgnosticDatabase
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+import gridfs
 from PIL import Image
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from ..env import inject_env
@@ -60,13 +61,13 @@ class FileStorage:
 
     def __init__(
         self,
-        db: AgnosticDatabase,
+        db: AsyncDatabase,
         session: aiohttp.ClientSession,
         ttl: str = "",
     ):
         self.db = db
         self.session = session
-        self.fs_bucket = AsyncIOMotorGridFSBucket(self.db)
+        self.fs_bucket = gridfs.AsyncGridFSBucket(self.db)
         self.semaphore = asyncio.Semaphore(self.FILE_STORAGE_CONCURRENCY)
         self.ttl = _parse_timedelta(ttl or self.FILE_STORAGE_TTL)
 
@@ -79,7 +80,7 @@ class FileStorage:
                 return cls._instances[db_name]
             if cls._session is None:
                 cls._session = aiohttp.ClientSession()
-            client = AsyncIOMotorClient()
+            client = AsyncMongoClient()
             instance = cls(client[db_name], cls._session, ttl)
             await instance._ensure_index()
             cls._instances[db_name] = instance
@@ -198,7 +199,7 @@ class FileStorage:
             if doc and doc["metadata"].get("ready"):
                 grid_out = await self.fs_bucket.open_download_stream_by_name(
                     filename)
-                return await grid_out.read()  # type: ignore
+                return await grid_out.read()
             elif url:
                 # directly download and return
                 async with self.session.get(url) as resp:
@@ -215,6 +216,32 @@ class FileStorage:
     async def load_metadata(self, filename: str) -> dict | None:
         doc = await self.db.fs.files.find_one({"filename": filename})
         return doc["metadata"] if doc else None
+
+    async def get_or_compute_metadata(
+        self,
+        filename: str,
+        key: str,
+        processor: Callable[[bytes], str],
+    ) -> str:
+        doc = await self.db.fs.files.find_one({"filename": filename})
+
+        if doc and doc["metadata"].get("ready"):
+            if key in doc["metadata"]:
+                return doc["metadata"][key]
+
+            grid_out = await self.fs_bucket.open_download_stream_by_name(
+                filename)
+            data: bytes = await grid_out.read()
+
+            value = processor(data)
+
+            await self.db.fs.files.update_one(
+                {"filename": filename}, {"$set": {
+                    f"metadata.{key}": value
+                }})
+            return value
+
+        return ""
 
     async def increase_reference(self, filename: str) -> bool:
         result = await self.db.fs.files.update_one(
@@ -255,8 +282,8 @@ class FileStorage:
                 }
             }
         }]
-        result = await self.db.fs.files.aggregate(pipeline).to_list(length=None
-                                                                    )
+        cursor = await self.db.fs.files.aggregate(pipeline)
+        result = await cursor.to_list(length=None)
         if result:
             ephemeral, persistent = None, None
             for entry in result:

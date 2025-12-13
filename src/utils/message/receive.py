@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, cast
 
 from bson import ObjectId
 from nonebot.adapters.onebot.v11 import Message
@@ -137,7 +137,7 @@ class ReceivedMessageTracker:
         recent: timedelta,
     ) -> list[int]:
         """List active users in a group."""
-        return await cls.received.collection.distinct(
+        users = await cls.received.collection.distinct(
             "user_id",
             filter={
                 "group_id": group_id,
@@ -146,11 +146,13 @@ class ReceivedMessageTracker:
                 },
             },
         )
+        return cast(list[int], users)
 
     @classmethod
     async def list_distinct_groups(cls) -> list[int]:
         """List distinct groups."""
-        return await cls.received.collection.distinct("group_id")
+        groups = await cls.received.collection.distinct("group_id")
+        return cast(list[int], groups)
 
 
 @ReceivedMessageTracker.received.serialize()

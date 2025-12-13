@@ -72,10 +72,12 @@ class CorpusPool:
         count: int,
     ) -> list[Entry]:
         startswith = re.escape(startswith)
-        cursor = Corpus.find(group_id=group_id,
-                             length=length,
-                             sample=count,
-                             filter={"text": {
-                                 "$regex": f"^{startswith}"
-                             }} if startswith else None)
-        return [deserialize(doc) async for doc in cursor]
+        cursor = await Corpus.find(
+            group_id=group_id,
+            length=length,
+            sample=count,
+            filter={"text": {
+                "$regex": f"^{startswith}"
+            }} if startswith else None)
+        doc = await cursor.to_list()
+        return [deserialize(d) for d in doc]

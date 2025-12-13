@@ -33,7 +33,8 @@ class Entry:
     def chinese_ratio(self) -> float:
         if not self.text:
             return 0.0
-        chinese_chars = sum(1 for ch in self.text if "\u4e00" <= ch <= "\u9fff")
+        chinese_chars = sum(1 for ch in self.text
+                            if "\u4e00" <= ch <= "\u9fff")
         return chinese_chars / len(self.text)
 
     def remove_prefix(self, prefix: str) -> str:
@@ -122,7 +123,7 @@ class Corpus:
         )
 
     @classmethod
-    def find(
+    async def find(
         cls,
         group_id: int | list[int],
         length: int | tuple[int, int] | None = None,
@@ -203,7 +204,7 @@ class Corpus:
             pipeline.append({"$match": filter})
         if sample is not None:
             pipeline.append({"$sample": {"size": sample}})
-        return cls.corpus.aggregate(pipeline)
+        return await cls.corpus.aggregate(pipeline)
 
     @classmethod
     async def find_after(
@@ -214,15 +215,16 @@ class Corpus:
         sample: int,
     ):
         """Find corpus entry after a given message."""
-        matched = await cls.find(group_id,
+        cursor = await cls.find(group_id,
                                  keywords=keywords,
                                  sample=sample,
-                                 include_shared=False).to_list(length=sample)
+                                 include_shared=False)
+        matched = await cursor.to_list(length=sample)
         if not matched:
             return None
         periods = [(entry["created"], entry["created"] + after)
                    for entry in matched]
-        return cls.find(
+        return await cls.find(
             group_id,
             filter={
                 "$or": [{

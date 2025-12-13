@@ -165,12 +165,13 @@ class RandomResponse:
                     return Message(random.choice(entries)["text"])
         else:
             # find relevant corpus and directly use them as response
-            entries = await Corpus.find(
+            cursor = await Corpus.find(
                 group_id,
                 length=(cls.KW_MIN_CORPUS_LEN, cls.KW_MAX_CORPUS_LEN),
                 keywords=words,
                 sample=cls.KW_CORPUS_SAMPLES,
-            ).to_list(length=cls.KW_CORPUS_SAMPLES)
+            )
+            entries = await cursor.to_list(length=cls.KW_CORPUS_SAMPLES)
             corpus = [e["text"] for e in entries]
             corpus_kw = [e["keywords"] for e in entries]
             results = Keyword.search([query],

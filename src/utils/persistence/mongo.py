@@ -1,11 +1,13 @@
 from typing import Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar
 
 from bson import ObjectId
-from motor.core import (AgnosticCollection, AgnosticCommandCursor,
-                        AgnosticCursor, AgnosticDatabase)
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic_core import core_schema
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.command_cursor import AsyncCommandCursor
+from pymongo.asynchronous.cursor import AsyncCursor
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.results import (DeleteResult, InsertManyResult, InsertOneResult,
                              UpdateResult)
 
@@ -38,7 +40,7 @@ class PydanticObjectId(ObjectId):
 
 class Collection(Generic[D, T]):
 
-    def __init__(self, collection: AgnosticCollection) -> None:
+    def __init__(self, collection: AsyncCollection) -> None:
         self.collection = collection
         self._to_mongo: Callable[[T], D] = lambda x: x  # type: ignore
         self._from_mongo: Callable[[D], T] = lambda x: x  # type: ignore
@@ -170,16 +172,16 @@ class Collection(Generic[D, T]):
         filter: dict[str, Any],
         *args,
         **kwargs,
-    ) -> AgnosticCursor:
+    ) -> AsyncCursor:
         return self.collection.find(filter, *args, **kwargs)
 
-    def aggregate(
+    async def aggregate(
         self,
         pipeline: list[dict[str, Any]],
         *args,
         **kwargs,
-    ) -> AgnosticCommandCursor:
-        return self.collection.aggregate(pipeline, *args, **kwargs)
+    ) -> AsyncCommandCursor:
+        return await self.collection.aggregate(pipeline, *args, **kwargs)
 
     async def find_all(
         self,
@@ -252,12 +254,12 @@ class Mongo:
 
     DB: str = "nonebot2"
 
-    _client = AsyncIOMotorClient()
+    _client = AsyncMongoClient()
 
     _collections: list[tuple[str, str]] = []
 
     @classmethod
-    def database(cls) -> AgnosticDatabase:
+    def database(cls) -> AsyncDatabase:
         return cls._client[cls.DB]
 
     @classmethod
@@ -271,8 +273,8 @@ class Mongo:
         return Collection(cls._client[db][name])
 
     @classmethod
-    def close(cls) -> None:
-        cls._client.close()
+    async def close(cls) -> None:
+        await cls._client.close()
 
     @classmethod
     async def drop_collection(cls, name: str, db: str = "") -> None:
