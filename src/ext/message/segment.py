@@ -230,6 +230,26 @@ class MessageSegment(_MessageSegment):
 
 
 class MessageCodec:
+    """
+    A codec for encoding and decoding Message objects using private Unicode characters.
+
+    This class provides methods to convert Message objects (which contain various segment types)
+    into a compact string representation with a symbol table, and vice versa.
+
+    Attributes:
+        PRIVATE_USE (int): The start of the Unicode Private Use Area (U+E000).
+        PRIVATE_USE_END (int): The end of the Unicode Private Use Area (U+F8FF).
+
+    Methods:
+        encode(message: Message, start: int = 0) -> tuple[str, dict[str, _MessageSegment]]:
+
+            Raises:
+                ValueError: If the number of non-text segments exceeds the available
+                           private use character range.
+
+        decode(message: str, symbol_table: dict[str, _MessageSegment]) -> Message:
+
+    """
 
     PRIVATE_USE = 0xE000
     PRIVATE_USE_END = 0xF8FF
@@ -238,6 +258,19 @@ class MessageCodec:
     def encode(cls,
                message: Message,
                start: int = 0) -> tuple[str, dict[str, _MessageSegment]]:
+        """
+        Encodes a Message object into a string and symbol table.
+
+        Args:
+            message: The Message object to encode.
+            start: Optional starting offset for private use characters (default: 0).
+
+        Returns:
+            A tuple containing:
+            - A string where text segments are preserved and other segments are replaced
+                with private use Unicode characters.
+            - A symbol table mapping private use characters to their corresponding segments.
+        """
         text = []
         symbol_table = {}
         for segment in message:
@@ -254,6 +287,16 @@ class MessageCodec:
     @classmethod
     def decode(cls, message: str,
                symbol_table: dict[str, _MessageSegment]) -> Message:
+        """
+        Decodes a string and symbol table back into a Message object.
+
+        Args:
+            message: The encoded message string.
+            symbol_table: The symbol table mapping private use characters to segments.
+
+        Returns:
+            A Message object reconstructed from the encoded string and symbol table.
+        """
         segments = []
         text = ""
         for char in message:
@@ -378,6 +421,7 @@ class MessageExtension:
 
     @classmethod
     def fix_mface(cls, message: Message):
+        # 部分表情(mface)会跟随一个同名文本，这里移除多余的文本
         if (len(message) == 2 and message[0].type == "mface"
                 and message[1].type == "text"):
             mface, text = message
