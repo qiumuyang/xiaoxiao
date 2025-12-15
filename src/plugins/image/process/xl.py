@@ -147,8 +147,6 @@ class FourColorGridV2(ImageProcessor):
 
     def process_frame(self, image: Image.Image, *args,
                       **kwargs) -> Image.Image:
-        if image.mode == "P":
-            image = image.convert("RGBA")
         image = self.scale(image, max_size=(512, 512))
         rows = []
         for row in self.COLORS:

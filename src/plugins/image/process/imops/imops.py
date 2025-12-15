@@ -107,7 +107,6 @@ def merge(
     tiles: dict[str, Image.Image],
     mode: str,
 ) -> Image.Image:
-    # return Image.new("RGB", (0, 0))
     mat: list[list[Image.Image]] = []
     for row in build.rows:
         mat_row: list[Image.Image] = []
