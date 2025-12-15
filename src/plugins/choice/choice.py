@@ -1,3 +1,4 @@
+import asyncio
 import random
 from typing import NamedTuple
 
@@ -8,6 +9,7 @@ from nonebot.matcher import Matcher
 
 from src.ext import MessageExtension
 from src.ext import MessageSegment as ExtMessageSegment
+from src.ext.message.comparator import ImagePHashComparator
 from src.utils.log import logger_wrapper
 from src.utils.render import Interpolation, RenderObject
 from src.utils.userlist import (ListPermissionError, MessageItem,
@@ -77,6 +79,7 @@ class ChoiceHandler:
         self.bot = bot
         self.event = event
         self.matcher = matcher
+        self.comparator = ImagePHashComparator()
 
     @property
     def group_id(self):
@@ -87,6 +90,49 @@ class ChoiceHandler:
         if not lst_meta:
             await self.matcher.finish("还没有创建任何列表")
         obj = await ChoiceRender.render_list_overview(*lst_meta)
+        await self.matcher.finish(
+            ExtMessageSegment.image(obj.render().to_pil()))
+
+    async def execute_search(
+        self,
+        content: Message,
+        action: Action,
+        symtab: dict[str, MessageSegment],
+    ):
+        try:
+            list_name = extract_plain_text(action.name, symtab,
+                                           NonPlainTextError("列表名称"))
+            lst = await UserListService.find_list(self.group_id, list_name)
+            if lst is None:
+                raise ListNotExistsError(list_name)
+        except ChoiceError as e:
+            await self.matcher.finish(str(e))
+        except UserListError as e:
+            await self.matcher.finish(self.ERR_MSG[type(e)])
+        except FinishedException:
+            # caused by matcher.finish
+            raise
+        except Exception as e:
+            logger.error("Unexpected error", exception=e)
+            await self.matcher.finish(f"未知错误: {e}")
+
+        message_items = [(index, item) for index, item in enumerate(lst.items)
+                         if isinstance(item, MessageItem)]
+        match_result = await asyncio.gather(*[
+            self.comparator(content, item.content) for _, item in message_items
+        ])
+        # filter by match result and tear into items and indices
+        matched = [(index, item)
+                   for (index,
+                        item), matched in zip(message_items, match_result)
+                   if matched]
+        if not matched:
+            await self.matcher.finish("未找到匹配条目")
+        obj = await ChoiceRender.render_list(
+            group_id=self.group_id,
+            userlist=lst,
+            items=matched,
+        )
         await self.matcher.finish(
             ExtMessageSegment.image(obj.render().to_pil()))
 
@@ -123,7 +169,7 @@ class ChoiceHandler:
             raise
         except Exception as e:
             logger.error("Unexpected error", exception=e)
-            await self.matcher.finish("未知错误")
+            await self.matcher.finish(f"未知错误: {e}")
 
     async def handle_list(
         self,

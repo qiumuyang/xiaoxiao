@@ -51,6 +51,7 @@ async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
         {cmd} {Op.SHOW}`<列表名>` `#<序号>`              -  显示指定序号的列表项目
         {cmd} {Op.TOGGLE}`<列表名>`                      -  设置/取消指定列表快捷访问
         `引用` {cmd} `<列表名>` {Op.ADD}                 -  将引用消息添加到指定列表
+        `引用` {cmd} {Op.SHOW}`<列表名>`                  -  查找指定列表中是否存在引用消息
         其中:
         * `<内容>`允许**无嵌套引用**其他列表，用`[列表名]`表示
         * 添加带有**空格**的内容时，需要使用引号`"`将其包裹
@@ -103,8 +104,6 @@ async def _(bot: Bot,
     action = await _parse(cmd, make_choice_reply)
     if not action:
         return
-    if (not action.items or len(action.items) != 1 or action.items[0].content):
-        await make_choice_reply.finish(f"选择困难快捷添加语法: <列表名> {Op.ADD}")
 
     # rewrite action with reply content
     reply: Reply = state["reply"]
@@ -112,14 +111,20 @@ async def _(bot: Bot,
                                       MessageType.AT, MessageType.FACE,
                                       MessageType.MFACE, MessageType.IMAGE)
     content = MessageExtension.fix_mface(content)
-    s, symtab_content = MessageExtension.encode(content, start=len(symtab))
-    action.items[0] = action.items[0].with_content(s)
 
     handler = ChoiceHandler(bot, event, make_choice_reply)
-    await handler.execute(event.user_id,
-                          action,
-                          symtab | symtab_content,
-                          sudo=await (SUPERUSER | ADMIN)(bot, event))
+    if (action.op == Op.NONE and len(action.items) == 1
+            and action.items[0].op == Op.ADD):
+        s, symtab_content = MessageExtension.encode(content, start=len(symtab))
+        action.items[0] = action.items[0].with_content(s)
+        await handler.execute(event.user_id,
+                              action,
+                              symtab | symtab_content,
+                              sudo=await (SUPERUSER | ADMIN)(bot, event))
+    elif action.op == Op.SHOW and not action.items:
+        await handler.execute_search(content, action, symtab)
+    else:
+        await make_choice_reply.finish("不支持的操作，请参考帮助文档")
 
 
 @choice_shortcut.handle()

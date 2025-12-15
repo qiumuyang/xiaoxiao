@@ -1,5 +1,5 @@
 import asyncio
-from typing import cast
+from typing import Sequence, cast
 
 from src.utils.image.avatar import Avatar
 from src.utils.persistence import FileStorage
@@ -242,7 +242,7 @@ class ChoiceRender:
         userlist: UserList,
         cached: bool = True,
         pagination: UserListPagination | None = None,
-        items: list[tuple[int, MessageItem | ReferenceItem]] | None = None,
+        items: Sequence[tuple[int, MessageItem | ReferenceItem]] | None = None,
         deleted_uuids: list[str] | None = None,
     ):
         deleted_uuids = deleted_uuids or []
