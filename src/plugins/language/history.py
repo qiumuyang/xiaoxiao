@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from nonebot.adapters.onebot.v11 import Bot, Message
 
-from src.ext import MessageExtension, MessageSegment, get_group_member_name
+from src.ext import MessageExtension, get_group_member_name
 from src.ext.api.base import ForwardMessage
 from src.utils.env import inject_env
 from src.utils.message.receive import MessageData as ReceiveMessageData
