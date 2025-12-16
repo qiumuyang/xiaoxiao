@@ -121,13 +121,32 @@ class ChoiceHandler:
         match_result = await asyncio.gather(*[
             self.comparator(content, item.content) for _, item in message_items
         ])
-        # filter by match result and tear into items and indices
-        matched = [(index, item)
-                   for (index,
-                        item), matched in zip(message_items, match_result)
-                   if matched]
+        matched: list[tuple[int, MessageItem | ReferenceItem]] = [
+            (index, item)
+            for (index, item), matched in zip(message_items, match_result)
+            if matched
+        ]
+
+        # process reference items
+        ref_items = [(index, item) for index, item in enumerate(lst.items)
+                     if isinstance(item, ReferenceItem)]
+        for index, item in ref_items:
+            ref_list = await UserListService.find_list(self.group_id,
+                                                       item.name)
+            if ref_list is None:
+                continue
+            ref_match = await asyncio.gather(*[
+                self.comparator(content, ref_item.content)
+                for ref_item in ref_list.items
+                if isinstance(ref_item, MessageItem)
+            ])
+            if any(ref_match):
+                matched.append((index, item))
+
         if not matched:
             await self.matcher.finish("未找到匹配条目")
+
+        matched.sort(key=lambda x: x[0])  # sort by index
         obj = await ChoiceRender.render_list(
             group_id=self.group_id,
             userlist=lst,
