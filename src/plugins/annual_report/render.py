@@ -2,7 +2,6 @@ import asyncio
 import math
 import random
 from datetime import datetime
-from functools import lru_cache
 
 from PIL import Image as PILImage
 
@@ -45,9 +44,10 @@ class AnnualReportRenderer:
                               fallbacks=EMOJI_FONT)
     MAIN_STYLE = TextStyle(font=MAIN_FONT, size=18, color=NORMAL_COLOR)
     STYLES = {
-        "s": TextStyle(size=0.75),
+        "s": TextStyle(size=0.5),
         "b": TextStyle(size=1.6, bold=True),
         "b2": TextStyle(size=1.2, bold=True),
+        "bs": TextStyle(size=0.75, bold=True),
     }
 
     CAPTION_STYLE = TextStyle(font=NotoSansHansLight,
@@ -86,9 +86,9 @@ class AnnualReportRenderer:
     GROUP_COMMENTS = ["历历瞬间 令人难忘", "真是温暖的大家庭", "和你们聊天，不怕冷场"]
     GROUP_POPULAR_SENTENCE_TEMPLATE = ("过去的一年里，<b>{users}</b> 位群友说了"
                                        "<b>{times}</b>次“<b>{sentence}</b>”")
-    GROUP_POPULAR_SENTENCE_EXTRA = ("此外，群友们还经常说：\n"
-                                    "{items:[\n]“<b2>{{sentence}}</b2>” "
-                                    "（{{users}} <s>人</s>{{times}} <s>次</s>）}")
+    GROUP_POPULAR_SENTENCE_EXT_DESC = "此外，群友们还经常说："
+    GROUP_POPULAR_SENTENCE_EXT = ("{items:[\n]“<bs>{{sentence}}</bs>” "
+                                  "<s>（{{users}} 人 {{times}} 次）</s>}")
     GROUP_TOP_USER_MESSAGE_TEMPLATE = "发言TOP3占比 <b>{top3_ratio:.1%}</b>"
     GROUP_TOP_USER_MESSAGE_COMMENT_THRESH = 0.5
     GROUP_TOP_USER_MESSAGE_COMMENTS = [
@@ -118,6 +118,67 @@ class AnnualReportRenderer:
     NO_MESSAGE_FALLBACK_TEXT = Paragraph.of(NO_MESSAGE_FALLBACK,
                                             style=MAIN_STYLE,
                                             margin=Space.of_side(0, 40))
+
+    @classmethod
+    def render_popular_sentence_extra(cls, sentences: list[tuple[str, int,
+                                                                 int]],
+                                      max_width: int):
+        if not sentences:
+            return None
+        max_items = 20
+        sentences.sort(key=lambda x: -x[2])
+        sentences.sort(key=lambda x: -x[1])
+        sampled = sentences[:min(max_items, len(sentences))]
+        # chunk, 5 items at most
+        col_sp = 0.1
+        if len(sampled) > max_items // 2:
+            mid = math.ceil(len(sampled) / 2)
+            cols = [sampled[:mid], sampled[mid:]]
+            col_width = round(max_width * (1 - col_sp) / 2)
+        else:
+            cols = [sampled]
+            col_width = max_width
+        desc = Paragraph.of(
+            cls.GROUP_POPULAR_SENTENCE_EXT_DESC,
+            style=cls.MAIN_STYLE,
+            alignment=Alignment.CENTER,
+            max_width=max_width,
+        )
+        rendered_cols = [
+            Paragraph.from_template(
+                cls.GROUP_POPULAR_SENTENCE_EXT,
+                values=dict(items=[{
+                    "sentence": sentence,
+                    "users": users,
+                    "times": times
+                } for sentence, times, users in col]),
+                default=cls.MAIN_STYLE,
+                styles=cls.STYLES,
+                alignment=Alignment.CENTER,
+                max_width=col_width,
+                line_spacing=5,
+            ) for col in cols
+        ]
+        if len(rendered_cols) == 2:
+            return Container.from_children(
+                [
+                    desc,
+                    Container.from_children(rendered_cols,
+                                            alignment=Alignment.CENTER,
+                                            direction=Direction.HORIZONTAL,
+                                            spacing=round(max_width * col_sp))
+                ],
+                alignment=Alignment.CENTER,
+                direction=Direction.VERTICAL,
+                spacing=15,
+            )
+        else:
+            return Container.from_children(
+                [desc, rendered_cols[0]],
+                alignment=Alignment.CENTER,
+                direction=Direction.VERTICAL,
+                spacing=15,
+            )
 
     @classmethod
     async def render_group(cls, group: GroupStatistics, group_id: int,
@@ -210,23 +271,26 @@ class AnnualReportRenderer:
             )
             components.append(cls._render_horizontal_line(cls.MAX_WIDTH))
             components.append(comp_popular_sentence)
-            if len(pop) > 1:
-                sampled = random.sample(pop[1:], min(3, len(pop) - 1))
-                sampled = sorted(sampled, key=lambda x: -x[1])
-                comp_popular_sentence_extra = Paragraph.from_template(
-                    cls.GROUP_POPULAR_SENTENCE_EXTRA,
-                    values=dict(items=[{
-                        "sentence": sentence,
-                        "users": users,
-                        "times": times
-                    } for sentence, times, users in sampled]),
-                    default=cls.MAIN_STYLE,
-                    styles=cls.STYLES,
-                    alignment=Alignment.CENTER,
-                    max_width=cls.MAX_WIDTH,
-                    line_spacing=15,
-                )
+            if comp_popular_sentence_extra := cls.render_popular_sentence_extra(
+                    pop[1:], cls.MAX_WIDTH):
                 components.append(comp_popular_sentence_extra)
+            # if len(pop) > 1:
+            #     sampled = random.sample(pop[1:], min(3, len(pop) - 1))
+            #     sampled = sorted(sampled, key=lambda x: -x[1])
+            #     comp_popular_sentence_extra = Paragraph.from_template(
+            #         cls.GROUP_POPULAR_SENTENCE_EXTRA,
+            #         values=dict(items=[{
+            #             "sentence": sentence,
+            #             "users": users,
+            #             "times": times
+            #         } for sentence, times, users in sampled]),
+            #         default=cls.MAIN_STYLE,
+            #         styles=cls.STYLES,
+            #         alignment=Alignment.CENTER,
+            #         max_width=cls.MAX_WIDTH,
+            #         line_spacing=15,
+            #     )
+            #     components.append(comp_popular_sentence_extra)
         if len(group.user_messages) > 5:
             comp_top_message_user = await cls._render_top_users(
                 group.user_messages)
@@ -492,7 +556,7 @@ class AnnualReportRenderer:
         return comp_top
 
     @classmethod
-    @lru_cache
+    # @lru_cache
     # FIXME: clear cache when ANNUAL_STATISTICS_END changes
     def _render_footer(cls):
         return Paragraph.of(
