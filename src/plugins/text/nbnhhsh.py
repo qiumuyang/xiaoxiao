@@ -14,6 +14,7 @@ from typing_extensions import NotRequired
 
 from src.ext import RateLimit, RateLimiter
 from src.ext.config import Config
+from src.ext.permission import admin
 from src.utils.doc import CommandCategory, command_doc
 
 
@@ -91,11 +92,24 @@ class AbbreviationTranslate:
         return "".join(filter(None, text))
 
 
+def merge_abbr_config(*configs: dict[str, list[str]]) -> dict[str, list[str]]:
+    merged: dict[str, list[str]] = {}
+    for cfg in configs:
+        for abbr, values in cfg.items():
+            if abbr not in merged:
+                merged[abbr] = []
+            for value in values:
+                if value not in merged[abbr]:
+                    merged[abbr].append(value)
+    return merged
+
+
 rate_depend = RateLimit("abbr_trans", type="group", seconds=2)
 
 # lower priority than commands
 nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN, priority=2, block=True)
 nbnhhsh_cmd = on_command("翻译缩写", block=True, force_whitespace=True)
+nbnhhsh_cfg_cmd = on_command("翻译缩写配置", block=True, force_whitespace=True, permission=admin)
 
 
 @nbnhhsh_cmd.handle()
@@ -137,32 +151,64 @@ async def _(
         await config_abbr(matcher, event, abbr)
     if is_cmd and abbr in ("开", "关"):
         await toggle_abbr(matcher, event, abbr == "开")
-    if not is_cmd and not cfg.enabled:
+
+    global_cfg = await AbbrTranslateConfig.get(group_id=None)
+    if not is_cmd and (not cfg.enabled or not global_cfg.enabled):
         # only disable implicit call by msg
         await matcher.finish()
     if not is_cmd and abbr in cfg_user.excludes:
         # use excludes in user config as user-level blacklist
         await matcher.finish()
-    translation = await AbbreviationTranslate.query(abbr, cfg.includes,
-                                                    cfg.excludes)
+
+    includes = merge_abbr_config(global_cfg.includes, cfg.includes)
+    excludes = merge_abbr_config(global_cfg.excludes, cfg.excludes)
+    translation = await AbbreviationTranslate.query(abbr, includes,
+                                                    excludes)
     if not translation or not ratelimiter.try_acquire():
         await matcher.finish()
     await matcher.finish(translation)
+
+
+@nbnhhsh_cfg_cmd.handle()
+@command_doc("翻译缩写配置", category=CommandCategory.UTILITY)
+async def _config(
+    matcher: Matcher,
+    event: GroupMessageEvent,
+):
+    """
+    管理员设置全局翻译配置
+
+    Usage:
+        {cmd} `开|关`                - 开启或关闭全局快捷翻译
+        {cmd} +|-`<缩写>`->`<翻译>`  - 添加或删除全局翻译映射
+    """
+    message = event.get_message().extract_plain_text()
+    message = message.removeprefix("翻译缩写配置").strip()
+    if not message:
+        await matcher.finish("请提供配置内容，例如：翻译缩写配置 +abc->翻译")
+    if message.startswith(("+", "-")):
+        await config_abbr(matcher, event, message, global_scope=True)
+        return
+    if message in ("开", "关"):
+        await toggle_abbr(matcher, event, message == "开", global_scope=True)
+        return
+    await matcher.finish("全局配置格式错误，示例：翻译缩写配置 +abc->翻译")
 
 
 async def config_abbr(
     matcher: Matcher,
     event: GroupMessageEvent,
     message: str,
+    global_scope: bool = False,
 ):
-    cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
+    cfg = await AbbrTranslateConfig.get(group_id=None if global_scope else event.group_id)
     cfg_user = await AbbrTranslateConfig.get(group_id=event.group_id,
                                              user_id=event.user_id)
     abbrs = set()
     abbrs_user = set()
     for part in shlex.split(message):
         if config_match := AbbreviationTranslate.CFG_PATTERN.fullmatch(part):
-            # group-level configuration
+            # group-level or global configuration
             op, abbr, trans = config_match.groups()
             abbr = abbr.lower()
             trans = trans.strip()
@@ -198,7 +244,8 @@ async def config_abbr(
             else:
                 assert False, "unreachable"
             abbrs_user.add(abbr)
-    await AbbrTranslateConfig.set(cfg, group_id=event.group_id)
+    await AbbrTranslateConfig.set(cfg,
+                                  group_id=None if global_scope else event.group_id)
     await AbbrTranslateConfig.set(cfg_user,
                                   group_id=event.group_id,
                                   user_id=event.user_id)
@@ -229,11 +276,14 @@ async def toggle_abbr(
     matcher: Matcher,
     event: GroupMessageEvent,
     enabled: bool,
+    global_scope: bool = False,
 ):
-    cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
+    cfg = await AbbrTranslateConfig.get(group_id=None if global_scope else event.group_id)
     inform = cfg.enabled != enabled
     cfg.enabled = enabled
-    await AbbrTranslateConfig.set(cfg, group_id=event.group_id)
+    await AbbrTranslateConfig.set(cfg,
+                                  group_id=None if global_scope else event.group_id)
     if inform:
-        await matcher.finish(f"快捷翻译缩写已{'开启' if enabled else '关闭'}")
+        scope_text = "全局" if global_scope else "快捷"
+        await matcher.finish(f"{scope_text}翻译缩写已{'开启' if enabled else '关闭'}")
     await matcher.finish()
