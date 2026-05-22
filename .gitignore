@@ -9,6 +9,7 @@ email.ini
 
 # config
 .env*
+!.env.example
 
 # test output
 render-test/
