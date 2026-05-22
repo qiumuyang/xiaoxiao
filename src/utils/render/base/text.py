@@ -12,7 +12,9 @@ from .color import Color, Palette
 from .image import RenderImage
 from .properties import Space
 from .textfont import TextFont
-from .textstyle import *
+from .textstyle import (AbsoluteSize, FontFamily, MinimalTextStyle,
+                         TextDecoration, TextShading, TextStroke, TextStyle,
+                         TextStyleDefaults, TextWrap, enforce_minimal)
 from .textstyle.decoration import TextDecorationType
 
 

@@ -4,7 +4,11 @@ from functools import lru_cache
 from typing import TypedDict
 
 from src.utils.image.avatar import Avatar
-from src.utils.render import *
+from src.utils.render import (Alignment, Color, Container, Decorations,
+                              Direction, FixedContainer, FontFamily, Image,
+                              JustifyContent, Palette, Paragraph, RectCrop,
+                              RenderObject, Space, Spacer, TextDecoration,
+                              TextStyle)
 
 from ..data import Diff, IdiomItem
 from .data import MAX_GUESS

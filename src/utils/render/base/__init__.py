@@ -1,3 +1,4 @@
+# ruff: noqa: F403, F405  # __init__.py API re-exports
 from .cacheable import Cacheable, cached, volatile
 from .color import Color, Palette
 from .decorations import (BoxSizing, Decorations, InplaceDecoration,

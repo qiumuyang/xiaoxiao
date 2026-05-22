@@ -18,7 +18,9 @@ from src.utils.userlist import (ListPermissionError, MessageItem,
                                 UserListService)
 
 from .config import ChoiceConfig
-from .exception import *
+from .exception import (ChoiceError, InvalidIndexError, InvalidItemOpError,
+                         InvalidListNameError, ListExistsError,
+                         ListNotExistsError, NonPlainTextError)
 from .parse import Action, Op
 from .render import ChoiceRender
 
