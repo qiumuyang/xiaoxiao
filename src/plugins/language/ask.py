@@ -1,8 +1,8 @@
 import itertools
 import random
 import re
+from collections.abc import AsyncIterable
 from functools import partial
-from typing import AsyncIterable
 
 import jieba
 import jieba.posseg as pseg

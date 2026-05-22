@@ -3,7 +3,7 @@ from .receive import ReceivedMessageTracker
 from .send import SentMessageTracker
 
 __all__ = [
-    "ReceivedMessageTracker",
     "ReceiveMessage",
+    "ReceivedMessageTracker",
     "SentMessageTracker",
 ]

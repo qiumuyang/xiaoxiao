@@ -94,7 +94,7 @@ class PostRule(Rule):
 
 
 class RateLimitRule:
-    __slots__ = ("key", "type", "seconds", "concurrency", "block")
+    __slots__ = ("block", "concurrency", "key", "seconds", "type")
 
     def __init__(
         self,
@@ -235,7 +235,7 @@ class ReplyRule:
         lstrip: 是否去除空白字符后检查
     """
 
-    __slots__ = ("startswith", "lstrip", "force_whitespace")
+    __slots__ = ("force_whitespace", "lstrip", "startswith")
 
     def __init__(
         self, *startswith: str, lstrip: bool = True, force_whitespace: bool = True

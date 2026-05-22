@@ -1,5 +1,6 @@
 import argparse
-from typing import Callable, Generic, Protocol, Type, TypeVar, runtime_checkable
+from collections.abc import Callable
+from typing import Generic, Protocol, TypeVar, runtime_checkable
 
 
 @runtime_checkable
@@ -155,7 +156,7 @@ class AutoArgumentParser(argparse.ArgumentParser):
     argument_document: dict[str, str]
 
     @classmethod
-    def from_class(cls, target_class: Type[AutoArgumentParserMixin]):
+    def from_class(cls, target_class: type[AutoArgumentParserMixin]):
         parser = cls(exit_on_error=False, add_help=False)
 
         if not issubclass(target_class, AutoArgumentParserMixin):

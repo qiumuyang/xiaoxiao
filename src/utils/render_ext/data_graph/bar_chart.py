@@ -1,18 +1,21 @@
+from collections.abc import Callable
 from functools import cached_property
-from typing import Any, Callable, NamedTuple
+from typing import Any, NamedTuple
 
 from PIL import Image, ImageDraw
 from typing_extensions import Unpack
 
-from src.utils.render import BaseStyle, Color, Direction
-from src.utils.render import Image as ImageObject
 from src.utils.render import (
+    BaseStyle,
+    Color,
+    Direction,
     Palette,
     RelativeContainer,
     RenderImage,
     RenderObject,
     cached,
 )
+from src.utils.render import Image as ImageObject
 
 from .base import ColorPolicy, DataGraph
 

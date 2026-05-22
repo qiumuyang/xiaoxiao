@@ -1,9 +1,16 @@
 from PIL import Image
 
 from src.utils.doc import CommandCategory, command_doc
-from src.utils.render import Alignment, Container, Direction
+from src.utils.render import (
+    Alignment,
+    Container,
+    Direction,
+    Palette,
+    Paragraph,
+    Space,
+    TextStyle,
+)
 from src.utils.render import Image as ImageR
-from src.utils.render import Palette, Paragraph, Space, TextStyle
 
 from .processor import ImageProcessor
 

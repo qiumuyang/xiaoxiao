@@ -1,7 +1,7 @@
 import random
 import string
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable
 from unittest.mock import AsyncMock
 
 import pytest

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from enum import Enum
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 from typing_extensions import Self
 

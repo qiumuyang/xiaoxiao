@@ -1,9 +1,10 @@
 import argparse
 import inspect
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from contextvars import ContextVar
 from io import BytesIO
-from typing import Iterable, Literal
+from typing import Literal
 
 from PIL import Image
 from typing_extensions import Protocol

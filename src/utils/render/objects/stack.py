@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
+from typing import Literal
 
-from typing_extensions import Literal, Self, Unpack, override
+from typing_extensions import Self, Unpack, override
 
 from ..base import Alignment, BaseStyle, RenderImage, RenderObject, cached, volatile
 

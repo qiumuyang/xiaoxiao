@@ -1,5 +1,5 @@
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
-from typing import Callable, Iterable
 
 from ....base import (
     AbsoluteSize,

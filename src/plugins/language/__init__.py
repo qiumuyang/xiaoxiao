@@ -6,9 +6,8 @@ from typing import Any
 from nonebot import CommandGroup, on_command, on_message, on_notice
 from nonebot.adapters import Bot, Message
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
-from nonebot.adapters.onebot.v11 import GroupMessageEvent
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11 import Message as Message_
-from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.adapters.onebot.v11.event import PokeNotifyEvent, Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State

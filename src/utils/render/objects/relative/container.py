@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 from typing_extensions import Self, TypedDict, Unpack, override
 
 from ...base import BaseStyle, RenderImage, RenderObject, cached, volatile
@@ -9,8 +7,8 @@ from ...base.cacheable import CacheableList
 from ...utils import cast
 from .utils import Box, DependencyGraph, LinearPolynomial, partition
 
-XY = Tuple[int, int]
-ConstraintTuple = Tuple[RenderObject, str, RenderObject]
+XY = tuple[int, int]
+ConstraintTuple = tuple[RenderObject, str, RenderObject]
 
 
 class Relative(TypedDict, total=False):

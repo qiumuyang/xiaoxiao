@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import inspect
 import sys
+from collections.abc import Callable, Iterable
 from types import TracebackType
-from typing import Any, Callable, Generic, Iterable, Type, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
-from typing_extensions import Literal, Self
+from typing_extensions import Self
 
 T = TypeVar("T")
 K = TypeVar("K")
@@ -19,11 +20,11 @@ if sys.version_info < (3, 9):
     from collections import UserList as _UserList
 
     class UserList(_UserList, Generic[T]):
-        def __class_getitem__(cls, item: T) -> Type[_UserList[T]]:
+        def __class_getitem__(cls, item: T) -> type[_UserList[T]]:
             return cls
 
     class UserDict(_UserDict, Generic[K, V]):
-        def __class_getitem__(cls, item: tuple[K, V]) -> Type[_UserDict[K, V]]:
+        def __class_getitem__(cls, item: tuple[K, V]) -> type[_UserDict[K, V]]:
             return cls
 else:
     from collections import UserDict, UserList
@@ -269,7 +270,7 @@ class volatile:
 
     def __exit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> Literal[False]:

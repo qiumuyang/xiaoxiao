@@ -1,5 +1,5 @@
+from collections.abc import Awaitable, Callable
 from io import BytesIO
-from typing import Awaitable, Callable
 
 import imagehash
 from nonebot.adapters.onebot.v11 import Message

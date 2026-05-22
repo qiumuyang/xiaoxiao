@@ -73,7 +73,7 @@ class Alphabet:
     }
 
     @classmethod
-    @lru_cache()
+    @lru_cache
     def render(
         cls,
         character: str,

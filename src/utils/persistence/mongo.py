@@ -1,4 +1,5 @@
-from typing import Any, AsyncGenerator, Callable, Generic, Mapping, TypeVar
+from collections.abc import AsyncGenerator, Callable, Mapping
+from typing import Any, Generic, TypeVar
 
 from bson import ObjectId
 from pydantic import BaseModel, GetCoreSchemaHandler

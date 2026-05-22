@@ -1,6 +1,5 @@
-from .data import MessageItem
+from .data import MessageItem, ReferenceItem, UserList, UserListMetadata
 from .data import Pagination as UserListPagination
-from .data import ReferenceItem, UserList, UserListMetadata
 from .exception import (
     ListPermissionError,
     TooManyItemsError,

@@ -110,7 +110,7 @@ def split_subarray_unordered(arr: list[int], num_subarrays: int) -> list[list[in
 if __name__ == "__main__":
     import random
     import time
-    from typing import Callable
+    from collections.abc import Callable
 
     n = 20
     k = 3

@@ -16,7 +16,7 @@ def random_image(width: int, height: int):
 
 
 def random_image2(width: int, height: int):
-    url = "https://picsum.photos/{}/{}".format(width, height)
+    url = f"https://picsum.photos/{width}/{height}"
     resp = requests.get(url)
     im = Image.open(BytesIO(resp.content))
     arr = np.array(im)

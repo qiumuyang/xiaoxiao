@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Generic, List, TypeVar, Union
+from typing import Any, Generic, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -12,7 +12,7 @@ PathLike = Union[str, Path]
 T = TypeVar("T")
 D = TypeVar("D")
 
-Flex = Union[T, List[T], None]
+Flex = Union[T, list[T], None]
 
 
 class Undefined:

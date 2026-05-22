@@ -1,4 +1,5 @@
-from typing import Generic, Iterable, TypeVar, cast
+from collections.abc import Iterable
+from typing import Generic, TypeVar, cast
 
 from mistletoe.block_token import Table, TableCell, TableRow
 

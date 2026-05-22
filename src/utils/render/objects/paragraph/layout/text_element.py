@@ -119,7 +119,7 @@ class TextElement(RenderText):
 
     @line_continue.setter
     def line_continue(self, value: bool):
-        setattr(self, "_on_same_line", value)
+        self._on_same_line = value
 
     @property
     def lstrip_safe(self) -> bool:
@@ -127,7 +127,7 @@ class TextElement(RenderText):
 
     @lstrip_safe.setter
     def lstrip_safe(self, value: bool):
-        setattr(self, "_lstrip_safe", value)
+        self._lstrip_safe = value
 
     @property
     def multiline(self) -> tuple[str, str] | None:
@@ -144,7 +144,7 @@ class TextElement(RenderText):
 
     @multiline.setter
     def multiline(self, value: tuple[str, str] | None):
-        setattr(self, "_multiline", value)
+        self._multiline = value
 
     def _do_multiline(self, width: int, next_width: int) -> tuple[str, str]:
         assert self.multiline is not None

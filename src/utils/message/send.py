@@ -1,6 +1,7 @@
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import pymongo
 from bson import ObjectId

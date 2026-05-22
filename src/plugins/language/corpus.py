@@ -1,7 +1,8 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cached_property
-from typing import Any, Iterable
+from typing import Any
 
 import jieba.posseg as pseg
 from nonebot import get_driver

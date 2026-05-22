@@ -1,5 +1,6 @@
 import asyncio
-from typing import Sequence, cast
+from collections.abc import Sequence
+from typing import cast
 
 from src.utils.image.avatar import Avatar
 from src.utils.persistence import FileStorage

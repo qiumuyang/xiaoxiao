@@ -1,7 +1,8 @@
 import asyncio
 import math
+from collections.abc import Awaitable, Iterable
 from datetime import datetime
-from typing import Any, Awaitable, ClassVar, Iterable, Literal, NamedTuple
+from typing import Any, ClassVar, Literal, NamedTuple
 from uuid import uuid4
 
 from nonebot.adapters.onebot.v11 import Message

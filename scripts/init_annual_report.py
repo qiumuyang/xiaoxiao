@@ -1,6 +1,6 @@
 import sys
 from argparse import ArgumentParser
-from typing import Sequence
+from collections.abc import Sequence
 
 sys.path.append(".")
 sys.path.append("..")
@@ -29,7 +29,7 @@ async def main(group_ids: Sequence[int]):
         except Exception as e:
             print(f"Error processing group {group_id}: {e}")
             raise e
-        print(f"done")
+        print("done")
 
 
 if __name__ == "__main__":

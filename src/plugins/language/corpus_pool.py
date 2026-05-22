@@ -1,7 +1,7 @@
 import random
 import re
 from collections import OrderedDict
-from typing import Callable
+from collections.abc import Callable
 
 from src.utils.env import inject_env
 

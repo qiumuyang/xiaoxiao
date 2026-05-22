@@ -79,7 +79,7 @@ class Fetcher:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             image.save(file_path)
             return image
-        except Exception as e:
+        except Exception:
             return None
 
     @classmethod
@@ -98,7 +98,7 @@ class Fetcher:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             img.save(file_path)
             return img
-        except Exception as e:
+        except Exception:
             return None
 
     @classmethod
@@ -113,7 +113,7 @@ class Fetcher:
         if file_path.exists():
             try:
                 return Image.open(file_path)
-            except Exception as e:
+            except Exception:
                 file_path.unlink()
         return None
 
@@ -128,7 +128,7 @@ class Fetcher:
         if file_path.exists():
             try:
                 return Image.open(file_path)
-            except Exception as e:
+            except Exception:
                 file_path.unlink()
         return None
 

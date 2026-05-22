@@ -1,6 +1,7 @@
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Awaitable, Callable, cast
+from typing import Any, cast
 
 from bson import ObjectId
 from nonebot.adapters.onebot.v11 import Message

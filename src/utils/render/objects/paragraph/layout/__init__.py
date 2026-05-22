@@ -8,7 +8,7 @@ __all__ = [
     "Element",
     "ImageElement",
     "LineBreaker",
-    "TextElement",
     "Split",
+    "TextElement",
     "concat_elements_by_baseline",
 ]

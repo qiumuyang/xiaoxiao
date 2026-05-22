@@ -33,7 +33,7 @@ class RateLimiter(ABC):
 
 
 class TokenBucketRateLimiter(RateLimiter):
-    __slots__ = ("capacity", "tokens", "refill_rate", "last_update", "_refill_task")
+    __slots__ = ("_refill_task", "capacity", "last_update", "refill_rate", "tokens")
 
     _refill_task: asyncio.Task[None]
 

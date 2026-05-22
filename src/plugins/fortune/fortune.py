@@ -53,7 +53,7 @@ EVENT = (
 FORTUNE = FORTUNE_GOOD + FORTUNE_BAD
 
 
-@lru_cache()
+@lru_cache
 def get_sunrise_sunset(
     latitude: float,
     longitude: float,

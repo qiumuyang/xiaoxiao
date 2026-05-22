@@ -146,7 +146,7 @@ async def main():
     dbs = ["files", "cache"] if args.db == "all" else [args.db]
     client = AsyncMongoClient()
 
-    print(f"=== GridFS Orphan Chunk Cleanup ===\n")
+    print("=== GridFS Orphan Chunk Cleanup ===\n")
     if args.dry_run:
         print("[DRY-RUN MODE — no actual deletion]\n")
 
@@ -162,7 +162,7 @@ async def main():
         )
 
         if stats["orphan_files"] == 0:
-            print(f"  No orphan chunks, skipping.\n")
+            print("  No orphan chunks, skipping.\n")
             continue
 
         print(

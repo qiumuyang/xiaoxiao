@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Generic, Iterable, TypeVar, Union
+from collections.abc import Callable, Iterable
+from typing import Any, Generic, TypeVar, Union
 
 from typing_extensions import Self
 

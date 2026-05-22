@@ -1,4 +1,5 @@
-from typing import Callable, Iterable, NamedTuple, TypeVar
+from collections.abc import Callable, Iterable
+from typing import NamedTuple, TypeVar
 
 from pygments import lex
 from pygments.lexers import get_lexer_by_name

@@ -3,9 +3,10 @@ import functools
 from PIL import Image
 
 from src.utils.doc import CommandCategory, command_doc
-from src.utils.render import Alignment, Container, Direction
-from src.utils.render import Image as ImageR
 from src.utils.render import (
+    Alignment,
+    Container,
+    Direction,
     Palette,
     Paragraph,
     RenderImage,
@@ -14,6 +15,7 @@ from src.utils.render import (
     Stack,
     TextStyle,
 )
+from src.utils.render import Image as ImageR
 
 from .processor import ImageAvatarProcessor
 

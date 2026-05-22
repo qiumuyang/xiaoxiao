@@ -1,8 +1,9 @@
 import asyncio
 import re
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
-from typing import Callable, NamedTuple
+from typing import NamedTuple
 
 import aiohttp
 import gridfs

@@ -13,5 +13,5 @@ class EventConvert(Generic[T]):
     async def __call__(self, event: Event) -> T | None:
         try:
             return self.type.model_validate(event.model_dump())
-        except ValidationError as e:
+        except ValidationError:
             return None

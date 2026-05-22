@@ -17,9 +17,6 @@ from src.utils.render import (
     Direction,
     FixedContainer,
     FontFamily,
-)
-from src.utils.render import Image as ImageObject
-from src.utils.render import (
     Interpolation,
     JustifyContent,
     Palette,
@@ -31,6 +28,7 @@ from src.utils.render import (
     Spacer,
     TextStyle,
 )
+from src.utils.render import Image as ImageObject
 
 from ..font import FontUtils
 from ..markdown.components.utils.builder import Builder

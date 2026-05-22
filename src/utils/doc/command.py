@@ -148,7 +148,7 @@ class CommandMeta:
                 evaluated = str(eval(m.group(1), globals_ | inner))
                 # this 2-step replacement is to allow simple nested templates
                 return evaluated.replace("{cmd}", self._meta["name"])
-            except Exception as e:
+            except Exception:
                 return m.group(0)
 
         return {

@@ -69,7 +69,7 @@ class TextFont:
 
     @classmethod
     @wraps(ImageFont.truetype)
-    @lru_cache()
+    @lru_cache
     def load_font(cls, *args, **kwargs) -> ImageFont.FreeTypeFont:
         try:
             return ImageFont.truetype(*args, **kwargs)
@@ -77,7 +77,7 @@ class TextFont:
             raise ValueError(f"Font file not found: {kwargs['font']}")
 
     @classmethod
-    @lru_cache()
+    @lru_cache
     def get_padding(cls, font_path: str, font_size: float) -> int:
         """Calculate the padding needed to fix the overshooting ascender
         by rendering the font with and without the ascender and measuring

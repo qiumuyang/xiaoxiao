@@ -1,6 +1,7 @@
 import re
+from collections.abc import Callable, Iterable
 from string import Formatter
-from typing import Any, Callable, Iterable
+from typing import Any
 
 from typing_extensions import Self, Unpack, override
 

@@ -4,10 +4,11 @@ import random
 import re
 import sqlite3
 from collections import Counter
+from collections.abc import Hashable, Sequence
 from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import Hashable, Sequence, TypedDict, TypeVar
+from typing import TypedDict, TypeVar
 
 import orjson
 from pypinyin import Style as PinyinStyle

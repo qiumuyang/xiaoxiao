@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from typing import Concatenate, Literal
 from urllib.request import urlopen
 
 import cv2
@@ -8,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import PIL.Image as PILImage
 from cv2.typing import MatLike
-from typing_extensions import Concatenate, Literal, ParamSpec, Self
+from typing_extensions import ParamSpec, Self
 
 from ..utils import ImageMask, PathLike, cast
 from .color import Color, Palette
@@ -51,7 +52,7 @@ class RenderImage:
         """
         im = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
         if im is None:
-            raise IOError(f"Cannot load image from {path!r}")
+            raise OSError(f"Cannot load image from {path!r}")
         return cls.from_raw(im, bgr=True)
 
     @classmethod
