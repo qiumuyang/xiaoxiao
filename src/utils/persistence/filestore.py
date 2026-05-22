@@ -54,10 +54,12 @@ class FileStorage:
 
     FILE_STORAGE_CONCURRENCY: int = 10
     FILE_STORAGE_TTL: str = "7d"
+    FILE_STORAGE_CLEANUP_INTERVAL: int = 3600
 
     _instances: dict[str, "FileStorage"] = {}
     _lock = asyncio.Lock()
     _session: aiohttp.ClientSession | None = None
+    _cleanup_started: bool = False
 
     def __init__(
         self,
@@ -84,6 +86,7 @@ class FileStorage:
             instance = cls(client[db_name], cls._session, ttl)
             await instance._ensure_index()
             cls._instances[db_name] = instance
+            await cls._start_cleanup()
             return instance
 
     @classmethod
@@ -91,9 +94,66 @@ class FileStorage:
         async with cls._lock:
             return cls._instances
 
+    @classmethod
+    async def _start_cleanup(cls):
+        if cls._cleanup_started:
+            return
+        cls._cleanup_started = True
+
+        from nonebot import get_driver
+
+        @get_driver().on_startup
+        async def _():
+            asyncio.create_task(cls._cleanup_loop())
+
+    @classmethod
+    async def _cleanup_loop(cls):
+        while True:
+            await asyncio.sleep(cls.FILE_STORAGE_CLEANUP_INTERVAL)
+            async with cls._lock:
+                instances = dict(cls._instances)
+            for instance in instances.values():
+                try:
+                    await instance._cleanup_expired()
+                except Exception:
+                    logger.exception("Cleanup failed")
+
+    async def _cleanup_expired(self):
+        """Delete expired ephemeral files using fs_bucket (cascades to chunks)."""
+        now = datetime.now(timezone.utc)
+        deleted = 0
+        while True:
+            docs = await self.db.fs.files.find(
+                {
+                    "metadata.storage_type": "ephemeral",
+                    "metadata.expire_at": {"$lt": now},
+                },
+                projection={"_id": True},
+                limit=50,
+            ).to_list(50)
+            if not docs:
+                break
+            for doc in docs:
+                try:
+                    await self.fs_bucket.delete(doc["_id"])
+                    deleted += 1
+                except Exception:
+                    pass
+        if deleted:
+            logger.info(
+                f"Cleaned up {deleted} expired file(s) ({self.db.name})")
+
     async def _ensure_index(self):
-        await self.db.fs.files.create_index([("metadata.expire_at", 1)],
-                                            expireAfterSeconds=0)
+        # drop legacy TTL index if it exists — TTL on fs.files deletes
+        # metadata but not fs.chunks, causing orphan chunk accumulation
+        # TODO: move one-off migration (drop legacy TTL index) to standalone script
+        try:
+            await self.db.fs.files.drop_index("metadata.expire_at_1")
+        except Exception:
+            pass
+        # compound index for efficient expired-file cleanup queries
+        await self.db.fs.files.create_index(
+            [("metadata.storage_type", 1), ("metadata.expire_at", 1)])
         await self.db.fs.files.create_index([("filename", 1)], unique=True)
 
     @classmethod
