@@ -18,7 +18,7 @@ def calculate_real_size(total: int, *ratio: ast.Ratio | None) -> list[int]:
     float_size = [remain * w / weight_sum for w in weight]
     int_size = [int(s) for s in float_size]
     remainder = remain - sum(int_size)
-    remainders = [s - int_s for s, int_s in zip(float_size, int_size)]
+    remainders = [s - int_s for s, int_s in zip(float_size, int_size, strict=False)]
 
     # Distribute the remaining pixels based on the largest remainders
     for i in sorted(range(len(remainders)), key=lambda i: remainders[i], reverse=True):

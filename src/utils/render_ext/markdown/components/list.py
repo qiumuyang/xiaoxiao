@@ -46,7 +46,7 @@ class ListRenderer:
                         0 if i == len(bullets) - 1 else self.master.style.line_spacing,
                     ),
                 )
-                for i, (bullet, content) in enumerate(zip(bullets, contents))
+                for i, (bullet, content) in enumerate(zip(bullets, contents, strict=False))
             ],
             direction=Direction.VERTICAL,
         )

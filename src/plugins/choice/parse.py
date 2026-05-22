@@ -57,7 +57,7 @@ def parse_action(text: str) -> Action | None:
                 name = arg[len(op.value) :]
                 break
         else:
-            assert False, "should not reach here"
+            raise AssertionError("should not reach here")
         name = escape.sub(repl, name)
         if i > 0 and name.startswith("[") and name.endswith("]"):
             name = name[1:-1]

@@ -19,7 +19,7 @@ class MessageComparator:
         if len(message1) != len(message2):
             return False
 
-        for seg1, seg2 in zip(message1, message2):
+        for seg1, seg2 in zip(message1, message2, strict=False):
             if seg1.type != seg2.type:
                 return False
 

@@ -51,7 +51,7 @@ class Zoom(ImageProcessor):
         if self.mode == "out":
             # Reverse the zoom factor to zoom out
             zoom_factor.reverse()
-        for i, (frame, factor) in enumerate(zip(frames, zoom_factor)):
+        for i, (frame, factor) in enumerate(zip(frames, zoom_factor, strict=False)):
             width, height = frame.size
             new_w = int(width / factor)
             new_h = int(height / factor)

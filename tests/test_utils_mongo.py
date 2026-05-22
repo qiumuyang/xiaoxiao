@@ -78,7 +78,7 @@ async def test_mongo():
         MessageSegment.xml("<xml></xml>"),
     ]
     try:
-        for i, msg in enumerate(messages):
+        for i, _msg in enumerate(messages):
             message = Message(messages[: i + 1])
             data = MessageData(
                 time=datetime.now(),

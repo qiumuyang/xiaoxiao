@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import inspect
-import sys
+from collections import UserDict, UserList
 from collections.abc import Callable, Iterable
 from types import TracebackType
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 from typing_extensions import Self
 
@@ -12,22 +12,6 @@ T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
 TC = TypeVar("TC", bound="Cacheable")
-
-if sys.version_info < (3, 9):
-    # Python 3.9+ has built-in support for generic collections.
-    # This is a backport for Python 3.8 and below.
-    from collections import UserDict as _UserDict
-    from collections import UserList as _UserList
-
-    class UserList(_UserList, Generic[T]):
-        def __class_getitem__(cls, item: T) -> type[_UserList[T]]:
-            return cls
-
-    class UserDict(_UserDict, Generic[K, V]):
-        def __class_getitem__(cls, item: tuple[K, V]) -> type[_UserDict[K, V]]:
-            return cls
-else:
-    from collections import UserDict, UserList
 
 
 class Cacheable:

@@ -104,7 +104,7 @@ class WaterfallContainer(Container):
         max_height += (len(columns[index]) - 1) * self.spacing
 
         rendered = []
-        for column, height in zip(columns, heights):
+        for column, height in zip(columns, heights, strict=False):
             if not column:
                 continue
             if len(column) > 1:

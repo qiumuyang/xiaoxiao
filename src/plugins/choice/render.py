@@ -347,7 +347,7 @@ class ChoiceRender:
         columns = [[] for _ in range(3)]
         creator_ids = list(set(userlist.creator_id for userlist in lists))
         avatars = await asyncio.gather(*(Avatar.user(uid) for uid in creator_ids))
-        avatar_dict = dict(zip(creator_ids, avatars))
+        avatar_dict = dict(zip(creator_ids, avatars, strict=False))
         for userlist in sorted(lists, key=lambda x: -x.num_items):
             title = Paragraph.of(userlist.name, style=cls.TITLE_STYLE)
             count = await cls.render_item_count(userlist)
@@ -368,7 +368,7 @@ class ChoiceRender:
                         FixedContainer.from_children(
                             width=width, height=obj.height, children=[obj]
                         )
-                        for width, obj in zip(widths, row_elements)
+                        for width, obj in zip(widths, row_elements, strict=False)
                     ],
                     direction=Direction.HORIZONTAL,
                     alignment=Alignment.CENTER,

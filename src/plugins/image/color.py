@@ -27,7 +27,7 @@ def mix_with_black_white(color: Color, k: int = 3) -> list[Color]:
     whites = [Palette.natural_blend(color, Palette.WHITE, i) for i in linsp]
     blacks = [Palette.natural_blend(color, Palette.BLACK, i / 2) for i in linsp]
     whites.reverse()
-    return whites + [color] + blacks
+    return [*whites, color, *blacks]
 
 
 def render_single_color(color: Color, size: int = 40) -> RenderObject:

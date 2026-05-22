@@ -146,7 +146,9 @@ class Idiom:
                 cls.syllables.add(s)
 
     @classmethod
-    def random4(cls, excludes: set[str] = set()) -> IdiomItem:
+    def random4(cls, excludes: set[str] | None = None) -> IdiomItem:
+        if excludes is None:
+            excludes = set()
         conn = cls.get_conn()
         cursor = conn.execute(
             "SELECT word, pinyin, pinyin_tone, explanation, example, derivation "
@@ -225,10 +227,10 @@ class Idiom:
             raise ValueError("Length of target and provided must be the same.")
         tc = Counter(target)
         result = []
-        for t, p in zip(target, provided):
+        for t, p in zip(target, provided, strict=False):
             if t == p:
                 tc[t] -= 1
-        for t, p in zip(target, provided):
+        for t, p in zip(target, provided, strict=False):
             if t == p:
                 result.append(Diff.EXACT)
             elif tc.get(p, 0) > 0:

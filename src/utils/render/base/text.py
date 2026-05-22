@@ -179,7 +179,7 @@ class _RenderTextBlock(Cacheable):
             case int():
                 baseline_corr = self.font.baseline_correction
             case _:
-                assert False, "should not reach here"
+                raise AssertionError("should not reach here")
         patch_b = TextFont.get_padding(font_path, self.size)
 
         # 边距
@@ -331,7 +331,7 @@ class RenderText(_RenderTextBlock):
         if not self.text:
             return [self.as_block()]
         dispatch_text_fonts: list[tuple[str, FontFamily]] = [("", self.font)]
-        fonts = [self.font] + self.font.fallbacks
+        fonts = [self.font, *self.font.fallbacks]
         for c in self.text:
             # find the font that supports the character
             for font in fonts:

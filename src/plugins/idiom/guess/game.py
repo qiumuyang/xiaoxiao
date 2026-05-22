@@ -73,7 +73,7 @@ class GuessIdiom:
         syllable_length_filtered = [
             s
             for s in syllable_count_filtered
-            if all(len(m) == len(n) for m, n in zip(s, target))
+            if all(len(m) == len(n) for m, n in zip(s, target, strict=False))
         ]
         if not syllable_length_filtered:
             raise SyllableLengthMismatch([len(t) for t in target])
@@ -160,7 +160,7 @@ class GuessIdiom:
             target_s = "".join(target_syl)
             diff = Idiom.diff(target_s, attempt_s)
             if not stop:
-                for syl, d in zip(attempt_s, diff):
+                for syl, d in zip(attempt_s, diff, strict=False):
                     status = Status.from_diff(d)
                     p_now = priority.index(keyboards.get(syl, status))
                     p_new = priority.index(status)

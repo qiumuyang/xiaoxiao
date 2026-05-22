@@ -103,7 +103,7 @@ class BarChart(DataGraph):
             x_offset, y_offset = 0, self.bar_width // 2
 
         for i, (key_anchor, value_anchor, value) in enumerate(
-            zip(*self.anchors, self.data.values())
+            zip(*self.anchors, self.data.values(), strict=False)
         ):
             if isinstance(self.color, list):
                 color = self.color[i]
@@ -188,7 +188,7 @@ class BarChartWithLabel(BarChart):
         container.add_child(chart, align_top=container, align_left=container)
         key_anchor, value_anchor = self.anchors
 
-        for key_label, (x, y) in zip(self.key_labels, key_anchor):
+        for key_label, (x, y) in zip(self.key_labels, key_anchor, strict=False):
             if self.layout == Direction.HORIZONTAL:
                 y += self.key_spacing
                 x -= key_label.width // 2
@@ -202,7 +202,7 @@ class BarChartWithLabel(BarChart):
                 offset=(x, y),
             )
 
-        for value_label, (x, y) in zip(self.value_labels, value_anchor):
+        for value_label, (x, y) in zip(self.value_labels, value_anchor, strict=False):
             if self.layout == Direction.HORIZONTAL:
                 y -= self.value_spacing + value_label.height
                 x -= value_label.width // 2

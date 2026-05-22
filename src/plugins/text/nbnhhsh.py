@@ -234,7 +234,7 @@ async def config_abbr(
                 elif trans not in exclude_list:
                     exclude_list.append(trans)
             else:
-                assert False, "unreachable"
+                raise AssertionError("unreachable")
             abbrs.add(abbr)
         elif config_user_match := AbbreviationTranslate.CFG_USER_PATTERN.fullmatch(
             part
@@ -247,7 +247,7 @@ async def config_abbr(
             elif op == "-":
                 cfg_user.excludes[abbr] = []
             else:
-                assert False, "unreachable"
+                raise AssertionError("unreachable")
             abbrs_user.add(abbr)
     await AbbrTranslateConfig.set(
         cfg, group_id=None if global_scope else event.group_id

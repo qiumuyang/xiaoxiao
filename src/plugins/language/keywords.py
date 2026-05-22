@@ -49,6 +49,6 @@ class Keyword:
             assert len(corpus) == len(corpus_keywords)
             kw_corpus = corpus_keywords
         kw_query = cls.extract(" ".join(query).lower())
-        sim = [(cp, metric(kw_query, ref)) for cp, ref in zip(corpus, kw_corpus)]
+        sim = [(cp, metric(kw_query, ref)) for cp, ref in zip(corpus, kw_corpus, strict=False)]
         sim.sort(key=lambda x: x[1], reverse=True)
         return [text for text, score in sim if score > threshold][:top_k]

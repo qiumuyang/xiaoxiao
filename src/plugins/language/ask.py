@@ -155,7 +155,7 @@ class Ask:
         if not self.replacement:
             return
         processed_message = Message()
-        for i, seg in enumerate(MessageExtension.decode(result, symtab)):
+        for _i, seg in enumerate(MessageExtension.decode(result, symtab)):
             seg = MessageSegment.from_onebot(seg)
             if seg.is_at():
                 # convert to plain text
@@ -233,7 +233,7 @@ class Ask:
         candidates: list[tuple[str, Entry]] = []
         for entry in entries:
             for word_pos in entry.cut_pos(start="v", end=["x", "y"]):
-                words, _ = zip(*word_pos)
+                words, _ = zip(*word_pos, strict=False)
                 if length is None or len("".join(words)) == length:
                     candidates.append(("".join(words), entry))
         if candidates:
@@ -291,7 +291,6 @@ class Ask:
         remain = s
         total_out = ""
         prev_out = ""
-        prev_in = ""
         prev_in_pos = ""
 
         def output(out: str, escape: bool = True):
@@ -314,11 +313,11 @@ class Ask:
                 else:
                     yield output(word if not next_remain else next_remain[0])
                 remain = next_remain[1:]
-                prev_in, prev_in_pos = word, pos
+                _prev_in, prev_in_pos = word, pos
                 continue
             if word == "/":
                 remain = next_remain
-                prev_in, prev_in_pos = word, pos
+                _prev_in, prev_in_pos = word, pos
                 continue
             if match := self.PATTERN_YES_NO.match(remain):
                 self.replacement = True
@@ -333,7 +332,7 @@ class Ask:
                     if obj:
                         generated = action + random.choice("得不") + obj
                         remain = generated + next_remain[2:]
-                        prev_in, prev_in_pos = "", ""
+                        _prev_in, prev_in_pos = "", ""
                         continue
                 generated = random.choice(["", neg]) + action
                 next_remain = generated + next_remain
@@ -435,4 +434,4 @@ class Ask:
             else:
                 yield output(word, escape=False)
             remain = next_remain
-            prev_in, prev_in_pos = word, pos
+            _prev_in, prev_in_pos = word, pos

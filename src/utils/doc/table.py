@@ -22,6 +22,6 @@ class Table:
         ]
 
         for row in self.rows:
-            inner = "|".join(f.format(cell) for f, cell in zip(self.formats, row))
+            inner = "|".join(f.format(cell) for f, cell in zip(self.formats, row, strict=False))
             rendered.append(f"|{inner}|")
         return "\n".join(rendered)

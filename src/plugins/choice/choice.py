@@ -137,7 +137,7 @@ class ChoiceHandler:
         )
         matched: list[tuple[int, MessageItem | ReferenceItem]] = [
             (index, item)
-            for (index, item), matched in zip(message_items, match_result)
+            for (index, item), matched in zip(message_items, match_result, strict=False)
             if matched
         ]
 
@@ -196,7 +196,7 @@ class ChoiceHandler:
                 case Op.NONE:
                     handler = self.handle_list_items
                 case _:
-                    assert False, "unexpected list operation"
+                    raise AssertionError("unexpected list operation")
             await handler(operator_id, lst_name, action, symtab, sudo)
         except ChoiceError as e:
             await self.matcher.finish(str(e))
@@ -288,7 +288,7 @@ class ChoiceHandler:
                         op = "移除"
                 await self.matcher.finish(f"列表 [{list_name}] {op}快捷随机")
             case _:
-                assert False, "unreachable"
+                raise AssertionError("unreachable")
 
     async def random_list_items(self, list_name: str) -> Message | None:
         lst = await UserListService.find_list(self.group_id, list_name)

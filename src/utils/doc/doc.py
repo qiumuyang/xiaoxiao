@@ -40,8 +40,7 @@ class DocManager:
 
     @classmethod
     def iter_doc(cls):
-        for cmd in cls._commands.values():
-            yield cmd
+        yield from cls._commands.values()
 
     @classmethod
     def export_overview(cls) -> str:

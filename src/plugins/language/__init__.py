@@ -267,7 +267,7 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
     # member_count seems problematic for now
     result = f"{group_name} {date} 发言排行\n"
     top = 10
-    top_uid, top_messages = zip(*user_messages[:top])
+    top_uid, top_messages = zip(*user_messages[:top], strict=False)
     names = await asyncio.gather(
         *[
             get_group_member_name(group_id=event.group_id, user_id=user_id)
@@ -276,7 +276,7 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
     )
     ranking = "\n".join(
         f"{i}. {member} {count}"
-        for i, (member, count) in enumerate(zip(names, top_messages), 1)
+        for i, (member, count) in enumerate(zip(names, top_messages, strict=False), 1)
     )
     await message_rank.finish(result + ranking)
 

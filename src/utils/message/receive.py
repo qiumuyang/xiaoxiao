@@ -73,14 +73,18 @@ class ReceivedMessageTracker:
     @classmethod
     async def find(
         cls,
-        group_id: int | list[int] = [],
+        group_id: int | list[int] | None = None,
         *,
-        user_id: int | list[int] = [],
+        user_id: int | list[int] | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
         handled: bool | None = None,
     ) -> list[MessageData]:
         """Find messages by group_id and user_id."""
+        if user_id is None:
+            user_id = []
+        if group_id is None:
+            group_id = []
         filter = {}
         if isinstance(group_id, int):
             filter["group_id"] = group_id
@@ -104,13 +108,17 @@ class ReceivedMessageTracker:
     @classmethod
     async def count(
         cls,
-        group_id: int | list[int] = [],
+        group_id: int | list[int] | None = None,
         *,
-        user_id: int | list[int] = [],
+        user_id: int | list[int] | None = None,
         since: datetime | None = None,
         handled: bool | None = None,
     ) -> int:
         """Count messages by group_id and user_id."""
+        if user_id is None:
+            user_id = []
+        if group_id is None:
+            group_id = []
         filter = {}
         if isinstance(group_id, int):
             filter["group_id"] = group_id

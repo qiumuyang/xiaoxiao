@@ -249,7 +249,7 @@ class MessageRender:
                     children=[item],
                     direction=Direction.HORIZONTAL,
                 )
-                for item, conv in zip(children, conversation)
+                for item, conv in zip(children, conversation, strict=False)
             ],
             direction=Direction.VERTICAL,
             background=cls.COLOR_BG,

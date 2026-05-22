@@ -38,8 +38,7 @@ class Mat(Generic[T]):
         return len(self.mat[0])
 
     def iter_rows(self) -> Iterable[list[T | None]]:
-        for row in self.mat:
-            yield row
+        yield from self.mat
 
     def iter_cols(self) -> Iterable[list[T | None]]:
         for j in range(self.num_cols):

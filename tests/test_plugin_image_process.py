@@ -94,7 +94,7 @@ def test_imops():
     )
 
     for i, (shape, script) in enumerate(tests):
-        arr, im = random_image2(*shape)
+        _arr, im = random_image2(*shape)
         im.save(ops_out / f"test_{i + 1}_{shape[0]}x{shape[1]}_input.png")
         try:
             res = ops.process(im, script)

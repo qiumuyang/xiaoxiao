@@ -1,3 +1,5 @@
+import functools
+import operator
 import random
 import string
 from collections.abc import Callable
@@ -67,7 +69,7 @@ async def test_ask_process():
     def mock_random_corpus_entry(length=None, *args, **kwargs):
         if length is not None:
             return make_entries(*text[length])
-        return make_entries(*sum(text.values(), []))
+        return make_entries(*functools.reduce(operator.iadd, text.values(), []))
 
     async def test_once(
         question: str, replacement: bool, expected: Callable[[str], bool]
@@ -93,7 +95,7 @@ async def test_ask_process():
         True,
         lambda s: s.startswith("今天星期") and s[-1] in "一二三四五六天",
     )
-    await test_once("谁", True, lambda s: s in members + ["我", "你"])
+    await test_once("谁", True, lambda s: s in [*members, "我", "你"])
     await test_once("为什么", True, lambda s: s.startswith("因为") and "所以" not in s)
     await test_once("为什么什么", True, lambda s: s.startswith("因为") and "所以" in s)
     await test_once("abcdef", False, lambda s: s == "abcdef")

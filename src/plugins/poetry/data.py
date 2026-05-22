@@ -227,7 +227,7 @@ class Poetry:
             f"WHERE part IN ({placeholder}) "
             f"GROUP BY poetry_id HAVING COUNT(DISTINCT part)=?"
         )
-        args = parts + [len(parts)]
+        args = [*parts, len(parts)]
         candidates = {r[0] for r in conn.execute(query, args)}
         if not candidates:
             return []

@@ -37,7 +37,7 @@ def load_document_image(
 def init_cache(*names: str):
     load_document_image(cached=False)
     for doc in DocManager.iter_doc():
-        name_and_alias = [doc.name] + list(doc.aliases)
+        name_and_alias = [doc.name, *list(doc.aliases)]
         if names and all(n not in name_and_alias for n in names):
             continue
         for name in name_and_alias:

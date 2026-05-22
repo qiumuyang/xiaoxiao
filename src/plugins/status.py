@@ -131,7 +131,7 @@ async def _(bot: Bot):
     global_status = await StatusMonitor.status()
     # top 5 groups with the most messages
     info_stat = sorted(
-        zip(group_list, status_list),
+        zip(group_list, status_list, strict=False),
         key=lambda x: (x[1]["message_sent"], x[1]["message_received"]),
         reverse=True,
     )[:5]

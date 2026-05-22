@@ -154,11 +154,11 @@ class RenderImage:
         width = sum(im.width for im in images)
         width += max(0, len(images) - 1) * spacing
         max_baseline = max(baselines)
-        placements = [(max_baseline - b, e.height) for (b, e) in zip(baselines, images)]
+        placements = [(max_baseline - b, e.height) for (b, e) in zip(baselines, images, strict=False)]
         height = max(y + h for y, h in placements)
         im = cls.empty(width, height, color)
         x = 0
-        for child, (y, _) in zip(images, placements):
+        for child, (y, _) in zip(images, placements, strict=False):
             im.paste(x, y, child)
             x += child.width + spacing
         return im

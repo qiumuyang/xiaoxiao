@@ -150,7 +150,7 @@ class History:
                 for user_id in user_ids
             )
         )
-        uin_to_nicknames = dict(zip(user_ids, member_names))
+        uin_to_nicknames = dict(zip(user_ids, member_names, strict=False))
 
         message_uid = [
             (message, user_id)
@@ -174,5 +174,5 @@ class History:
                 "nickname": uin_to_nicknames.get(user_id, str(user_id)),
                 "content": content,
             }
-            for (_, user_id), content in zip(message_uid, content)
+            for (_, user_id), content in zip(message_uid, content, strict=False)
         ]

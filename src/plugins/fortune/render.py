@@ -132,7 +132,7 @@ class FortuneRender:
             )
             for event in events
         ]
-        children = [head] + event_objects
+        children = [head, *event_objects]
         space = (width - sum([c.width for c in children])) // (len(children) - 1)
         return Image.from_image(
             RenderImage.concat_horizontal(

@@ -118,7 +118,7 @@ class MessageSegment(_MessageSegment):
     def message_equals(cls, msg1: Message, msg2: Message) -> bool:
         if len(msg1) != len(msg2):
             return False
-        for seg1, seg2 in zip(msg1, msg2):
+        for seg1, seg2 in zip(msg1, msg2, strict=False):
             if not cls.equals(seg1, seg2):
                 return False
         return True
