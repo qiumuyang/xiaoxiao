@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import bisect
 from collections.abc import Callable, Sequence
-from typing import Generic, TypeVar
-
-from typing_extensions import Protocol, Self
+from typing import Protocol, Self, TypeVar
 
 
 class Comparable(Protocol):
@@ -21,7 +19,7 @@ T = TypeVar("T", Comparable, int, float, str)
 V = TypeVar("V", Comparable, int, float, str)
 
 
-class BisectKeyWrapper(Generic[T, V]):
+class BisectKeyWrapper[T: (Comparable, int, float, str), V: (Comparable, int, float, str)]:
     """A wrapper class that allows to use a key function with bisect.
 
     Python 3.10 introduced the `key` parameter."""
@@ -43,7 +41,7 @@ class BisectKeyWrapper(Generic[T, V]):
         return self.obj >= self.key(other)
 
 
-def bisect_left(
+def bisect_left[T: (Comparable, int, float, str), V: (Comparable, int, float, str)](
     seq: Sequence[T],
     obj: V,
     key: Callable[[T], V] | None = None,
@@ -53,7 +51,7 @@ def bisect_left(
     return bisect.bisect_left(seq, wrapper)
 
 
-def bisect_right(
+def bisect_right[T: (Comparable, int, float, str), V: (Comparable, int, float, str)](
     seq: Sequence[T],
     obj: V,
     key: Callable[[T], V] | None = None,

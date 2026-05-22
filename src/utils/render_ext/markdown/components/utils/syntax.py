@@ -46,7 +46,7 @@ class StyleDict(NamedTuple):
         return sty
 
 
-def modify_last(
+def modify_last[T](
     iterable: Iterable[T],
     modifier: Callable[[T], T | None],
 ) -> Iterable[T]:

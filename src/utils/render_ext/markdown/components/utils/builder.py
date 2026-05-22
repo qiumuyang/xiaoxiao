@@ -1,9 +1,7 @@
 import random
 import re
 import string
-from typing import cast
-
-from typing_extensions import Unpack
+from typing import Unpack, cast
 
 from src.utils.render import (
     Alignment,

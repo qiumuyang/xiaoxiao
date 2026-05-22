@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Self, Unpack, override
 
 from PIL import Image as PILImage
-from typing_extensions import Self, Unpack, override
 
 from ..base import BaseStyle, Color, Interpolation, RenderImage, RenderObject, volatile
 from ..utils import PathLike

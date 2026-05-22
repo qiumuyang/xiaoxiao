@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypedDict, TypeVar, Unpack
 
 from mistletoe.block_token import BlockToken
-from typing_extensions import Unpack
 
 from src.utils.render import RenderObject, TextStyle
 

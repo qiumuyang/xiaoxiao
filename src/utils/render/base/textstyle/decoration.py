@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum, Flag, auto
-from typing import ClassVar, Literal, TypedDict
-
-from typing_extensions import Unpack
+from typing import ClassVar, Literal, TypedDict, Unpack
 
 from ..color import Color
 from ..properties import Space

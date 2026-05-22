@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Generic, TypeVar, cast
+from typing import TypeVar, cast
 
 from mistletoe.block_token import Table, TableCell, TableRow
 
@@ -25,7 +25,7 @@ from .utils.builder import Box, Builder
 T = TypeVar("T")
 
 
-class Mat(Generic[T]):
+class Mat[T]:
     def __init__(self, mat: list[list[T | None]]) -> None:
         self.mat = mat
 

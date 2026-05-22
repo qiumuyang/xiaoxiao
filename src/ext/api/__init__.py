@@ -1,7 +1,5 @@
 import sys
-from typing import cast
-
-from typing_extensions import Protocol
+from typing import Protocol, cast
 
 from .base import ForwardMessage
 from .factory import _get_api

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing_extensions import Self, TypedDict, Unpack, override
+from typing import Self, Unpack, override
+
+from typing_extensions import TypedDict
 
 from ...base import BaseStyle, RenderImage, RenderObject, cached, volatile
 from ...base.cacheable import CacheableList

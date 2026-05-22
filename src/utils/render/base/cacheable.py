@@ -4,9 +4,7 @@ import inspect
 from collections import UserDict, UserList
 from collections.abc import Callable, Iterable
 from types import TracebackType
-from typing import Any, Literal, TypeVar
-
-from typing_extensions import Self
+from typing import Any, Literal, Self, TypeVar
 
 T = TypeVar("T")
 K = TypeVar("K")
@@ -76,7 +74,7 @@ def _assert_not_list_or_dict(value: Any) -> None:
         raise TypeError("Builtin dict is not supported. Use CacheableDict instead.")
 
 
-def _list_update(func: Callable[..., T]) -> Callable[..., T]:
+def _list_update[T](func: Callable[..., T]) -> Callable[..., T]:
     """Apply to list methods that may change the list."""
 
     def wrapper(self: CacheableList, *args, **kwargs) -> T:
@@ -121,7 +119,7 @@ class CacheableList(UserList[T], Cacheable):
     sort = _list_update(UserList[T].sort)
 
 
-def _dict_update(func: Callable[..., T]) -> Callable[..., T]:
+def _dict_update[T](func: Callable[..., T]) -> Callable[..., T]:
     """Apply to dict methods that may change the dict values."""
 
     def wrapper(self: CacheableDict, *args, **kwargs) -> T:
@@ -168,7 +166,7 @@ class CacheableDict(UserDict[K, V], Cacheable):
     update = _dict_update(UserDict[K, V].update)
 
 
-def cached(func: Callable[[TC], T]) -> Callable[[TC], T]:
+def cached[TC: "Cacheable", T](func: Callable[[TC], T]) -> Callable[[TC], T]:
     """Decorator to cache the return value of a method.
 
     Raises:

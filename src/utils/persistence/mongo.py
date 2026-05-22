@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator, Callable, Mapping
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from bson import ObjectId
 from pydantic import BaseModel, GetCoreSchemaHandler
@@ -42,7 +42,7 @@ class PydanticObjectId(ObjectId):
         raise ValueError("Invalid ObjectId")
 
 
-class Collection(Generic[D, T]):
+class Collection[D: Mapping[str, Any], T]:
     def __init__(self, collection: AsyncCollection) -> None:
         self.collection = collection
         self._to_mongo: Callable[[T], D] = lambda x: x  # type: ignore

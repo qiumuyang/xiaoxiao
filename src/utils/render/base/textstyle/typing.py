@@ -1,6 +1,4 @@
-from typing import Final, TypedDict, cast
-
-from typing_extensions import Required
+from typing import Final, Required, TypedDict, cast
 
 from ..color import Color
 from .decoration import TextDecoration, TextShading, TextStroke

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, Generic, TypeVar, Union
-
-from typing_extensions import Self
+from typing import Any, Self, TypeVar, Union
 
 Linear = Union[int, float, "LinearPolynomial"]
 T = TypeVar("T")
@@ -360,7 +358,7 @@ class Box:
         return f"Box({self.p1}, {self.p2})"
 
 
-class DependencyGraph(Generic[Node, Edge]):
+class DependencyGraph[Node, Edge]:
     """A dependency graph between objects. Supports topological sorting."""
 
     def __init__(self) -> None:
@@ -420,7 +418,7 @@ class DependencyGraph(Generic[Node, Edge]):
         return result
 
 
-def partition(
+def partition[T](
     predicate: Callable[[T], bool],
     iterable: Iterable[T],
 ) -> tuple[list[T], list[T]]:

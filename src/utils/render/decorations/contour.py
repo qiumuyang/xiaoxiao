@@ -1,9 +1,9 @@
 from enum import Enum
+from typing import Self, override
 
 import cv2
 import numpy as np
 import numpy.typing as npt
-from typing_extensions import Self, override
 
 from ..base import Color, LayerDecoration, Overlay, RenderImage, RenderObject
 from ..utils import cast

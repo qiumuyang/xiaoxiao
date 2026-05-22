@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from nonebot.adapters.onebot.v11 import Event
 from pydantic import ValidationError
@@ -6,7 +6,7 @@ from pydantic import ValidationError
 T = TypeVar("T", bound=Event)
 
 
-class EventConvert(Generic[T]):
+class EventConvert[T: Event]:
     def __init__(self, type: type[T]) -> None:
         self.type = type
 

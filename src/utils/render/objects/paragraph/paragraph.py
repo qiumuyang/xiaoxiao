@@ -1,9 +1,7 @@
 import re
 from collections.abc import Callable, Iterable
 from string import Formatter
-from typing import Any
-
-from typing_extensions import Self, Unpack, override
+from typing import Any, Self, Unpack, override
 
 from ...base import (
     Alignment,

@@ -1,8 +1,7 @@
 from enum import Enum
-from typing import NamedTuple
+from typing import NamedTuple, Self
 
 import cv2
-from typing_extensions import Self
 
 from .color import Color, Palette
 

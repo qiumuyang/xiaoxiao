@@ -1,9 +1,8 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import NamedTuple, cast
+from typing import NamedTuple, Required, cast
 
 import mistletoe.span_token as T
-from typing_extensions import Required
 
 from src.utils.render import (
     Color,

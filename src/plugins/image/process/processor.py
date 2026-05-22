@@ -4,10 +4,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from contextvars import ContextVar
 from io import BytesIO
-from typing import Literal
+from typing import Literal, Protocol
 
 from PIL import Image
-from typing_extensions import Protocol
 
 from src.utils.auto_arg import AutoArgumentParser, AutoArgumentParserMixin
 

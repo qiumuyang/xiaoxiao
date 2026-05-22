@@ -3,7 +3,45 @@ name = "XiaoBot"
 version = "0.1.0"
 description = "XiaoBot"
 readme = "README.md"
-requires-python = ">=3.8, <4.0"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp",
+    "async-lru",
+    "cairosvg",
+    "emoji",
+    "fonttools",
+    "jieba",
+    "lark",
+    "ImageHash",
+    "mistletoe",
+    "nonebot-adapter-onebot",
+    "nonebot2[fastapi]",
+    "numpy",
+    "opencv-python>=4.5.4.58",
+    "orjson",
+    "paddlepaddle",
+    "Pillow==10.4.0",
+    "psutil",
+    "py-mini-racer",
+    "Pygments",
+    "pymixbox==2.0.0",
+    "pydantic>=2",
+    "pymongo>=4.13.0",
+    "pyphen>=0.13.2",
+    "python-dotenv",
+    "pypinyin",
+    "requests",
+    "typing-extensions>=4.10.0",
+    "watchdog",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6",
+    "ruff>=0.8",
+]
 
 [tool.nonebot]
 adapters = [
@@ -14,7 +52,7 @@ plugin_dirs = ["src/plugins"]
 builtin_plugins = []
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 line-length = 88
 extend-exclude = [
     "src/utils/render_ext/markdown/components/utils/katexsvg/svgmath",

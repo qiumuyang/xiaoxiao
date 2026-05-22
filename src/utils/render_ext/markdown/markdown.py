@@ -1,4 +1,4 @@
-from typing_extensions import Unpack
+from typing import Unpack
 
 from src.utils.render import (
     BaseStyle,

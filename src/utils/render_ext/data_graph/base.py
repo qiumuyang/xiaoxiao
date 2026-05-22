@@ -1,6 +1,4 @@
-from typing import Any, Protocol
-
-from typing_extensions import Unpack
+from typing import Any, Protocol, Unpack
 
 from src.utils.render import BaseStyle, Color, RenderObject
 

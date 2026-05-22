@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import TypedDict
+from typing import Self, TypedDict, Unpack
 
 from PIL import Image, ImageDraw
-from typing_extensions import Self, Unpack
 
 from ..utils.squircle import draw_squircle
 from .cacheable import Cacheable, cached, volatile

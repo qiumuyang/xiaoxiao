@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -36,6 +36,6 @@ class Undefined:
 undefined = Undefined()
 
 
-class cast(Generic[T]):
+class cast[T]:
     def __new__(cls, value: Any) -> T:
         return value

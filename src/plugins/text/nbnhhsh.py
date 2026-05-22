@@ -3,14 +3,13 @@
 import random
 import re
 import shlex
-from typing import ClassVar, TypedDict
+from typing import ClassVar, NotRequired, TypedDict
 
 import aiohttp
 from async_lru import alru_cache
 from nonebot import on_command, on_regex
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 from nonebot.matcher import Matcher
-from typing_extensions import NotRequired
 
 from src.ext import RateLimit, RateLimiter
 from src.ext.config import Config

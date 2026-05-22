@@ -2,14 +2,13 @@ import shlex as shlex_
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, override
 
 import orjson
 from nonebot.adapters.onebot.utils import b2s, f2s
 from nonebot.adapters.onebot.v11 import Message
 from nonebot.adapters.onebot.v11 import MessageSegment as _MessageSegment
 from PIL import Image
-from typing_extensions import override
 
 from .button import ButtonGroup
 

@@ -1,7 +1,7 @@
 import asyncio
 import re
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from typing import NamedTuple
 
@@ -124,7 +124,7 @@ class FileStorage:
 
     async def _cleanup_expired(self):
         """Delete expired ephemeral files using fs_bucket (cascades to chunks)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         deleted = 0
         while True:
             docs = await self.db.fs.files.find(
@@ -199,8 +199,8 @@ class FileStorage:
             filename,
             metadata={
                 "storage_type": "ephemeral",
-                "expire_at": datetime.now(timezone.utc) + self.ttl,
-                "created_at": datetime.now(timezone.utc),
+                "expire_at": datetime.now(UTC) + self.ttl,
+                "created_at": datetime.now(UTC),
                 "references": 0,
                 "ready": False,
             },
@@ -235,7 +235,7 @@ class FileStorage:
 
     async def refresh(self, filename: str) -> bool:
         """Extend the expiration time of an ephemeral file."""
-        new_expire_time = datetime.now(timezone.utc) + self.ttl
+        new_expire_time = datetime.now(UTC) + self.ttl
         result = await self.db.fs.files.update_one(
             {
                 "filename": filename,

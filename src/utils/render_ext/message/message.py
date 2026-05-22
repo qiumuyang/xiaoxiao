@@ -1,9 +1,8 @@
 import asyncio
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from nonebot.adapters.onebot.v11 import Message as MessageObject
 from PIL import Image
-from typing_extensions import NotRequired
 
 from src.ext import MessageSegment, get_group_member_name
 from src.utils.persistence import FileStorage

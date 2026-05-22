@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from enum import Enum
-
-from typing_extensions import Self, Unpack, override
+from typing import Self, Unpack, override
 
 from ..base import (
     Alignment,

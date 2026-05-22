@@ -2,8 +2,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-
-from typing_extensions import Self
+from typing import Self
 
 
 class RateLimiter(ABC):

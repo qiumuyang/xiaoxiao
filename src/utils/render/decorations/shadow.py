@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Self, override
+
 import cv2
 import numpy as np
-from typing_extensions import Self, override
 
 from ..base import Color, LayerDecoration, Overlay, RenderImage, RenderObject
 

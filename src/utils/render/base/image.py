@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
-from typing import Concatenate, Literal
+from typing import Concatenate, Literal, Self
 from urllib.request import urlopen
 
 import cv2
@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import PIL.Image as PILImage
 from cv2.typing import MatLike
-from typing_extensions import ParamSpec, Self
+from typing_extensions import ParamSpec
 
 from ..utils import ImageMask, PathLike, cast
 from .color import Color, Palette
@@ -18,7 +18,7 @@ from .properties import Alignment, Border, Direction, Interpolation
 _P = ParamSpec("_P")
 
 
-def check_writable(
+def check_writable[**P](
     func: Callable[Concatenate[RenderImage, _P], RenderImage],
 ) -> Callable[Concatenate[RenderImage, _P], RenderImage]:
 

@@ -1,9 +1,8 @@
 from contextlib import asynccontextmanager
-from typing import ClassVar, TypeVar, cast
+from typing import ClassVar, Self, TypeVar, cast
 
 from nonebot import get_driver
 from pydantic import BaseModel
-from typing_extensions import Self
 
 from src.utils.log import logger_wrapper
 from src.utils.persistence.mongo import Collection, Mongo

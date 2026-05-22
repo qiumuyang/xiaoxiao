@@ -1,9 +1,8 @@
 from collections.abc import Callable
 from functools import cached_property
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Unpack
 
 from PIL import Image, ImageDraw
-from typing_extensions import Unpack
 
 from src.utils.render import (
     BaseStyle,

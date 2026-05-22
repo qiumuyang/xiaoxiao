@@ -1,6 +1,6 @@
 import argparse
 from collections.abc import Callable
-from typing import Generic, Protocol, TypeVar, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 
 
 @runtime_checkable
@@ -13,7 +13,7 @@ class SupportsComparison(Protocol):
 T = TypeVar("T")
 
 
-class Argument(Generic[T]):
+class Argument[T]:
     """A class to represent an argument that will be parsed from the command line.
 
     Args:

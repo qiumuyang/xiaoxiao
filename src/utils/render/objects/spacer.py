@@ -1,4 +1,4 @@
-from typing_extensions import Self, override
+from typing import Self, override
 
 from ..base import RenderImage, RenderObject, cached, volatile
 
