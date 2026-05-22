@@ -29,9 +29,7 @@ class Context:
     def temp(self, **kwargs: Unpack[ContextAttrs]):
 
         class TempContext(Context):
-
-            def __init__(self, ctx: Context,
-                         **kwargs: Unpack[ContextAttrs]) -> None:
+            def __init__(self, ctx: Context, **kwargs: Unpack[ContextAttrs]) -> None:
                 self.ctx = ctx
                 self.original = {k: getattr(ctx, k) for k in kwargs}
                 self.to_update = kwargs
@@ -51,8 +49,6 @@ class Context:
 class BlockRenderer(Protocol[T]):
     """Render a block token to a render object (image)."""
 
-    def __init__(self, master: "MarkdownRenderer") -> None:
-        ...
+    def __init__(self, master: "MarkdownRenderer") -> None: ...
 
-    def render(self, token: T, ctx: Context) -> RenderObject:
-        ...
+    def render(self, token: T, ctx: Context) -> RenderObject: ...

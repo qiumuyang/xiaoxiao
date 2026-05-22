@@ -61,15 +61,13 @@ class UserList(BaseModel):
     items: list[MessageItem | ReferenceItem] = Field(default_factory=list)
 
     async def db_append(self, *items: MessageItem | ReferenceItem):
-        result = await UserListCollection().append(self.group_id, self.name,
-                                                   *items)
+        result = await UserListCollection().append(self.group_id, self.name, *items)
         if result.modified_count > 0:
             self.items.extend(items)
         return result
 
     async def db_pop(self, *uuids: str):
-        result = await UserListCollection().pop(self.group_id, self.name,
-                                                *uuids)
+        result = await UserListCollection().pop(self.group_id, self.name, *uuids)
         if result.modified_count > 0:
             self.items = [i for i in self.items if i.uuid not in uuids]
         return result
@@ -82,28 +80,37 @@ class UserList(BaseModel):
             raise IndexError(f"{page_id} out of page range")
         page_id = max(0, min(page_id, num_pages - 1))
         return Pagination(
-            page_id, page_size, num_pages,
-            self.items[page_id * page_size:(page_id + 1) * page_size])
+            page_id,
+            page_size,
+            num_pages,
+            self.items[page_id * page_size : (page_id + 1) * page_size],
+        )
 
     @property
     def expanded_items(self) -> Awaitable[list[Message]]:
         collection = UserListCollection()
         raw = [i.content for i in self.items if isinstance(i, MessageItem)]
         ref = [
-            i for i in self.items
+            i
+            for i in self.items
             if isinstance(i, ReferenceItem) and i.name != self.name
         ]
 
         async def load_message(group_id: int, name: str):
             lst = await collection.find(group_id, name)
-            return [
-                i.content for i in lst.items if isinstance(i, MessageItem)
-            ] if lst else []
+            return (
+                [i.content for i in lst.items if isinstance(i, MessageItem)]
+                if lst
+                else []
+            )
 
         async def result():
             return sum(
                 await asyncio.gather(
-                    *[load_message(self.group_id, i.name) for i in ref]), raw)
+                    *[load_message(self.group_id, i.name) for i in ref]
+                ),
+                raw,
+            )
 
         return result()
 
@@ -111,10 +118,13 @@ class UserList(BaseModel):
     def valid_references(self) -> Awaitable[list[str]]:
 
         async def result():
-            exists = await asyncio.gather(*[
-                UserListCollection().find(self.group_id, i.name)
-                for i in self.items if isinstance(i, ReferenceItem)
-            ])
+            exists = await asyncio.gather(
+                *[
+                    UserListCollection().find(self.group_id, i.name)
+                    for i in self.items
+                    if isinstance(i, ReferenceItem)
+                ]
+            )
             return [i.name for i in exists if i is not None]
 
         return result()
@@ -148,7 +158,6 @@ class UserList(BaseModel):
 
 
 class UserListCollection:
-
     _collection: ClassVar[Collection[dict[str, Any], UserList]]
     _collection = Mongo.collection("userlist")
     _collection.auto_serialize(UserList)
@@ -161,56 +170,50 @@ class UserListCollection:
 
     async def create(self, group_id: int, creator_id: int, name: str):
         return await self._collection.insert_if_not_exists(
-            UserList(name=name, group_id=group_id, creator_id=creator_id))
+            UserList(name=name, group_id=group_id, creator_id=creator_id)
+        )
 
     async def find(self, group_id: int, name: str):
-        return await self._collection.find_one(filter={
-            "group_id": group_id,
-            "name": name
-        })
+        return await self._collection.find_one(
+            filter={"group_id": group_id, "name": name}
+        )
 
     async def find_all(self, group_id: int) -> list[UserListMetadata]:
-        pipeline = [{
-            "$match": {
-                "group_id": group_id
-            }
-        }, {
-            "$project": {
-                "name": 1,
-                "group_id": 1,
-                "creator_id": 1,
-                "num_messages": {
-                    "$size": {
-                        "$filter": {
-                            "input": "$items",
-                            "as": "item",
-                            "cond": {
-                                "$eq": ["$$item.type", "message"]
+        pipeline = [
+            {"$match": {"group_id": group_id}},
+            {
+                "$project": {
+                    "name": 1,
+                    "group_id": 1,
+                    "creator_id": 1,
+                    "num_messages": {
+                        "$size": {
+                            "$filter": {
+                                "input": "$items",
+                                "as": "item",
+                                "cond": {"$eq": ["$$item.type", "message"]},
                             }
                         }
-                    }
-                },
-                "num_references": {
-                    "$size": {
-                        "$filter": {
-                            "input": "$items",
-                            "as": "item",
-                            "cond": {
-                                "$eq": ["$$item.type", "reference"]
+                    },
+                    "num_references": {
+                        "$size": {
+                            "$filter": {
+                                "input": "$items",
+                                "as": "item",
+                                "cond": {"$eq": ["$$item.type", "reference"]},
                             }
                         }
-                    }
+                    },
                 }
-            }
-        }]
+            },
+        ]
         cursor = await self._collection.aggregate(pipeline)
         return [UserListMetadata(**doc) async for doc in cursor]
 
     async def delete(self, group_id: int, name: str):
-        return await self._collection.delete_one(filter={
-            "group_id": group_id,
-            "name": name
-        })
+        return await self._collection.delete_one(
+            filter={"group_id": group_id, "name": name}
+        )
 
     async def append(
         self,
@@ -219,45 +222,30 @@ class UserListCollection:
         *items: MessageItem | ReferenceItem,
     ):
         return await self._collection.update_one(
-            filter={
-                "group_id": group_id,
-                "name": name
-            },
+            filter={"group_id": group_id, "name": name},
             update={
                 "$push": {
-                    "items": {
-                        "$each": [i.model_dump(mode="json") for i in items]
-                    }
+                    "items": {"$each": [i.model_dump(mode="json") for i in items]}
                 }
-            })
+            },
+        )
 
     async def pop(self, group_id: int, name: str, *uuid: str):
         return await self._collection.update_one(
-            filter={
-                "group_id": group_id,
-                "name": name
-            },
-            update={"$pull": {
-                "items": {
-                    "uuid": {
-                        "$in": list(uuid)
-                    }
-                }
-            }})
+            filter={"group_id": group_id, "name": name},
+            update={"$pull": {"items": {"uuid": {"$in": list(uuid)}}}},
+        )
 
     async def update(self, userlist: UserList):
         return await self._collection.update_one(
-            userlist,
-            {"$set": userlist.model_dump(mode="json", exclude={"id"})})
+            userlist, {"$set": userlist.model_dump(mode="json", exclude={"id"})}
+        )
 
     async def count_lists(self, group_id: int):
         return await self._collection.count({"group_id": group_id})
 
     async def count_items(self, group_id: int, name: str):
-        return await self._collection.count({
-            "group_id": group_id,
-            "name": name
-        })
+        return await self._collection.count({"group_id": group_id, "name": name})
 
 
 @UserListCollection._collection.filter()

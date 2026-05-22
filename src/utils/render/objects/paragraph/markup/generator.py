@@ -1,14 +1,20 @@
 from contextlib import contextmanager
 from typing import Callable, Iterable
 
-from ....base import (AbsoluteSize, MinimalTextStyle, RelativeSize,
-                      RenderImage, RenderObject, TextStyle, enforce_minimal)
+from ....base import (
+    AbsoluteSize,
+    MinimalTextStyle,
+    RelativeSize,
+    RenderImage,
+    RenderObject,
+    TextStyle,
+    enforce_minimal,
+)
 from ..layout import Element, ImageElement, TextElement
 from .parser import MarkupElement, MarkupImage, MarkupNode, MarkupText
 
 
 class OverridableStyle:
-
     def __init__(self, style: TextStyle):
         self._style = style.copy()
         self._default_size: AbsoluteSize | None = None
@@ -54,7 +60,6 @@ class OverridableStyle:
 
 
 class LayoutElementGenerator:
-
     def __init__(
         self,
         markup: list[MarkupNode],
@@ -75,12 +80,12 @@ class LayoutElementGenerator:
         for node in self.markup:
             yield from self._layout(node, OverridableStyle(self.default))
 
-    def _layout(self, node: MarkupNode,
-                style_stack: OverridableStyle) -> Iterable[Element]:
+    def _layout(
+        self, node: MarkupNode, style_stack: OverridableStyle
+    ) -> Iterable[Element]:
         match node:
             case MarkupText(content):
-                yield TextElement.of(text=self.unescape(content),
-                                     **style_stack.style)
+                yield TextElement.of(text=self.unescape(content), **style_stack.style)
             case MarkupImage(name, inline):
                 image = self.images.get(name, None)
                 if image is None:

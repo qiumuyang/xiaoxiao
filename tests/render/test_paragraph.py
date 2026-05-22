@@ -16,9 +16,9 @@ async def test_paragraph_in_annual_report():
     user.popular_sentence = ("Test Emoji 🤣👉🤡", 10)
     group = await AnnualStatistics.group(group_id=924824320)
 
-    o1 = await AnnualReportRenderer.render_user(user, 782719906,
-                                                "<inject>Name</inject>",
-                                                924824320)
+    o1 = await AnnualReportRenderer.render_user(
+        user, 782719906, "<inject>Name</inject>", 924824320
+    )
     o1.render().save(out / "test_paragraph_in_annual_report_user.png")
 
     o2 = await AnnualReportRenderer.render_group(group, 924824320, "test")
@@ -33,8 +33,9 @@ def test_paragraph_with_image():
             max_width=max_width,
             default=TextStyle(font="/mnt/c/Windows/Fonts/simsun.ttc", size=24),
             styles=dict(i=TextStyle(italic=True)),
-            images=dict(pen=RenderImage.from_file(
-                "/home/qmy/XiaoBot/2.jpg").rescale(0.25)),
+            images=dict(
+                pen=RenderImage.from_file("/home/qmy/XiaoBot/2.jpg").rescale(0.25)
+            ),
             line_spacing=6,
             background=Palette.GRAY,
         ).render().save(out / f"test_paragraph_with_image_{max_width}.png")

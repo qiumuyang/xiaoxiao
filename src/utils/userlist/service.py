@@ -7,8 +7,7 @@ from src.ext import MessageSegment
 from ..log import logger_wrapper
 from ..persistence import FileStorage
 from .data import MessageItem, ReferenceItem, UserListCollection
-from .exception import (ListPermissionError, TooManyItemsError,
-                        TooManyListsError)
+from .exception import ListPermissionError, TooManyItemsError, TooManyListsError
 
 logger = logger_wrapper("userlist")
 
@@ -51,7 +50,6 @@ async def demote(*messages: Message):
 
 
 class UserListService:
-
     MAX_ITEMS = 100
     MAX_LISTS = 100
 
@@ -72,11 +70,9 @@ class UserListService:
         return await cls.collection.create(group_id, creator_id, name)
 
     @classmethod
-    async def remove_list(cls,
-                          group_id: int,
-                          name: str,
-                          operator_id: int,
-                          sudo: bool = False):
+    async def remove_list(
+        cls, group_id: int, name: str, operator_id: int, sudo: bool = False
+    ):
         lst = await cls.collection.find(group_id, name)
         if lst is not None:
             if not sudo and lst.creator_id != operator_id:
@@ -97,31 +93,37 @@ class UserListService:
             return random.choice(items) if items else None
 
     @classmethod
-    async def append_message(cls, group_id: int, name: str, creator_id: int,
-                             *message: Message):
-        if await cls.collection.count_items(
-                group_id, name) + len(message) >= cls.MAX_ITEMS:
+    async def append_message(
+        cls, group_id: int, name: str, creator_id: int, *message: Message
+    ):
+        if (
+            await cls.collection.count_items(group_id, name) + len(message)
+            >= cls.MAX_ITEMS
+        ):
             raise TooManyItemsError
         res = await cls.collection.append(
-            group_id, name, *[
-                MessageItem(content=msg, creator_id=creator_id)
-                for msg in message
-            ])
+            group_id,
+            name,
+            *[MessageItem(content=msg, creator_id=creator_id) for msg in message],
+        )
         if res.modified_count > 0:
             await promote(*message)
         return res
 
     @classmethod
-    async def append_reference(cls, group_id: int, name: str, creator_id: int,
-                               *reference: str):
-        if await cls.collection.count_items(
-                group_id, name) + len(reference) >= cls.MAX_ITEMS:
+    async def append_reference(
+        cls, group_id: int, name: str, creator_id: int, *reference: str
+    ):
+        if (
+            await cls.collection.count_items(group_id, name) + len(reference)
+            >= cls.MAX_ITEMS
+        ):
             raise TooManyItemsError
         return await cls.collection.append(
-            group_id, name, *[
-                ReferenceItem(name=ref, creator_id=creator_id)
-                for ref in reference
-            ])
+            group_id,
+            name,
+            *[ReferenceItem(name=ref, creator_id=creator_id) for ref in reference],
+        )
 
     @classmethod
     async def remove_by_uuid(cls, group_id: int, name: str, *uuid: str):
@@ -129,8 +131,7 @@ class UserListService:
         res = await cls.collection.pop(group_id, name, *uuid)
         if res.modified_count > 0 and lst is not None:
             items = [
-                i for i in lst.items
-                if i.uuid in uuid and isinstance(i, MessageItem)
+                i for i in lst.items if i.uuid in uuid and isinstance(i, MessageItem)
             ]
             await demote(*[i.content for i in items])
         return res

@@ -13,6 +13,7 @@ To match multiple emojis or custom patterns, insert `EMOJI_SEQUENCE` into patter
 
 https://gist.github.com/Saluev/604c9c3a3d6032770e15a0da143f73bd
 """
+
 import re
 
 # yapf: disable

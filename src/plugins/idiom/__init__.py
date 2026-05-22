@@ -21,9 +21,9 @@ lim = ratelimit("idiom.guess", type="group", seconds=5)
 
 pinyin_pattern = r"^[a-zA-Z ]{6,}$"
 matcher = on_command("猜成语", rule=lim, block=True, force_whitespace=True)
-shortcut = on_regex(r"(^[a-zA-Z ]{6,}$)|(^[\u4e00-\u9fa5]{4}\s*$)",
-                    rule=lim,
-                    block=False)
+shortcut = on_regex(
+    r"(^[a-zA-Z ]{6,}$)|(^[\u4e00-\u9fa5]{4}\s*$)", rule=lim, block=False
+)
 
 
 @matcher.handle()
@@ -68,9 +68,9 @@ async def _(event: GroupMessageEvent, arg_: Message = CommandArg()):
     elif re.match(pinyin_pattern, arg):
         result = await guess.guess(user_id, arg, explicit=True)
     else:
-        result = await guess.guess(user_id,
-                                   " ".join(pypinyin.lazy_pinyin(arg)),
-                                   explicit=False)
+        result = await guess.guess(
+            user_id, " ".join(pypinyin.lazy_pinyin(arg)), explicit=False
+        )
     await matcher.finish(result)
 
 

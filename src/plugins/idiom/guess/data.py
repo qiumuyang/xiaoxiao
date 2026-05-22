@@ -51,7 +51,8 @@ class GroupData:
                     time=self.current.time,
                     word=self.current.word,
                     attempt=len(self.current.attempts),
-                ))
+                )
+            )
             if self.group_id == GuessIdiomData.GLOBAL_ID:
                 self.history = self.history[-GLOBAL_HISTORY:]
         self.current = CurrentGuess(
@@ -64,8 +65,7 @@ class GroupData:
     def attempt_guess(self, user_id: int, syllables: list[str]):
         if not self.current:
             raise ValueError("No current guess")
-        self.current.attempts.append(
-            Attempt(user_id=user_id, syllables=syllables))
+        self.current.attempts.append(Attempt(user_id=user_id, syllables=syllables))
         return self
 
     def succeed(self) -> CurrentGuess:
@@ -76,7 +76,8 @@ class GroupData:
                 time=self.current.time,
                 word=self.current.word,
                 attempt=len(self.current.attempts),
-            ))
+            )
+        )
         if self.group_id == GuessIdiomData.GLOBAL_ID:
             self.history = self.history[-GLOBAL_HISTORY:]
         ret, self.current = self.current, None
@@ -90,7 +91,8 @@ class GroupData:
                 time=self.current.time,
                 word=self.current.word,
                 attempt=-1,
-            ))
+            )
+        )
         if self.group_id == GuessIdiomData.GLOBAL_ID:
             self.history = self.history[-GLOBAL_HISTORY:]
         ret, self.current = self.current, None
@@ -98,15 +100,15 @@ class GroupData:
 
 
 class GuessIdiomData:
-
     data: Collection[dict, GroupData] = Mongo.collection("guess_idiom")
 
     GLOBAL_ID = 0
 
     @classmethod
     async def get(cls, group_id: int) -> GroupData:
-        return (await cls.data.find_one({"group_id": group_id})
-                or GroupData(group_id=group_id))
+        return await cls.data.find_one({"group_id": group_id}) or GroupData(
+            group_id=group_id
+        )
 
     @classmethod
     async def set(cls, group_id: int, data: GroupData):
@@ -133,23 +135,28 @@ class GuessIdiomData:
 @GuessIdiomData.data.serialize()
 def serialize(data: GroupData) -> dict:
     return {
-        "group_id":
-        data.group_id,
+        "group_id": data.group_id,
         "current": {
-            "time":
-            data.current.time,
-            "word":
-            data.current.word,
-            "attempts": [{
-                "syllables": attempt.syllables,
-                "user_id": attempt.user_id,
-            } for attempt in data.current.attempts],
-        } if data.current else None,
-        "history": [{
-            "time": guess.time,
-            "word": guess.word,
-            "attempt": guess.attempt,
-        } for guess in data.history],
+            "time": data.current.time,
+            "word": data.current.word,
+            "attempts": [
+                {
+                    "syllables": attempt.syllables,
+                    "user_id": attempt.user_id,
+                }
+                for attempt in data.current.attempts
+            ],
+        }
+        if data.current
+        else None,
+        "history": [
+            {
+                "time": guess.time,
+                "word": guess.word,
+                "attempt": guess.attempt,
+            }
+            for guess in data.history
+        ],
     }
 
 
@@ -160,9 +167,9 @@ def deserialize(data: dict) -> GroupData:
         current=CurrentGuess(
             time=data["current"]["time"],
             word=data["current"]["word"],
-            attempts=[
-                Attempt(**attempt) for attempt in data["current"]["attempts"]
-            ],
-        ) if data["current"] else None,
+            attempts=[Attempt(**attempt) for attempt in data["current"]["attempts"]],
+        )
+        if data["current"]
+        else None,
         history=[Guess(**guess) for guess in data["history"]],
     )

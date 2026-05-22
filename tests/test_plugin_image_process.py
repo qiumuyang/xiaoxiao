@@ -25,17 +25,18 @@ def random_image2(width: int, height: int):
 
 def test_reflect():
     from src.plugins.image.process import Reflect
+
     shapes = ((25, 25), (20, 25), (20, 20), (25, 20), (127, 127), (128, 128))
     l2r = Reflect("L2R")
     for shape in shapes:
         w = shape[0]
         arr, im = random_image(*shape)
         res = np.array(l2r.process(im))
-        left = res[:, :w // 2]
-        right = res[:, w - w // 2:]
+        left = res[:, : w // 2]
+        right = res[:, w - w // 2 :]
         assert np.array_equal(left, np.fliplr(right))
-        img_non_cover = arr[:, :w - w // 2]
-        res_non_cover = res[:, :w - w // 2]
+        img_non_cover = arr[:, : w - w // 2]
+        res_non_cover = res[:, : w - w // 2]
         assert np.array_equal(img_non_cover, res_non_cover)
 
     r2l = Reflect("R2L")
@@ -43,11 +44,11 @@ def test_reflect():
         w = shape[0]
         arr, im = random_image(*shape)
         res = np.array(r2l.process(im))
-        right = res[:, w - w // 2:]
-        left = res[:, :w // 2]
+        right = res[:, w - w // 2 :]
+        left = res[:, : w // 2]
         assert np.array_equal(right, np.fliplr(left))
-        img_non_cover = arr[:, w - w // 2:]
-        res_non_cover = res[:, w - w // 2:]
+        img_non_cover = arr[:, w - w // 2 :]
+        res_non_cover = res[:, w - w // 2 :]
         assert np.array_equal(img_non_cover, res_non_cover)
 
     t2b = Reflect("T2B")
@@ -55,16 +56,17 @@ def test_reflect():
         h = shape[1]
         arr, im = random_image(*shape)
         res = np.array(t2b.process(im))
-        top = res[:h // 2, :]
-        bottom = res[h - h // 2:, :]
+        top = res[: h // 2, :]
+        bottom = res[h - h // 2 :, :]
         assert np.array_equal(top, np.flipud(bottom))
-        img_non_cover = arr[:h - h // 2, :]
-        res_non_cover = res[:h - h // 2, :]
+        img_non_cover = arr[: h - h // 2, :]
+        res_non_cover = res[: h - h // 2, :]
         assert np.array_equal(img_non_cover, res_non_cover)
 
 
 def test_imops():
     from src.plugins.image.process.imops import TileScript
+
     ops = TileScript()
     tests = [
         ((400, 200), "A -> A|A'"),
@@ -77,21 +79,23 @@ def test_imops():
     ops_out = out / "imops"
     ops_out.mkdir(exist_ok=True)
 
-    tbl = str.maketrans({
-        "|": "_",
-        ";": "_",
-        " ": "",
-        ">": "",
-        "<": "",
-        "-": "",
-        "^": "v",
-        "'": "h",
-        "@": ""
-    })
+    tbl = str.maketrans(
+        {
+            "|": "_",
+            ";": "_",
+            " ": "",
+            ">": "",
+            "<": "",
+            "-": "",
+            "^": "v",
+            "'": "h",
+            "@": "",
+        }
+    )
 
     for i, (shape, script) in enumerate(tests):
         arr, im = random_image2(*shape)
-        im.save(ops_out / f"test_{i+1}_{shape[0]}x{shape[1]}_input.png")
+        im.save(ops_out / f"test_{i + 1}_{shape[0]}x{shape[1]}_input.png")
         try:
             res = ops.process(im, script)
         except Exception as e:
@@ -99,5 +103,5 @@ def test_imops():
             raise
         assert isinstance(res, Image.Image)
         res.save(
-            ops_out /
-            f"test_{i+1}_{shape[0]}x{shape[1]}_{script.translate(tbl)}.png")
+            ops_out / f"test_{i + 1}_{shape[0]}x{shape[1]}_{script.translate(tbl)}.png"
+        )

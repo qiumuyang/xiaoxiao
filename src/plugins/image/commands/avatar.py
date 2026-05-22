@@ -14,11 +14,9 @@ from src.utils.image.avatar import Avatar, UpdateStatus
 from ..group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
 from .share import driver, logger
 
-avatar_update = on_command("更新头像",
-                           aliases={"设置头像"},
-                           block=True,
-                           force_whitespace=True,
-                           priority=2)
+avatar_update = on_command(
+    "更新头像", aliases={"设置头像"}, block=True, force_whitespace=True, priority=2
+)
 avatar_update_reply = on_reply("更新头像", block=True)
 
 avatar_procs = {
@@ -64,8 +62,7 @@ async def response_avatar(
         if event.is_tome():
             user_id = int(bot.self_id)
 
-    nickname = await get_group_member_name(group_id=event.group_id,
-                                           user_id=user_id)
+    nickname = await get_group_member_name(group_id=event.group_id, user_id=user_id)
     result = await avatar.render(user_id=user_id, nickname=nickname)
     await matcher.finish(MessageSegment.image(result, summary=name))
 
@@ -79,20 +76,15 @@ async def register_avatar():
         "雌小鬼": Mesugaki,
     }
     for name, avatar in cmd.items():
-        matcher = on_command(name,
-                             rule=rule,
-                             block=True,
-                             force_whitespace=True)
+        matcher = on_command(name, rule=rule, block=True, force_whitespace=True)
 
         def fn(name: str, avatar: type[GroupMemberAvatar]):
             """Create a closure to keep the avatar."""
 
             async def _(bot: Bot, matcher: Matcher, event: GroupMessageEvent):
-                await response_avatar(name,
-                                      avatar,
-                                      bot=bot,
-                                      matcher=matcher,
-                                      event=event)
+                await response_avatar(
+                    name, avatar, bot=bot, matcher=matcher, event=event
+                )
 
             return _
 

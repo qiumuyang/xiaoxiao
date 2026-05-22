@@ -7,13 +7,30 @@ from typing_extensions import NotRequired
 
 from src.ext import MessageSegment, get_group_member_name
 from src.utils.persistence import FileStorage
-from src.utils.render import (Alignment, BoxSizing, CircleCrop, Color,
-                              Container, Decorations, Direction,
-                              FixedContainer, FontFamily)
+from src.utils.render import (
+    Alignment,
+    BoxSizing,
+    CircleCrop,
+    Color,
+    Container,
+    Decorations,
+    Direction,
+    FixedContainer,
+    FontFamily,
+)
 from src.utils.render import Image as ImageObject
-from src.utils.render import (Interpolation, JustifyContent, Palette,
-                              Paragraph, RectCrop, RenderImage, RenderObject,
-                              Space, Spacer, TextStyle)
+from src.utils.render import (
+    Interpolation,
+    JustifyContent,
+    Palette,
+    Paragraph,
+    RectCrop,
+    RenderImage,
+    RenderObject,
+    Space,
+    Spacer,
+    TextStyle,
+)
 
 from ..font import FontUtils
 from ..markdown.components.utils.builder import Builder
@@ -27,7 +44,6 @@ class Conversation(TypedDict):
 
 
 class MessageRender:
-
     AVATAR_RADIUS = 28
     AVATAR_SIZE = 2 * AVATAR_RADIUS
 
@@ -35,9 +51,11 @@ class MessageRender:
     COLOR_NICKNAME = Color.from_hex("#A1A1A1")
     COLOR_CONTENT = Color.from_hex("#02071A")
 
-    FONT = FontFamily.of(regular="data/static/fonts/MiSans-Regular.ttf",
-                         bold="data/static/fonts/MiSans-Bold.ttf",
-                         fallbacks=FontUtils.FALLBACK)
+    FONT = FontFamily.of(
+        regular="data/static/fonts/MiSans-Regular.ttf",
+        bold="data/static/fonts/MiSans-Bold.ttf",
+        fallbacks=FontUtils.FALLBACK,
+    )
 
     STYLE_NICKNAME = TextStyle(font=FONT, size=18, color=COLOR_NICKNAME)
     STYLE_CONTENT = TextStyle(font=FONT, size=24, color=COLOR_CONTENT)
@@ -51,8 +69,8 @@ class MessageRender:
     CONTENT_ROUND_RADIUS = 15
     CONTENT_PADDING = Space.of_side(14, 16)
     CONTENT_DECO = Decorations.of(
-        RectCrop.of(border_radius=CONTENT_ROUND_RADIUS,
-                    box_sizing=BoxSizing.BORDER_BOX))
+        RectCrop.of(border_radius=CONTENT_ROUND_RADIUS, box_sizing=BoxSizing.BORDER_BOX)
+    )
     PADDING = Space.of_side(26, 18)
     FACE_TEMPLATE = "data/static/face/{id}.png"
     FACE_SIZE = 30
@@ -69,10 +87,8 @@ class MessageRender:
         storage = await FileStorage.get_instance()
         builder = Builder(default=cls.STYLE_CONTENT, max_width=max_width)
         shortcut = None
-        max_image_dim = round(
-            (max_width or cls.MAX_WIDTH) * cls.MAX_IMAGE_DIM_R)
-        min_image_dim = round(
-            (max_width or cls.MAX_WIDTH) * cls.MIN_IMAGE_DIM_R)
+        max_image_dim = round((max_width or cls.MAX_WIDTH) * cls.MAX_IMAGE_DIM_R)
+        min_image_dim = round((max_width or cls.MAX_WIDTH) * cls.MIN_IMAGE_DIM_R)
         for i, segment in enumerate(content):
             segment = MessageSegment.from_onebot(segment)
             match segment.type:
@@ -101,8 +117,10 @@ class MessageRender:
                             Interpolation.LANCZOS,
                         )
                         if image.width > max_image_dim or image.height > max_image_dim:
-                            image.resize(min(image.width, max_image_dim),
-                                         min(image.height, max_image_dim))
+                            image.resize(
+                                min(image.width, max_image_dim),
+                                min(image.height, max_image_dim),
+                            )
                         builder.image(image, inline=False)
                     else:
                         builder.text("[图片]", inline=False)
@@ -116,8 +134,8 @@ class MessageRender:
                     try:
                         if group_id is not None:
                             name = await get_group_member_name(
-                                group_id=group_id,
-                                user_id=segment.extract_at())
+                                group_id=group_id, user_id=segment.extract_at()
+                            )
                     except Exception:
                         pass
                     builder.text("@" + name)
@@ -130,42 +148,42 @@ class MessageRender:
                     if text_truncate:
                         text_truncate = max(text_truncate, 3)
                         if len(text) >= text_truncate - 3:
-                            text = text[:text_truncate - 3] + "..."
+                            text = text[: text_truncate - 3] + "..."
                     builder.text(text)
                 case "face":
                     face_id = segment.extract_face()
                     try:
                         builder.image(
                             RenderImage.from_file(
-                                cls.FACE_TEMPLATE.format(
-                                    id=face_id)).thumbnail(
-                                        cls.FACE_SIZE,
-                                        cls.FACE_SIZE,
-                                    ),
+                                cls.FACE_TEMPLATE.format(id=face_id)
+                            ).thumbnail(
+                                cls.FACE_SIZE,
+                                cls.FACE_SIZE,
+                            ),
                             inline=True,
                         )
                     except Exception:
                         builder.text("[表情]", inline=True)
         # When there is only one image, directly use it as the main content
         if shortcut is None:
-            return builder.build(spacing=4,
-                                 background=background,
-                                 padding=cls.CONTENT_PADDING,
-                                 decorations=cls.CONTENT_DECO)
+            return builder.build(
+                spacing=4,
+                background=background,
+                padding=cls.CONTENT_PADDING,
+                decorations=cls.CONTENT_DECO,
+            )
         return shortcut
 
     @classmethod
-    def render_avatar(cls,
-                      avatar: str | Image.Image,
-                      avatar_size: int | None = None) -> RenderObject:
+    def render_avatar(
+        cls, avatar: str | Image.Image, avatar_size: int | None = None
+    ) -> RenderObject:
         if avatar_size is None:
             avatar_size = cls.AVATAR_SIZE
         if isinstance(avatar, str):
-            avatar_ = ImageObject.from_url(avatar,
-                                           decorations=[CircleCrop.of()])
+            avatar_ = ImageObject.from_url(avatar, decorations=[CircleCrop.of()])
         else:
-            avatar_ = ImageObject.from_image(avatar,
-                                             decorations=[CircleCrop.of()])
+            avatar_ = ImageObject.from_image(avatar, decorations=[CircleCrop.of()])
         avatar_.resize(avatar_size, avatar_size)
         return avatar_
 
@@ -183,8 +201,7 @@ class MessageRender:
         if nickname:
             nickname_ = Paragraph.of(nickname, style=cls.STYLE_NICKNAME)
 
-        rendered_content = await cls.render_content(content, cls.MAX_WIDTH,
-                                                    group_id)
+        rendered_content = await cls.render_content(content, cls.MAX_WIDTH, group_id)
         # assemble
         if nickname_:
             spacer = Spacer.of(height=cls.SPACE_NAME_CONTENT)
@@ -192,11 +209,9 @@ class MessageRender:
         else:
             components = [rendered_content]
         name_with_content = Container.from_children(
-            components, alignment=alignment, direction=Direction.VERTICAL)
-        items = [
-            avatar_,
-            Spacer.of(width=cls.SPACE_AVATAR_CONTENT), name_with_content
-        ]
+            components, alignment=alignment, direction=Direction.VERTICAL
+        )
+        items = [avatar_, Spacer.of(width=cls.SPACE_AVATAR_CONTENT), name_with_content]
         if alignment is Alignment.END:
             items.reverse()
         return Container.from_children(
@@ -213,23 +228,29 @@ class MessageRender:
         conversation: list[Conversation],
         group_id: int | None = None,
     ) -> RenderObject:
-        children = await asyncio.gather(*(cls.create(
-            avatar=conv["avatar"],
-            content=conv["content"],
-            nickname=conv.get("nickname", ""),
-            alignment=conv.get("alignment", Alignment.START),
-            group_id=group_id,
-        ) for conv in conversation))
+        children = await asyncio.gather(
+            *(
+                cls.create(
+                    avatar=conv["avatar"],
+                    content=conv["content"],
+                    nickname=conv.get("nickname", ""),
+                    alignment=conv.get("alignment", Alignment.START),
+                    group_id=group_id,
+                )
+                for conv in conversation
+            )
+        )
         return Container.from_children(
             [
                 FixedContainer.from_children(
                     width=cls.FULL_MAX_WIDTH,
                     height=item.height,
-                    justify_content=JustifyContent.START if conv.get(
-                        "alignment", Alignment.START) == Alignment.START else
-                    JustifyContent.END,
+                    justify_content=JustifyContent.START
+                    if conv.get("alignment", Alignment.START) == Alignment.START
+                    else JustifyContent.END,
                     children=[item],
-                    direction=Direction.HORIZONTAL)
+                    direction=Direction.HORIZONTAL,
+                )
                 for item, conv in zip(children, conversation)
             ],
             direction=Direction.VERTICAL,

@@ -4,8 +4,7 @@ from typing import Any, Awaitable, Callable
 
 import pymongo
 from bson import ObjectId
-from nonebot.adapters.onebot.v11 import (GroupMessageEvent, Message,
-                                         MessageEvent)
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent
 
 from src.ext import MessageSegment as ExtMessageSegment
 
@@ -52,12 +51,7 @@ class SentMessageTracker:
         """Maintain the sent message list by removing outdated messages."""
         now = datetime.now()
         expire = now - cls.TTL
-        await cls.sent.delete_many({
-            "session_id": session_id,
-            "time": {
-                "$lt": expire
-            }
-        })
+        await cls.sent.delete_many({"session_id": session_id, "time": {"$lt": expire}})
 
     @classmethod
     async def add(
@@ -80,9 +74,7 @@ class SentMessageTracker:
             await sink(result.inserted_id, data)
 
     @classmethod
-    async def remove(cls,
-                     session_id: str,
-                     message_id: int | None = None) -> int | None:
+    async def remove(cls, session_id: str, message_id: int | None = None) -> int | None:
         """Remove a message from the sent message list.
 
         If message_id is None, remove the last message.
@@ -91,10 +83,11 @@ class SentMessageTracker:
         """
         await cls._maintain(session_id)
         if message_id is None:
-            cursor = cls.sent.find({
-                "session_id": session_id,
-                "recalled": False
-            }).sort("time", pymongo.DESCENDING).limit(1)
+            cursor = (
+                cls.sent.find({"session_id": session_id, "recalled": False})
+                .sort("time", pymongo.DESCENDING)
+                .limit(1)
+            )
             if doc := await cursor.to_list(1):
                 message_id = doc[0]["message_id"]
                 await cls.sent.update_one(
@@ -102,9 +95,7 @@ class SentMessageTracker:
                         "session_id": session_id,
                         "message_id": message_id,
                     },
-                    update={"$set": {
-                        "recalled": True
-                    }},
+                    update={"$set": {"recalled": True}},
                 )
                 return message_id
         else:
@@ -113,9 +104,7 @@ class SentMessageTracker:
                     "session_id": session_id,
                     "message_id": message_id,
                 },
-                update={"$set": {
-                    "recalled": True
-                }},
+                update={"$set": {"recalled": True}},
             )
             if update.matched_count:
                 return message_id
@@ -128,14 +117,10 @@ class SentMessageTracker:
         """
         update = await cls.sent.update_one(
             filter={
-                "session_id": {
-                    "$regex": f"^{prefix}"
-                },
+                "session_id": {"$regex": f"^{prefix}"},
                 "message_id": message_id,
             },
-            update={"$set": {
-                "recalled": True
-            }},
+            update={"$set": {"recalled": True}},
         )
         if update.matched_count:
             return message_id
@@ -143,9 +128,12 @@ class SentMessageTracker:
     @classmethod
     def get_session_id_or_prefix(cls, event: MessageEvent) -> tuple[str, str]:
         if isinstance(event, GroupMessageEvent):
-            return (cls.SESSION_GROUP.format(group_id=event.group_id,
-                                             user_id=event.user_id),
-                    cls.SESSION_GROUP_PREFIX.format(group_id=event.group_id))
+            return (
+                cls.SESSION_GROUP.format(
+                    group_id=event.group_id, user_id=event.user_id
+                ),
+                cls.SESSION_GROUP_PREFIX.format(group_id=event.group_id),
+            )
         return cls.SESSION_USER.format(user_id=event.user_id), ""
 
     @classmethod
@@ -171,12 +159,12 @@ class SentMessageTracker:
     ) -> list[MessageData]:
         filter = {}
         if group_id is not None and user_id is not None:
-            filter["session_id"] = cls.SESSION_GROUP.format(group_id=group_id,
-                                                            user_id=user_id)
+            filter["session_id"] = cls.SESSION_GROUP.format(
+                group_id=group_id, user_id=user_id
+            )
         elif group_id is not None:
             filter["session_id"] = {
-                "$regex":
-                f"^{cls.SESSION_GROUP_PREFIX.format(group_id=group_id)}"
+                "$regex": f"^{cls.SESSION_GROUP_PREFIX.format(group_id=group_id)}"
             }
         elif user_id is not None:
             filter["session_id"] = cls.SESSION_USER.format(user_id=user_id)
@@ -197,8 +185,7 @@ class SentMessageTracker:
         filter = {}
         if group_id is not None:
             filter["session_id"] = {
-                "$regex":
-                f"^{cls.SESSION_GROUP_PREFIX.format(group_id=group_id)}"
+                "$regex": f"^{cls.SESSION_GROUP_PREFIX.format(group_id=group_id)}"
             }
         if since:
             filter["time"] = {"$gte": since}

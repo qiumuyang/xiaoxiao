@@ -65,16 +65,17 @@ class FlipFlop(ImageProcessor):
             frames = [image, has_flipped]
             durations = state_duration
         io = BytesIO()
-        frames[0].save(io,
-                       format="GIF",
-                       save_all=True,
-                       append_images=frames[1:],
-                       duration=durations,
-                       loop=0,
-                       disposal=2)
+        frames[0].save(
+            io,
+            format="GIF",
+            save_all=True,
+            append_images=frames[1:],
+            duration=durations,
+            loop=0,
+            disposal=2,
+        )
         io.seek(0)
         return io
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         raise NotImplementedError

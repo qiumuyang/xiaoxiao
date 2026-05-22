@@ -28,32 +28,37 @@ class ShouldIAlways(ImageProcessor):
 
     TEMPLATE = "要我一直  <image:inline/>  吗"
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
-        image = self.scale(image,
-                           min_size=(self.MIN_WIDTH, self.MIN_WIDTH),
-                           max_size=(self.MAX_WIDTH, self.MAX_WIDTH))
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
+        image = self.scale(
+            image,
+            min_size=(self.MIN_WIDTH, self.MIN_WIDTH),
+            max_size=(self.MAX_WIDTH, self.MAX_WIDTH),
+        )
         image_large = ImageR.from_image(image)
         image_small = ImageR.from_image(image).rescale(1 / self.DOWN)
         # make font size even
         font_size = round(image_small.height * self.FONT_RATIO) // 2 * 2
         ver_spacing = round(font_size * self.VERTICAL_SPACING_RATIO)
-        return Container.from_children(
-            [
-                image_large,
-                Paragraph.from_markup(
-                    self.TEMPLATE,
-                    default=TextStyle(
-                        font=self.NotoSansHansBold,
-                        size=font_size,
-                        color=Palette.BLACK,
+        return (
+            Container.from_children(
+                [
+                    image_large,
+                    Paragraph.from_markup(
+                        self.TEMPLATE,
+                        default=TextStyle(
+                            font=self.NotoSansHansBold,
+                            size=font_size,
+                            color=Palette.BLACK,
+                        ),
+                        images=dict(image=image_small),
                     ),
-                    images=dict(image=image_small),
-                )
-            ],
-            alignment=Alignment.CENTER,
-            direction=Direction.VERTICAL,
-            spacing=ver_spacing,
-            padding=Space.of(0, 0, 0, 10),
-            background=Palette.WHITE,
-        ).render().to_pil()
+                ],
+                alignment=Alignment.CENTER,
+                direction=Direction.VERTICAL,
+                spacing=ver_spacing,
+                padding=Space.of(0, 0, 0, 10),
+                background=Palette.WHITE,
+            )
+            .render()
+            .to_pil()
+        )

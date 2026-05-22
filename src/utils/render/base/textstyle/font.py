@@ -22,6 +22,7 @@ class FontFamily:
         scale (float, only for fallback):
             The scale of the fallback font relative to the primary font.
     """
+
     regular: PathLike
     bold: PathLike
     italic: PathLike | None = None
@@ -68,7 +69,8 @@ class FontFamily:
                 f if isinstance(f, FontFamily) else FontFamily.of(regular=f)
                 for f in fallbacks
             ],
-            scale=scale)
+            scale=scale,
+        )
 
     def resolve(self, bold: bool, italic: bool) -> tuple[str, bool]:
         """Retrieves the appropriate font variant based on bold and italic flags.

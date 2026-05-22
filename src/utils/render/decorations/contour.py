@@ -52,17 +52,16 @@ class Contour(LayerDecoration):
         threshold: int = 0,
         overlay: Overlay = Overlay.ABOVE_COMPOSITE,
     ) -> Self:
-        return cls(color, thickness, dilation, contour_type, threshold,
-                   overlay)
+        return cls(color, thickness, dilation, contour_type, threshold, overlay)
 
     @override
     def render_layer(self, im: RenderImage, obj: RenderObject) -> RenderImage:
         alpha = cast[npt.NDArray[np.uint8]](im.base_im[:, :, 3])
-        trunc_alpha = np.where(alpha > self.threshold, alpha,
-                               0).astype(np.uint8)
+        trunc_alpha = np.where(alpha > self.threshold, alpha, 0).astype(np.uint8)
         if self.dilation > 0:
             trunc_alpha = cv2.dilate(
-                trunc_alpha, np.ones((self.dilation, self.dilation), np.uint8))
+                trunc_alpha, np.ones((self.dilation, self.dilation), np.uint8)
+            )
 
         layer = RenderImage.empty_like(im)
         contours, _ = cv2.findContours(

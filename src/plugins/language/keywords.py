@@ -5,9 +5,11 @@ import jieba
 
 
 class Keyword:
-
-    STOPWORDS = set(line for line in Path(
-        "data/static/language/stopwords.txt").read_text().split("\n") if line)
+    STOPWORDS = set(
+        line
+        for line in Path("data/static/language/stopwords.txt").read_text().split("\n")
+        if line
+    )
     STOPWORDS |= {chr(65039), " ", "　", "\n", "\t"}
 
     @staticmethod
@@ -28,10 +30,7 @@ class Keyword:
 
     @classmethod
     def extract(cls, text: str) -> list[str]:
-        return [
-            w for w in jieba.cut(text, use_paddle=True)
-            if w not in cls.STOPWORDS
-        ]
+        return [w for w in jieba.cut(text, use_paddle=True) if w not in cls.STOPWORDS]
 
     @classmethod
     def search(
@@ -49,7 +48,6 @@ class Keyword:
             assert len(corpus) == len(corpus_keywords)
             kw_corpus = corpus_keywords
         kw_query = cls.extract(" ".join(query).lower())
-        sim = [(cp, metric(kw_query, ref))
-               for cp, ref in zip(corpus, kw_corpus)]
+        sim = [(cp, metric(kw_query, ref)) for cp, ref in zip(corpus, kw_corpus)]
         sim.sort(key=lambda x: x[1], reverse=True)
         return [text for text, score in sim if score > threshold][:top_k]

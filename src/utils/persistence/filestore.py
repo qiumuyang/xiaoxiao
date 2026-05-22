@@ -24,7 +24,7 @@ class StorageStat(NamedTuple):
 
 logger = logger_wrapper("storage")
 
-pattern = re.compile(r'(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?')
+pattern = re.compile(r"(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?")
 
 
 def _parse_timedelta(tm: str) -> timedelta:
@@ -74,9 +74,7 @@ class FileStorage:
         self.ttl = _parse_timedelta(ttl or self.FILE_STORAGE_TTL)
 
     @classmethod
-    async def get_instance(cls,
-                           db_name: str = "files",
-                           ttl: str = "") -> "FileStorage":
+    async def get_instance(cls, db_name: str = "files", ttl: str = "") -> "FileStorage":
         async with cls._lock:
             if db_name in cls._instances:
                 return cls._instances[db_name]
@@ -140,8 +138,7 @@ class FileStorage:
                 except Exception:
                     pass
         if deleted:
-            logger.info(
-                f"Cleaned up {deleted} expired file(s) ({self.db.name})")
+            logger.info(f"Cleaned up {deleted} expired file(s) ({self.db.name})")
 
     async def _ensure_index(self):
         # drop legacy TTL index if it exists — TTL on fs.files deletes
@@ -153,7 +150,8 @@ class FileStorage:
             pass
         # compound index for efficient expired-file cleanup queries
         await self.db.fs.files.create_index(
-            [("metadata.storage_type", 1), ("metadata.expire_at", 1)])
+            [("metadata.storage_type", 1), ("metadata.expire_at", 1)]
+        )
         await self.db.fs.files.create_index([("filename", 1)], unique=True)
 
     @classmethod
@@ -162,10 +160,9 @@ class FileStorage:
         image.save(io, format="PNG")
         return io.getvalue()
 
-    async def _download_and_store(self,
-                                  url: str,
-                                  filename: str,
-                                  retries: int = 3) -> bool:
+    async def _download_and_store(
+        self, url: str, filename: str, retries: int = 3
+    ) -> bool:
         for attempt in range(retries + 1):
             try:
                 async with self.semaphore:
@@ -179,20 +176,18 @@ class FileStorage:
                 return True
             except Exception as e:
                 if attempt < retries:
-                    await asyncio.sleep(min(2**(attempt + 1), 30))
+                    await asyncio.sleep(min(2 ** (attempt + 1), 30))
                     continue
                 logger.info(f"Download failed [{filename}] from {url}: {e}")
         return False
 
-    async def store_as_temp(self, content: aiohttp.StreamReader | bytes,
-                            filename: str):
+    async def store_as_temp(self, content: aiohttp.StreamReader | bytes, filename: str):
         existing = await self.db.fs.files.find_one({"filename": filename})
         if existing and existing["metadata"]["storage_type"] != "persistent":
             try:
                 await self.fs_bucket.delete(existing["_id"])
             except Exception as e:
-                logger.warning(
-                    f"Failed to delete existing file '{filename}': {e}")
+                logger.warning(f"Failed to delete existing file '{filename}': {e}")
 
         grid_in = self.fs_bucket.open_upload_stream(
             filename,
@@ -213,28 +208,21 @@ class FileStorage:
 
         await self.db.fs.files.update_one(
             {"filename": filename},
-            {"$set": {
-                "metadata.ready": True,
-            }},
+            {
+                "$set": {
+                    "metadata.ready": True,
+                }
+            },
         )
         return filename
 
     async def promote(self, filename: str) -> bool:
         result = await self.db.fs.files.update_one(
+            {"filename": filename, "metadata.storage_type": "ephemeral"},
             {
-                "filename": filename,
-                "metadata.storage_type": "ephemeral"
-            },
-            {
-                "$set": {
-                    "metadata.storage_type": "persistent"
-                },
-                "$unset": {
-                    "metadata.expire_at": 1
-                },
-                "$inc": {
-                    "metadata.references": 1
-                }
+                "$set": {"metadata.storage_type": "persistent"},
+                "$unset": {"metadata.expire_at": 1},
+                "$inc": {"metadata.references": 1},
             },
         )
         return result.modified_count > 0
@@ -246,9 +234,9 @@ class FileStorage:
             {
                 "filename": filename,
                 "metadata.storage_type": "ephemeral",
-            }, {"$set": {
-                "metadata.expire_at": new_expire_time
-            }})
+            },
+            {"$set": {"metadata.expire_at": new_expire_time}},
+        )
         return result.modified_count > 0
 
     async def load(self, url: str, filename: str) -> bytes | None:
@@ -257,8 +245,7 @@ class FileStorage:
             if not doc and url:
                 await self._download_and_store(url, filename)
             if doc and doc["metadata"].get("ready"):
-                grid_out = await self.fs_bucket.open_download_stream_by_name(
-                    filename)
+                grid_out = await self.fs_bucket.open_download_stream_by_name(filename)
                 return await grid_out.read()
             elif url:
                 # directly download and return
@@ -289,39 +276,31 @@ class FileStorage:
             if key in doc["metadata"]:
                 return doc["metadata"][key]
 
-            grid_out = await self.fs_bucket.open_download_stream_by_name(
-                filename)
+            grid_out = await self.fs_bucket.open_download_stream_by_name(filename)
             data: bytes = await grid_out.read()
 
             value = processor(data)
 
             await self.db.fs.files.update_one(
-                {"filename": filename}, {"$set": {
-                    f"metadata.{key}": value
-                }})
+                {"filename": filename}, {"$set": {f"metadata.{key}": value}}
+            )
             return value
 
         return ""
 
     async def increase_reference(self, filename: str) -> bool:
         result = await self.db.fs.files.update_one(
-            {
-                "filename": filename,
-                "metadata.storage_type": "persistent"
-            }, {"$inc": {
-                "metadata.references": 1
-            }})
+            {"filename": filename, "metadata.storage_type": "persistent"},
+            {"$inc": {"metadata.references": 1}},
+        )
         return result.modified_count > 0
 
     async def decrease_reference(self, filename: str) -> bool:
         doc = await self.db.fs.files.find_one_and_update(
-            {
-                "filename": filename,
-                "metadata.storage_type": "persistent"
-            }, {"$inc": {
-                "metadata.references": -1
-            }},
-            return_document=True)
+            {"filename": filename, "metadata.storage_type": "persistent"},
+            {"$inc": {"metadata.references": -1}},
+            return_document=True,
+        )
         if not doc:
             return False
         if doc["metadata"]["references"] <= 0:
@@ -331,17 +310,15 @@ class FileStorage:
 
     async def get_stats(self) -> StorageStat | None:
         """Returns total number of files and cumulative size in bytes."""
-        pipeline = [{
-            "$group": {
-                "_id": "$metadata.storage_type",
-                "total_files": {
-                    "$sum": 1
-                },
-                "total_bytes": {
-                    "$sum": "$length"
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$metadata.storage_type",
+                    "total_files": {"$sum": 1},
+                    "total_bytes": {"$sum": "$length"},
                 }
             }
-        }]
+        ]
         cursor = await self.db.fs.files.aggregate(pipeline)
         result = await cursor.to_list(length=None)
         if result:

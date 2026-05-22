@@ -9,11 +9,9 @@ from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.render_ext.markdown import Markdown
 
-render_markdown = on_command("markdown",
-                             aliases={"渲染"},
-                             block=True,
-                             force_whitespace=True,
-                             priority=2)
+render_markdown = on_command(
+    "markdown", aliases={"渲染"}, block=True, force_whitespace=True, priority=2
+)
 render_markdown_reply = on_reply(("渲染", "markdown"), block=True)
 
 
@@ -29,8 +27,7 @@ async def _(arg: Message = CommandArg()):
     """
     if content := arg.extract_plain_text():
         image = Markdown(content).render().to_pil()
-        await render_markdown.finish(
-            MessageSegment.image(image, summary="Markdown"))
+        await render_markdown.finish(MessageSegment.image(image, summary="Markdown"))
 
 
 @render_markdown_reply.handle()
@@ -41,4 +38,5 @@ async def _(state: T_State):
     if content := reply.message.extract_plain_text():
         image = Markdown(content).render().to_pil()
         await render_markdown_reply.finish(
-            MessageSegment.image(image, summary="Markdown"))
+            MessageSegment.image(image, summary="Markdown")
+        )

@@ -1,12 +1,10 @@
 import pytest
 
 from src.utils.render import RenderImage
-from src.utils.render.objects.paragraph.layout import (Element, LineBreaker,
-                                                       Split)
+from src.utils.render.objects.paragraph.layout import Element, LineBreaker, Split
 
 
 class MockElement:
-
     def __init__(self, width, height, splitable=True):
         self._width = width
         self._height = height
@@ -32,8 +30,10 @@ class MockElement:
             return Split(current=self, remaining=None)
         if not self._splitable:
             return Split(current=None, remaining=self)
-        return Split(current=MockElement(width, self._height),
-                     remaining=MockElement(self._width - width, self._height))
+        return Split(
+            current=MockElement(width, self._height),
+            remaining=MockElement(self._width - width, self._height),
+        )
 
     @property
     def line_continue(self) -> bool:

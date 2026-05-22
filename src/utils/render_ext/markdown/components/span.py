@@ -14,8 +14,9 @@ class SpanRenderer:
     Builder can be used to build render objects."""
 
     @classmethod
-    def render(cls, master: MarkdownRenderer, token: Token,
-               builder: Builder) -> Builder:
+    def render(
+        cls, master: MarkdownRenderer, token: Token, builder: Builder
+    ) -> Builder:
         for span in token.children or []:
             if not isinstance(span, SpanToken):
                 raise ValueError(f"Unexpected non-span token: {span}")
@@ -27,18 +28,21 @@ class SpanRenderer:
                         builder.text("\n")
                 case Math():
                     try:
-                        builder.image(render_math(span.math,
-                                                  span.inline,
-                                                  max_width=builder.max_width),
-                                      tag="eq_",
-                                      inline=span.inline)
+                        builder.image(
+                            render_math(
+                                span.math, span.inline, max_width=builder.max_width
+                            ),
+                            tag="eq_",
+                            inline=span.inline,
+                        )
                     except Exception:
                         builder.text("[公式渲染错误]")
                 case Image():
                     try:
-                        builder.image(fetch_image(span.src),
-                                      caption=(span.title,
-                                               master.style.caption))
+                        builder.image(
+                            fetch_image(span.src),
+                            caption=(span.title, master.style.caption),
+                        )
                     except Exception:
                         alt_text = "图片渲染错误"
                         if span.children:
@@ -49,8 +53,7 @@ class SpanRenderer:
                 case _:
                     style_with_name = master.style.span.get(type(span))
                     if not style_with_name:
-                        raise NotImplementedError(
-                            f"Unsupported span token: {span}")
+                        raise NotImplementedError(f"Unsupported span token: {span}")
                     style, name = style_with_name
                     with builder.style(name, style, dedup=False):
                         cls.render(master, span, builder)

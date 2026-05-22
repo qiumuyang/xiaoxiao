@@ -27,8 +27,7 @@ class _DecorationAlias(TypedDict, total=False):
 def _make_text_decoration(
     type: TextDecorationType,
     thickness: int = -1,
-    layer: TextDecorationLayer
-    | Literal["over", "under"] = TextDecorationLayer.OVER,
+    layer: TextDecorationLayer | Literal["over", "under"] = TextDecorationLayer.OVER,
 ) -> "TextDecoration":
     if isinstance(layer, str):
         layer = TextDecorationLayer[layer.upper()]
@@ -72,8 +71,11 @@ class TextDecoration:
     @staticmethod
     def all(**kwargs: Unpack[_DecorationAlias]) -> "TextDecoration":
         return _make_text_decoration(
-            TextDecorationType.UNDERLINE | TextDecorationType.OVERLINE
-            | TextDecorationType.LINE_THROUGH, **kwargs)
+            TextDecorationType.UNDERLINE
+            | TextDecorationType.OVERLINE
+            | TextDecorationType.LINE_THROUGH,
+            **kwargs,
+        )
 
 
 @dataclass(frozen=True)
@@ -85,6 +87,7 @@ class TextShading:
         rounded: whether to use rounded corner rect.
         padding: padding around the text.
     """
+
     color: Color
     rounded: bool = True
     padding: Space = Space.all(0)

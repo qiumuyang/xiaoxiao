@@ -49,14 +49,15 @@ def expand_capture_group_references(s: str) -> str:
 
     def dfs(i: int, vis: list[bool]) -> list[str]:
         if i < 0 or i >= len(groups):
-            return [rf"\{i+1}"]
+            return [rf"\{i + 1}"]
         if processed[i]:
             return [group_texts[i]]
         if vis[i]:
             raise ValueError("Circular reference detected")
         vis[i] = True
-        text = pattern.sub(lambda m: "".join(dfs(int(m.group(1)) - 1, vis)),
-                           group_texts[i])
+        text = pattern.sub(
+            lambda m: "".join(dfs(int(m.group(1)) - 1, vis)), group_texts[i]
+        )
         group_texts[i] = text
         processed[i] = True
         return [text]
@@ -65,6 +66,10 @@ def expand_capture_group_references(s: str) -> str:
         dfs(i, [False] * len(groups))
     # 3. Replace references
     return pattern.sub(
-        lambda m: group_texts[idx] if 0 <=
-        (idx := int(m.group(1)) - 1) < len(group_texts) else m.group(0),
-        "".join(output))
+        lambda m: (
+            group_texts[idx]
+            if 0 <= (idx := int(m.group(1)) - 1) < len(group_texts)
+            else m.group(0)
+        ),
+        "".join(output),
+    )

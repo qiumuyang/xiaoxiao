@@ -1,23 +1,34 @@
 import pytest
 
 from src.utils.render.objects.paragraph.markup.parser import (
-    MarkupElement, MarkupImage, MarkupParser, MarkupSyntaxError, MarkupText)
+    MarkupElement,
+    MarkupImage,
+    MarkupParser,
+    MarkupSyntaxError,
+    MarkupText,
+)
 
 
 def test_markup_good():
     testcases = [
         ("<br/>", [MarkupImage("br")]),
         ("<br></br>", [MarkupElement("br", [])]),
-        ("<div><span>hello</span></div>", [
-            MarkupElement("div",
-                          [MarkupElement("span", [MarkupText("hello")])])
-        ]),
-        ("<div><span>hello</span><span>world</span></div>", [
-            MarkupElement("div", [
-                MarkupElement("span", [MarkupText("hello")]),
-                MarkupElement("span", [MarkupText("world")])
-            ])
-        ]),
+        (
+            "<div><span>hello</span></div>",
+            [MarkupElement("div", [MarkupElement("span", [MarkupText("hello")])])],
+        ),
+        (
+            "<div><span>hello</span><span>world</span></div>",
+            [
+                MarkupElement(
+                    "div",
+                    [
+                        MarkupElement("span", [MarkupText("hello")]),
+                        MarkupElement("span", [MarkupText("world")]),
+                    ],
+                )
+            ],
+        ),
         ("Pure text", [MarkupText("Pure text")]),
         ("<p><br/></p>", [MarkupElement("p", [MarkupImage("br")])]),
         ("<invalid!>", [MarkupText("<invalid!>")]),

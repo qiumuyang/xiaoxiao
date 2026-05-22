@@ -15,6 +15,7 @@ ConstraintTuple = Tuple[RenderObject, str, RenderObject]
 
 class Relative(TypedDict, total=False):
     """Relative position of an object to another object."""
+
     above: RenderObject
     below: RenderObject
     left: RenderObject
@@ -35,6 +36,7 @@ class Relative(TypedDict, total=False):
 
 class Constraint(TypedDict, total=False):
     """Constraint between two objects."""
+
     above: RenderObject
     below: RenderObject
     left: RenderObject
@@ -80,10 +82,10 @@ class RelativeContainer(RenderObject):
         self._constraints: list[ConstraintTuple] = []
 
     def add_child(
-            self,
-            child: RenderObject,
-            offset: XY = (0, 0),
-            **kwargs: Unpack[Relative],
+        self,
+        child: RenderObject,
+        offset: XY = (0, 0),
+        **kwargs: Unpack[Relative],
     ) -> Self:
         """Add a child to the container and set its relative position.
 
@@ -164,15 +166,16 @@ class RelativeContainer(RenderObject):
                 continue
 
             # initialize x, y with undefined values
-            obj_box = boxes.get(
-                obj, Box.of_size(undef, undef, obj.width, obj.height))
+            obj_box = boxes.get(obj, Box.of_size(undef, undef, obj.width, obj.height))
             for pred in self._graph.get_predecessors(obj):
                 for relative in self._graph.get_edges(pred, obj):
                     obj_box = obj_box.relative_to(boxes[pred], relative)
             # check if x, y are defined
             if obj_box.x1 is undef or obj_box.y1 is undef:
-                raise ValueError(f"Could not infer position of object: "
-                                 f"{obj}(x={obj_box.x1}, y={obj_box.y1})")
+                raise ValueError(
+                    f"Could not infer position of object: "
+                    f"{obj}(x={obj_box.x1}, y={obj_box.y1})"
+                )
             # apply offset
             boxes[obj] = obj_box.offset(*self._offsets.get(obj, (0, 0)))
 
@@ -231,7 +234,8 @@ class RelativeContainer(RenderObject):
 
         if width_c < 0 or height_c < 0:
             raise ValueError(
-                f"Could not infer size of container: w={width}, h={height}")
+                f"Could not infer size of container: w={width}, h={height}"
+            )
 
         if self.strict:
             # remove objects that are partially outside the container
@@ -242,8 +246,7 @@ class RelativeContainer(RenderObject):
                 _x2 = box.x2.eval(x=0, y=0, w=width_c, h=height_c)
                 _y1 = box.y1.eval(x=0, y=0, w=width_c, h=height_c)
                 _y2 = box.y2.eval(x=0, y=0, w=width_c, h=height_c)
-                if (_x1 >= 0 and _x2 <= width_c and _y1 >= 0
-                        and _y2 <= height_c):
+                if _x1 >= 0 and _x2 <= width_c and _y1 >= 0 and _y2 <= height_c:
                     inside_box[obj] = box
             if len(inside_box) < len(boxes):
                 return self._infer_size(inside_box, x, y, w, h)

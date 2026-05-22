@@ -27,7 +27,6 @@ class Interpolation(Enum):
 
 
 class Border:
-
     def __init__(self, color: Color, width: int) -> None:
         self.color = color
         self.width = width
@@ -42,7 +41,6 @@ class Border:
 
 
 class Space:
-
     def __init__(self, left: int, right: int, top: int, bottom: int) -> None:
         self.left = left
         self.right = right
@@ -102,8 +100,8 @@ class BoundingBox(NamedTuple):
     def intersects(self, other: Self) -> bool:
         """Check if two bounding boxes intersect."""
         return any(
-            other.contains(x, y) for x in (self.x1, self.x2)
-            for y in (self.y1, self.y2))
+            other.contains(x, y) for x in (self.x1, self.x2) for y in (self.y1, self.y2)
+        )
 
     @property
     def x1(self) -> int:

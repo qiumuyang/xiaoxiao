@@ -7,7 +7,6 @@ T = TypeVar("T", bound=Event)
 
 
 class EventConvert(Generic[T]):
-
     def __init__(self, type: type[T]) -> None:
         self.type = type
 

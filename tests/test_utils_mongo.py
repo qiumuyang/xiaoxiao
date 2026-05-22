@@ -26,10 +26,9 @@ async def test_mongo():
 
     @collection.serialize()
     def serialize(data: MessageData):
-        content = [{
-            "type": segment.type,
-            "data": segment.data
-        } for segment in data.content]
+        content = [
+            {"type": segment.type, "data": segment.data} for segment in data.content
+        ]
         return {"time": data.time, "content": content, "handled": data.handled}
 
     @collection.deserialize(drop_id=True)
@@ -69,7 +68,7 @@ async def test_mongo():
         MessageSegment.face(123),
         MessageSegment.forward("id"),
         MessageSegment.image(uuid4().bytes, cache=True, timeout=2),
-        MessageSegment.json("{\"data\": 1}"),
+        MessageSegment.json('{"data": 1}'),
         MessageSegment.location(123.456, 654.321, "address"),
         MessageSegment.music("music", 999),
         MessageSegment.node_custom(1234567, "passed", "plain_text"),
@@ -80,10 +79,12 @@ async def test_mongo():
     ]
     try:
         for i, msg in enumerate(messages):
-            message = Message(messages[:i + 1])
-            data = MessageData(time=datetime.now(),
-                               content=message,
-                               handled=int("0x" + uuid4().hex[0], 16) % 2 == 0)
+            message = Message(messages[: i + 1])
+            data = MessageData(
+                time=datetime.now(),
+                content=message,
+                handled=int("0x" + uuid4().hex[0], 16) % 2 == 0,
+            )
             result = await collection.insert_one(data)
             assert result.inserted_id
             data_out = await collection.get(result.inserted_id)
@@ -91,27 +92,34 @@ async def test_mongo():
             assert data_out.content == data.content
             assert data_out.handled == data.handled
             # mongo uses milliseconds
-            assert data.time.replace(microsecond=data.time.microsecond //
-                                     1000 * 1000) == data_out.time
+            assert (
+                data.time.replace(microsecond=data.time.microsecond // 1000 * 1000)
+                == data_out.time
+            )
 
-        failure = Message([
-            MessageSegment.node_custom(1234567, "nested",
-                                       Message(MessageSegment.text("text")))
-        ])
+        failure = Message(
+            [
+                MessageSegment.node_custom(
+                    1234567, "nested", Message(MessageSegment.text("text"))
+                )
+            ]
+        )
         with pytest.raises(InvalidDocument):
             await collection.insert_one(
                 MessageData(
                     time=datetime.now(),
                     content=failure,
                     handled=False,
-                ))
+                )
+            )
 
         result = await collection2.insert_one(
             MessageData(
                 time=datetime.now(),
                 content=failure,
                 handled=False,
-            ))
+            )
+        )
         assert result.inserted_id
         data_out = await collection2.get(result.inserted_id)
         assert data_out and data_out.content == failure

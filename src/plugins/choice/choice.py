@@ -2,8 +2,7 @@ import asyncio
 import random
 from typing import NamedTuple
 
-from nonebot.adapters.onebot.v11 import (Bot, GroupMessageEvent, Message,
-                                         MessageSegment)
+from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message, MessageSegment
 from nonebot.exception import FinishedException
 from nonebot.matcher import Matcher
 
@@ -12,15 +11,26 @@ from src.ext import MessageSegment as ExtMessageSegment
 from src.ext.message.comparator import ImagePHashComparator
 from src.utils.log import logger_wrapper
 from src.utils.render import Interpolation, RenderObject
-from src.utils.userlist import (ListPermissionError, MessageItem,
-                                ReferenceItem, TooManyItemsError,
-                                TooManyListsError, UserListError,
-                                UserListService)
+from src.utils.userlist import (
+    ListPermissionError,
+    MessageItem,
+    ReferenceItem,
+    TooManyItemsError,
+    TooManyListsError,
+    UserListError,
+    UserListService,
+)
 
 from .config import ChoiceConfig
-from .exception import (ChoiceError, InvalidIndexError, InvalidItemOpError,
-                         InvalidListNameError, ListExistsError,
-                         ListNotExistsError, NonPlainTextError)
+from .exception import (
+    ChoiceError,
+    InvalidIndexError,
+    InvalidItemOpError,
+    InvalidListNameError,
+    ListExistsError,
+    ListNotExistsError,
+    NonPlainTextError,
+)
 from .parse import Action, Op
 from .render import ChoiceRender
 
@@ -33,9 +43,9 @@ class Number(NamedTuple):
     is_all: bool = False
 
 
-def extract_plain_text(content: str,
-                       symtab: dict[str, MessageSegment],
-                       exception: Exception | None = None):
+def extract_plain_text(
+    content: str, symtab: dict[str, MessageSegment], exception: Exception | None = None
+):
     message = MessageExtension.decode(content, symtab)
     if any(not seg.is_text() for seg in message) and exception is not None:
         raise exception
@@ -48,8 +58,9 @@ def parse_page_or_item_number(
 ) -> Number:
     if not action.items:
         return Number(0, True)
-    s = extract_plain_text(action.items[0].content, symtab,
-                           NonPlainTextError("页码/索引"))
+    s = extract_plain_text(
+        action.items[0].content, symtab, NonPlainTextError("页码/索引")
+    )
     if s.lower() == "all":
         return Number(0, True, True)
     if s.startswith("#"):
@@ -66,7 +77,6 @@ def parse_page_or_item_number(
 
 
 class ChoiceHandler:
-
     MAX_LIST_NAME_LEN = 20
     NUM_ITEMS_PER_PAGE = ChoiceRender.PAGE_SIZE
 
@@ -76,8 +86,7 @@ class ChoiceHandler:
         TooManyItemsError: "该列表中项目数量已达上限",
     }
 
-    def __init__(self, bot: Bot, event: GroupMessageEvent,
-                 matcher: type[Matcher]):
+    def __init__(self, bot: Bot, event: GroupMessageEvent, matcher: type[Matcher]):
         self.bot = bot
         self.event = event
         self.matcher = matcher
@@ -92,8 +101,7 @@ class ChoiceHandler:
         if not lst_meta:
             await self.matcher.finish("还没有创建任何列表")
         obj = await ChoiceRender.render_list_overview(*lst_meta)
-        await self.matcher.finish(
-            ExtMessageSegment.image(obj.render().to_pil()))
+        await self.matcher.finish(ExtMessageSegment.image(obj.render().to_pil()))
 
     async def execute_search(
         self,
@@ -102,8 +110,9 @@ class ChoiceHandler:
         symtab: dict[str, MessageSegment],
     ):
         try:
-            list_name = extract_plain_text(action.name, symtab,
-                                           NonPlainTextError("列表名称"))
+            list_name = extract_plain_text(
+                action.name, symtab, NonPlainTextError("列表名称")
+            )
             lst = await UserListService.find_list(self.group_id, list_name)
             if lst is None:
                 raise ListNotExistsError(list_name)
@@ -118,11 +127,14 @@ class ChoiceHandler:
             logger.error("Unexpected error", exception=e)
             await self.matcher.finish(f"未知错误: {e}")
 
-        message_items = [(index, item) for index, item in enumerate(lst.items)
-                         if isinstance(item, MessageItem)]
-        match_result = await asyncio.gather(*[
-            self.comparator(content, item.content) for _, item in message_items
-        ])
+        message_items = [
+            (index, item)
+            for index, item in enumerate(lst.items)
+            if isinstance(item, MessageItem)
+        ]
+        match_result = await asyncio.gather(
+            *[self.comparator(content, item.content) for _, item in message_items]
+        )
         matched: list[tuple[int, MessageItem | ReferenceItem]] = [
             (index, item)
             for (index, item), matched in zip(message_items, match_result)
@@ -130,18 +142,22 @@ class ChoiceHandler:
         ]
 
         # process reference items
-        ref_items = [(index, item) for index, item in enumerate(lst.items)
-                     if isinstance(item, ReferenceItem)]
+        ref_items = [
+            (index, item)
+            for index, item in enumerate(lst.items)
+            if isinstance(item, ReferenceItem)
+        ]
         for index, item in ref_items:
-            ref_list = await UserListService.find_list(self.group_id,
-                                                       item.name)
+            ref_list = await UserListService.find_list(self.group_id, item.name)
             if ref_list is None:
                 continue
-            ref_match = await asyncio.gather(*[
-                self.comparator(content, ref_item.content)
-                for ref_item in ref_list.items
-                if isinstance(ref_item, MessageItem)
-            ])
+            ref_match = await asyncio.gather(
+                *[
+                    self.comparator(content, ref_item.content)
+                    for ref_item in ref_list.items
+                    if isinstance(ref_item, MessageItem)
+                ]
+            )
             if any(ref_match):
                 matched.append((index, item))
 
@@ -154,8 +170,7 @@ class ChoiceHandler:
             userlist=lst,
             items=matched,
         )
-        await self.matcher.finish(
-            ExtMessageSegment.image(obj.render().to_pil()))
+        await self.matcher.finish(ExtMessageSegment.image(obj.render().to_pil()))
 
     async def execute(
         self,
@@ -165,11 +180,13 @@ class ChoiceHandler:
         sudo: bool = False,
     ):
         try:
-            lst_name = extract_plain_text(action.name, symtab,
-                                          NonPlainTextError("列表名称"))
+            lst_name = extract_plain_text(
+                action.name, symtab, NonPlainTextError("列表名称")
+            )
             if len(lst_name) > self.MAX_LIST_NAME_LEN:
                 raise InvalidListNameError(
-                    f"列表名称至多包含{self.MAX_LIST_NAME_LEN}个字符")
+                    f"列表名称至多包含{self.MAX_LIST_NAME_LEN}个字符"
+                )
             if not lst_name:
                 raise InvalidListNameError("列表名称不可为空")
 
@@ -210,12 +227,10 @@ class ChoiceHandler:
                     if parsed.is_all:
                         pagination = None
                     else:
-                        pagination = lst.paginate(parsed.num,
-                                                  self.NUM_ITEMS_PER_PAGE)
+                        pagination = lst.paginate(parsed.num, self.NUM_ITEMS_PER_PAGE)
                     obj = await ChoiceRender.render_list(
-                        group_id=self.group_id,
-                        userlist=lst,
-                        pagination=pagination)
+                        group_id=self.group_id, userlist=lst, pagination=pagination
+                    )
                 elif not 0 <= parsed.num < len(lst):
                     raise InvalidIndexError(str(parsed.num + 1))
                 else:
@@ -224,38 +239,45 @@ class ChoiceHandler:
                         obj = f"[引用] {item.name}"
                     else:
                         obj = item.content
-                        obj = await MessageExtension.replace_with_local_image(
-                            obj)
+                        obj = await MessageExtension.replace_with_local_image(obj)
                 if isinstance(obj, RenderObject):
-                    result = ExtMessageSegment.image(obj.render().thumbnail(
-                        max_height=2000,
-                        interpolation=Interpolation.LANCZOS).to_pil())
+                    result = ExtMessageSegment.image(
+                        obj.render()
+                        .thumbnail(max_height=2000, interpolation=Interpolation.LANCZOS)
+                        .to_pil()
+                    )
                 else:
                     result = obj
                 await self.matcher.finish(result)
             case Op.REMOVE:
                 if lst is None:
                     raise ListNotExistsError(list_name)
-                await UserListService.remove_list(self.group_id, list_name,
-                                                  operator_id, sudo)
+                await UserListService.remove_list(
+                    self.group_id, list_name, operator_id, sudo
+                )
                 # display a grayscale image for the deleted list
-                obj = await ChoiceRender.render_list(group_id=self.group_id,
-                                                     userlist=lst)
+                obj = await ChoiceRender.render_list(
+                    group_id=self.group_id, userlist=lst
+                )
                 await self.matcher.finish(
-                    Message([
-                        ExtMessageSegment.text(f"列表 [{list_name}] 已删除"),
-                        ExtMessageSegment.image(
-                            obj.render().to_grayscale().to_pil())
-                    ]))
+                    Message(
+                        [
+                            ExtMessageSegment.text(f"列表 [{list_name}] 已删除"),
+                            ExtMessageSegment.image(
+                                obj.render().to_grayscale().to_pil()
+                            ),
+                        ]
+                    )
+                )
             case Op.ADD:
                 if lst is not None:
                     raise ListExistsError(list_name)
-                await UserListService.create_list(self.group_id, list_name,
-                                                  operator_id)
+                await UserListService.create_list(self.group_id, list_name, operator_id)
                 await self.matcher.finish(f"列表 [{list_name}] 已创建")
             case Op.TOGGLE:
-                async with ChoiceConfig.edit(user_id=operator_id,
-                                             group_id=self.group_id) as cfg:
+                async with ChoiceConfig.edit(
+                    user_id=operator_id, group_id=self.group_id
+                ) as cfg:
                     if list_name not in cfg.shortcuts:
                         if lst is None:
                             raise ListNotExistsError(list_name)
@@ -333,9 +355,10 @@ class ChoiceHandler:
                         for i, lst_item in enumerate(lst.items):
                             if isinstance(lst_item, MessageItem):
                                 content = lst_item.content
-                                if all(seg.is_text() for seg in
-                                       content) and content.extract_plain_text(
-                                       ) == plain_text:
+                                if (
+                                    all(seg.is_text() for seg in content)
+                                    and content.extract_plain_text() == plain_text
+                                ):
                                     remove_index.append(i)
                                     updated = True
                                     break  # only remove the first match
@@ -345,14 +368,17 @@ class ChoiceHandler:
                     raise InvalidItemOpError
         if remove_index:
             # perform remove before add
-            await UserListService.remove_by_index(self.group_id, list_name,
-                                                  *set(remove_index))
+            await UserListService.remove_by_index(
+                self.group_id, list_name, *set(remove_index)
+            )
         if add_msg:
-            await UserListService.append_message(self.group_id, list_name,
-                                                 operator_id, *add_msg)
+            await UserListService.append_message(
+                self.group_id, list_name, operator_id, *add_msg
+            )
         if add_ref:
-            await UserListService.append_reference(self.group_id, list_name,
-                                                   operator_id, *add_ref)
+            await UserListService.append_reference(
+                self.group_id, list_name, operator_id, *add_ref
+            )
 
         lst = await UserListService.find_list(self.group_id, list_name)
         if lst is None:
@@ -368,7 +394,8 @@ class ChoiceHandler:
             if not remove_fail:
                 await self.matcher.finish(f"列表 [{list_name}] 已更新")
             else:
-                await self.matcher.finish(f"列表 [{list_name}] 已更新\n"
-                                          f"未匹配的条目: {', '.join(remove_fail)}")
+                await self.matcher.finish(
+                    f"列表 [{list_name}] 已更新\n未匹配的条目: {', '.join(remove_fail)}"
+                )
         else:
             await self.matcher.finish(f"列表 [{list_name}] 未更新")

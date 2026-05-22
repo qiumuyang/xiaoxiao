@@ -7,8 +7,13 @@ from nonebot.typing import T_State
 
 from src.ext import api
 from src.ext.event import GroupReactionAdd, GroupReactionAddEvent
-from src.ext.message import (Button, ButtonAction, ButtonStyle,
-                             MessageExtension, MessageSegment)
+from src.ext.message import (
+    Button,
+    ButtonAction,
+    ButtonStyle,
+    MessageExtension,
+    MessageSegment,
+)
 from src.ext.on import on_reply
 
 reaction_reply = on_reply("贴", block=True)
@@ -22,17 +27,17 @@ follow_reaction = on_notice()
 async def _(bot: Bot, event: GroupMessageEvent):
     button1 = Button("Click me", "ping", enter=True, visited_text="Clicked")
     button2 = Button("问什么", "问什么", enter=False)
-    button3 = Button("Tencent",
-                     "https://www.tencent.com",
-                     enter=True,
-                     action=ButtonAction.JUMP,
-                     style=ButtonStyle.GRAY_LINE)
+    button3 = Button(
+        "Tencent",
+        "https://www.tencent.com",
+        enter=True,
+        action=ButtonAction.JUMP,
+        style=ButtonStyle.GRAY_LINE,
+    )
     keyboard = button3 + (button1 | button2)
-    message = await MessageExtension.markdown("# Test for keyboard\n\n",
-                                              int(bot.self_id),
-                                              "鸮鸮",
-                                              keyboard=keyboard,
-                                              bot=bot)
+    message = await MessageExtension.markdown(
+        "# Test for keyboard\n\n", int(bot.self_id), "鸮鸮", keyboard=keyboard, bot=bot
+    )
     await bot.send_group_forward_msg(messages=message, group_id=event.group_id)
     await send_keyboard.finish()
 
@@ -40,15 +45,16 @@ async def _(bot: Bot, event: GroupMessageEvent):
 @send_reply.handle()
 async def _(event: GroupMessageEvent):
     await send_reply.finish(
-        MessageSegment.reply(event.message_id) + MessageSegment.text("reply"))
+        MessageSegment.reply(event.message_id) + MessageSegment.text("reply")
+    )
 
 
 @follow_reaction.handle()
 async def _(bot: Bot, event: GroupReactionAddEvent = GroupReactionAdd()):
     if event.count == 3:
-        await api.set_emoji_reaction(group_id=event.group_id,
-                                     message_id=event.message_id,
-                                     emoji=event.code)
+        await api.set_emoji_reaction(
+            group_id=event.group_id, message_id=event.message_id, emoji=event.code
+        )
 
 
 EXCLUDE_CODEPOINTS = {
@@ -76,9 +82,9 @@ async def _(bot: Bot, event: GroupMessageEvent, state: T_State):
         seg = MessageSegment.from_onebot(seg)
         if seg.is_face():
             id = seg.extract_face()
-            await api.set_emoji_reaction(group_id=event.group_id,
-                                         message_id=event.message_id,
-                                         emoji=str(id))
+            await api.set_emoji_reaction(
+                group_id=event.group_id, message_id=event.message_id, emoji=str(id)
+            )
             max_count -= 1
             if max_count == 0:
                 break
@@ -88,9 +94,11 @@ async def _(bot: Bot, event: GroupMessageEvent, state: T_State):
                 emj = e["emoji"]
                 if emj in EXCLUDE_CODEPOINTS or len(emj) != 1:
                     continue
-                await api.set_emoji_reaction(group_id=event.group_id,
-                                             message_id=event.message_id,
-                                             emoji=str(ord(emj)))
+                await api.set_emoji_reaction(
+                    group_id=event.group_id,
+                    message_id=event.message_id,
+                    emoji=str(ord(emj)),
+                )
                 max_count -= 1
                 if max_count == 0:
                     break

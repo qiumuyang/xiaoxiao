@@ -23,7 +23,6 @@ class FontMetrics:
 
 
 class TextFont:
-
     metrics: dict[str, FontMetrics] = {}
     cmaps: dict[str, Any] = {}
 
@@ -45,8 +44,7 @@ class TextFont:
             else:
                 # TODO: OTF check "CFF " table?
                 y_min = 0
-            cls.metrics[font_path] = FontMetrics(ascent, descent, y_min,
-                                                 units_per_em)
+            cls.metrics[font_path] = FontMetrics(ascent, descent, y_min, units_per_em)
             cls.cmaps[font_path] = cmap
 
     @classmethod
@@ -93,8 +91,7 @@ class TextFont:
         width = round(font.getlength(text))
         height = ascent + descent
         im1 = Image.new("RGBA", (width, height), color=(255, 255, 255, 0))
-        im2 = Image.new("RGBA", (width, height + 100),
-                        color=(255, 255, 255, 0))
+        im2 = Image.new("RGBA", (width, height + 100), color=(255, 255, 255, 0))
         draw1 = ImageDraw.Draw(im1)
         draw2 = ImageDraw.Draw(im2)
         draw1.text(xy=(0, 0), text=text, fill=(0, 0, 0), font=font)

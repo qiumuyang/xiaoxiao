@@ -9,10 +9,12 @@ from src.utils.doc import CommandCategory, command_doc
 from .processor import ImageProcessor
 
 
-@command_doc("憋不不憋",
-             aliases={"向右反射"},
-             category=CommandCategory.IMAGE,
-             visible_in_overview=False)
+@command_doc(
+    "憋不不憋",
+    aliases={"向右反射"},
+    category=CommandCategory.IMAGE,
+    visible_in_overview=False,
+)
 class Reflect(ImageProcessor):
     """
     将图片的一半复制并翻转到另一半
@@ -39,8 +41,7 @@ class Reflect(ImageProcessor):
         super().__init__()
         self.source = direction[0]
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         w, h = image.size
         l, t, r, b = self.CROP[self.source]
         lx, ty, rx, by = map(math.floor, (w * l, h * t, w * r, h * b))
@@ -51,12 +52,15 @@ class Reflect(ImageProcessor):
         return result
 
 
-command_doc("向左反射", category=CommandCategory.IMAGE,
-            visible_in_overview=False)(Reflect)
-command_doc("向上反射", category=CommandCategory.IMAGE,
-            visible_in_overview=False)(Reflect)
-command_doc("向下反射", category=CommandCategory.IMAGE,
-            visible_in_overview=False)(Reflect)
+command_doc("向左反射", category=CommandCategory.IMAGE, visible_in_overview=False)(
+    Reflect
+)
+command_doc("向上反射", category=CommandCategory.IMAGE, visible_in_overview=False)(
+    Reflect
+)
+command_doc("向下反射", category=CommandCategory.IMAGE, visible_in_overview=False)(
+    Reflect
+)
 
 
 @command_doc("倒放", category=CommandCategory.IMAGE, visible_in_overview=False)
@@ -80,17 +84,18 @@ class Reverse(ImageProcessor):
         frames.reverse()
         durations = [f.info["duration"] for f in frames]
         io = BytesIO()
-        frames[0].save(io,
-                       format="GIF",
-                       save_all=True,
-                       append_images=frames[1:],
-                       loop=0,
-                       duration=durations,
-                       disposal=2)
+        frames[0].save(
+            io,
+            format="GIF",
+            save_all=True,
+            append_images=frames[1:],
+            loop=0,
+            duration=durations,
+            disposal=2,
+        )
         return io
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         return image
 
 
@@ -105,8 +110,7 @@ class GrayScale(ImageProcessor):
         ……建议切换至医疗部门色觉诊断模式。
     """
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         result = image.convert("L")
         return result
 
@@ -127,10 +131,8 @@ class Flip(ImageProcessor):
         else:
             self.method = Image.Transpose.FLIP_TOP_BOTTOM
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         return image.transpose(self.method)
 
 
-command_doc("镜像", category=CommandCategory.IMAGE,
-            visible_in_overview=False)(Flip)
+command_doc("镜像", category=CommandCategory.IMAGE, visible_in_overview=False)(Flip)

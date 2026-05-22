@@ -3,8 +3,7 @@ from pathlib import Path
 from typing import Any, get_args, get_origin
 
 import dotenv
-from watchdog.events import (DirModifiedEvent, FileModifiedEvent,
-                             FileSystemEventHandler)
+from watchdog.events import DirModifiedEvent, FileModifiedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from .log import logger_wrapper
@@ -17,8 +16,7 @@ def _construct_parser(type):
     if get_origin(type) is dict:
         kt, vt = get_args(type)
         return lambda v: {
-            kt(k): vt(v)
-            for k, v in (pair.split(":") for pair in v.split(","))
+            kt(k): vt(v) for k, v in (pair.split(":") for pair in v.split(","))
         }
     return type
 
@@ -38,15 +36,17 @@ def set_class_var_by_env(cls) -> dict[str, Any]:
             continue
         value_type = _construct_parser(value_type)
         setattr(
-            cls, key,
+            cls,
+            key,
             value_type(env_value)
-            if value_type is not bool else env_value.lower() in {"true", "1"})
+            if value_type is not bool
+            else env_value.lower() in {"true", "1"},
+        )
         injected[key] = getattr(cls, key)
     return injected
 
 
 class EnvFileWatcher(FileSystemEventHandler):
-
     def __init__(self):
         self.logger = logger_wrapper("env")
         self.injected_cls = set()
@@ -86,9 +86,10 @@ class EnvFileWatcher(FileSystemEventHandler):
             if not diff:
                 return
             self.history = new_inject
-            self.logger.info(f"Update from {src_path.name}: \n" +
-                             ("\n".join(f"{k}: {v[0]} -> {v[1]}"
-                                        for k, v in diff.items())))
+            self.logger.info(
+                f"Update from {src_path.name}: \n"
+                + ("\n".join(f"{k}: {v[0]} -> {v[1]}" for k, v in diff.items()))
+            )
 
 
 watcher = EnvFileWatcher()
@@ -116,7 +117,7 @@ if __name__ == "__main__":
         RECENT_MIN_INTERVAL_MUTE: int
 
     while 1:
-        print(Config.host, Config.ports, Config.names,
-              Config.RECENT_MIN_INTERVAL_MUTE)
+        print(Config.host, Config.ports, Config.names, Config.RECENT_MIN_INTERVAL_MUTE)
         from time import sleep
+
         sleep(3)

@@ -10,7 +10,6 @@ from src.utils.persistence.serialize import deserialize, serialize
 
 @dataclass
 class ObjectTest:
-
     @dataclass
     class Nested:
         arr: list[int] | None
@@ -30,26 +29,21 @@ class ObjectTest:
 
 
 def test_serialize_deserialize():
-    obj = ObjectTest(plain=1,
-                     plain2="2",
-                     plain3=3.0,
-                     date=datetime(2021, 1, 1),
-                     container=[1, 2, 3],
-                     container2={
-                         "a": 1.0,
-                         "b": 2.0
-                     },
-                     optional=None,
-                     nested=ObjectTest.Nested(arr=[1, 2, 3]),
-                     multiple=[
-                         ObjectTest.Nested(arr=[1, 2, 3]),
-                         ObjectTest.Nested(arr=[4, 5, 6])
-                     ],
-                     multiple2=[{
-                         "a": ObjectTest.Nested(arr=[1, 2, 3])
-                     }, {
-                         "b": ObjectTest.Nested(arr=[4, 5, 6])
-                     }])
+    obj = ObjectTest(
+        plain=1,
+        plain2="2",
+        plain3=3.0,
+        date=datetime(2021, 1, 1),
+        container=[1, 2, 3],
+        container2={"a": 1.0, "b": 2.0},
+        optional=None,
+        nested=ObjectTest.Nested(arr=[1, 2, 3]),
+        multiple=[ObjectTest.Nested(arr=[1, 2, 3]), ObjectTest.Nested(arr=[4, 5, 6])],
+        multiple2=[
+            {"a": ObjectTest.Nested(arr=[1, 2, 3])},
+            {"b": ObjectTest.Nested(arr=[4, 5, 6])},
+        ],
+    )
 
     serialized = serialize(obj)
     deserialized = deserialize(serialized, ObjectTest)
@@ -66,18 +60,13 @@ class ObjectTest2(BaseModel):
 @pytest.mark.asyncio
 async def test_serialize_deserialize_pydantic():
     collection: Collection[dict, ObjectTest2] = Mongo.collection(
-        name="test_serialize", db="test")
+        name="test_serialize", db="test"
+    )
     collection.auto_serialize(ObjectTest2)
     from uuid import uuid4
 
     uuid = str(uuid4())
-    obj = ObjectTest2(uuid=uuid,
-                      time=datetime(2021, 1, 1),
-                      nested=[{
-                          "a": 1
-                      }, {
-                          "b": 2
-                      }])
+    obj = ObjectTest2(uuid=uuid, time=datetime(2021, 1, 1), nested=[{"a": 1}, {"b": 2}])
     await collection.insert_one(obj)
     result = await collection.find_one({"uuid": uuid})
     assert result is not None

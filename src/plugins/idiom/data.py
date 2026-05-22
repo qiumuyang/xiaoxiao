@@ -37,13 +37,13 @@ class Diff(Enum):
     EXACT: provided item matches target (position and value).
     EXIST: provided item exists in target (value only).
     """
+
     MISS = 0
     EXACT = 1
     EXIST = 2
 
 
 class Idiom:
-
     db_path = Path("~/.cache/nonebot/idiom.db").expanduser()
     idiom_path = Path("data/static/chinese/idiom.json")
     fix_path = Path("data/static/chinese/fix_pinyin.txt")
@@ -100,8 +100,7 @@ class Idiom:
         load_phrases_dict(fix_dict)
 
         # If empty, load idioms
-        if not conn.execute(
-                "SELECT EXISTS(SELECT 1 FROM idiom LIMIT 1)").fetchone()[0]:
+        if not conn.execute("SELECT EXISTS(SELECT 1 FROM idiom LIMIT 1)").fetchone()[0]:
             items = orjson.loads(cls.idiom_path.read_bytes())
             with conn:
                 for item in items:
@@ -112,8 +111,7 @@ class Idiom:
                     pinyin_tone = lazy_pinyin(word, style=PinyinStyle.TONE)
                     explanation = item["explanation"].replace("”", "")
                     example = item["example"].replace("”", "")
-                    derivation = item["derivation"].replace("”", "").replace(
-                        "无", "")
+                    derivation = item["derivation"].replace("”", "").replace("无", "")
 
                     conn.execute(
                         "INSERT INTO idiom (word, pinyin, pinyin_tone, explanation, example, derivation, length)"
@@ -136,11 +134,10 @@ class Idiom:
                     pinyin_tone = lazy_pinyin(word, style=PinyinStyle.TONE)
                     conn.execute(
                         "UPDATE idiom SET pinyin = ?, pinyin_tone = ? WHERE word = ?",
-                        (cls.SEP.join(pinyin), cls.SEP.join(pinyin_tone),
-                         word),
+                        (cls.SEP.join(pinyin), cls.SEP.join(pinyin_tone), word),
                     )
                 for word in removes:
-                    conn.execute("DELETE FROM idiom WHERE word = ?", (word, ))
+                    conn.execute("DELETE FROM idiom WHERE word = ?", (word,))
 
         # syllables
         for line in cls.syllable_path.read_text(encoding="utf-8").splitlines():
@@ -155,14 +152,16 @@ class Idiom:
             "FROM idiom WHERE rowid IN ("
             "    SELECT rowid FROM idiom WHERE length = 4 "
             "    ORDER BY RANDOM() LIMIT ?"
-            ")", (max(100,
-                      len(excludes) + 1), ))
+            ")",
+            (max(100, len(excludes) + 1),),
+        )
         idioms = [row for row in cursor if row[0] not in excludes]
         if not idioms:
             logger.error("No idiom available.")
             raise ValueError
         word, pinyin, pinyin_tone, explanation, example, derivation = random.choice(
-            idioms)
+            idioms
+        )
         return IdiomItem(
             word=word,
             pinyin=pinyin.split(cls.SEP),
@@ -176,8 +175,8 @@ class Idiom:
     def get_pinyin(cls, word: str, tone: bool = False) -> list[str]:
         conn = cls.get_conn()
         row = conn.execute(
-            "SELECT pinyin, pinyin_tone FROM idiom WHERE word = ?",
-            (word, )).fetchone()
+            "SELECT pinyin, pinyin_tone FROM idiom WHERE word = ?", (word,)
+        ).fetchone()
         if not row:
             raise ValueError(f"Not an idiom: {word}")
         pinyin, pinyin_tone = row
@@ -186,8 +185,7 @@ class Idiom:
     @classmethod
     def is_idiom(cls, word: str) -> bool:
         conn = cls.get_conn()
-        row = conn.execute("SELECT 1 FROM idiom WHERE word = ?",
-                           (word, )).fetchone()
+        row = conn.execute("SELECT 1 FROM idiom WHERE word = ?", (word,)).fetchone()
         return row is not None
 
     @classmethod
@@ -209,18 +207,14 @@ class Idiom:
                     # endswith this syllable and previous part is valid
                     # update dp[i] with all possible previous parts
                     if seq.endswith(s, 0, i) and dp[i - len(s)]:
-                        dp[i].update([
-                            f"{x}{delim}{s}" if x else s
-                            for x in dp[i - len(s)]
-                        ])
+                        dp[i].update(
+                            [f"{x}{delim}{s}" if x else s for x in dp[i - len(s)]]
+                        )
             if not dp[-1]:
                 return
             parts.append([s.split(delim) for s in dp[-1]])
         return sorted(
-            [
-                sum([tuple(_) for _ in result], tuple())
-                for result in product(*parts)
-            ],
+            [sum([tuple(_) for _ in result], tuple()) for result in product(*parts)],
             key=lambda t: (len(t), t),
         )
 
@@ -248,7 +242,9 @@ class Idiom:
         conn = cls.get_conn()
         row = conn.execute(
             "SELECT word, pinyin, pinyin_tone, explanation, example, derivation "
-            "FROM idiom WHERE word = ?", (word, )).fetchone()
+            "FROM idiom WHERE word = ?",
+            (word,),
+        ).fetchone()
         if not row:
             raise ValueError(f"Not an idiom: {word}")
         return IdiomItem(

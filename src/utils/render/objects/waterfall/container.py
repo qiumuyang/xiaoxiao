@@ -4,14 +4,20 @@ from typing import Iterable
 
 from typing_extensions import Self, Unpack, override
 
-from ...base import (Alignment, BaseStyle, Direction, RenderImage,
-                     RenderObject, cached, volatile)
+from ...base import (
+    Alignment,
+    BaseStyle,
+    Direction,
+    RenderImage,
+    RenderObject,
+    cached,
+    volatile,
+)
 from ..container import Container
 from .utils import split_subarray, split_subarray_unordered
 
 
 class WaterfallContainer(Container):
-
     def __init__(
         self,
         alignment: Alignment,
@@ -21,8 +27,7 @@ class WaterfallContainer(Container):
         ordered: bool,
         **kwargs: Unpack[BaseStyle],
     ):
-        super().__init__(alignment, Direction.VERTICAL, children, spacing,
-                         **kwargs)
+        super().__init__(alignment, Direction.VERTICAL, children, spacing, **kwargs)
         with volatile(self):
             self.columns = columns
             self.ordered = ordered
@@ -56,7 +61,8 @@ class WaterfallContainer(Container):
             return []
         split_points = split_subarray(
             [child.height + self.spacing for child in self.children],
-            min(self.columns, len(self.children)))
+            min(self.columns, len(self.children)),
+        )
         prev = 0
         columns = []
         for split in split_points:
@@ -72,7 +78,8 @@ class WaterfallContainer(Container):
             return []
         sub_indices = split_subarray_unordered(
             [child.height + self.spacing for child in self.children],
-            min(self.columns, len(self.children)))
+            min(self.columns, len(self.children)),
+        )
         for sub in sub_indices:
             sub.sort()
         sub_indices.sort(key=lambda lst: min(lst))
@@ -108,8 +115,10 @@ class WaterfallContainer(Container):
                 RenderImage.concat_vertical(
                     [child.render() for child in column],
                     alignment=self.alignment,
-                    spacing=spacing))
+                    spacing=spacing,
+                )
+            )
 
-        return RenderImage.concat_horizontal(rendered,
-                                             alignment=Alignment.START,
-                                             spacing=self.spacing)
+        return RenderImage.concat_horizontal(
+            rendered, alignment=Alignment.START, spacing=self.spacing
+        )

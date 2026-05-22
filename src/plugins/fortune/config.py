@@ -12,7 +12,6 @@ class RenderBackground(IntEnum):
 
 
 class FortuneConfig(Config):
-
     user_friendly: ClassVar[str] = "今日运势"
 
     render_bg: RenderBackground = RenderBackground.WHITE

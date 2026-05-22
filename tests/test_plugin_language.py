@@ -46,18 +46,20 @@ async def test_ask_process():
 
     def make_entries(*entries: str):
         return [
-            Entry(group_id=0,
-                  created=datetime(2000, 1, 1),
-                  used=datetime(2000, 1, 1),
-                  text=e,
-                  length=len(e),
-                  keywords=set()) for e in entries
+            Entry(
+                group_id=0,
+                created=datetime(2000, 1, 1),
+                used=datetime(2000, 1, 1),
+                text=e,
+                length=len(e),
+                keywords=set(),
+            )
+            for e in entries
         ]
 
     text = {
         length: [
-            "".join(random.choices(string.ascii_lowercase, k=length))
-            for _ in range(10)
+            "".join(random.choices(string.ascii_lowercase, k=length)) for _ in range(10)
         ]
         for length in range(1, 11)
     }
@@ -67,12 +69,12 @@ async def test_ask_process():
             return make_entries(*text[length])
         return make_entries(*sum(text.values(), []))
 
-    async def test_once(question: str, replacement: bool,
-                        expected: Callable[[str], bool]):
+    async def test_once(
+        question: str, replacement: bool, expected: Callable[[str], bool]
+    ):
         ask = Ask(None, 119056244, None)  # type: ignore
 
-        ask.random_corpus_entry = AsyncMock(
-            side_effect=mock_random_corpus_entry)
+        ask.random_corpus_entry = AsyncMock(side_effect=mock_random_corpus_entry)
 
         ask.replacement = False
         parts = []
@@ -82,17 +84,20 @@ async def test_ask_process():
         assert replacement == ask.replacement
 
     await test_once(
-        "你们吃什么2", True,
-        lambda s: s.startswith("我们吃") and len(s) == 5 and s[-2:] in text[2])
-    await test_once("今天星期几", True,
-                    lambda s: s.startswith("今天星期") and s[-1] in "一二三四五六天")
+        "你们吃什么2",
+        True,
+        lambda s: s.startswith("我们吃") and len(s) == 5 and s[-2:] in text[2],
+    )
+    await test_once(
+        "今天星期几",
+        True,
+        lambda s: s.startswith("今天星期") and s[-1] in "一二三四五六天",
+    )
     await test_once("谁", True, lambda s: s in members + ["我", "你"])
-    await test_once("为什么", True,
-                    lambda s: s.startswith("因为") and "所以" not in s)
+    await test_once("为什么", True, lambda s: s.startswith("因为") and "所以" not in s)
     await test_once("为什么什么", True, lambda s: s.startswith("因为") and "所以" in s)
     await test_once("abcdef", False, lambda s: s == "abcdef")
-    await test_once("\\什么什么3", True,
-                    lambda s: s[:2] == "什么" and s[2:] in text[3])
+    await test_once("\\什么什么3", True, lambda s: s[:2] == "什么" and s[2:] in text[3])
     await test_once("\\什么\\什么", False, lambda s: s == "什么什么")
 
 
@@ -107,27 +112,38 @@ def test_ask_preprocess():
         ask.replacement = False
         result = ask.preprocess_choice(question)
         assert expected(result), f"{question=}, {result=}"
-        assert replacement == ask.replacement, \
-                f"{question=}, {result=}, {ask.replacement=}"
+        assert replacement == ask.replacement, (
+            f"{question=}, {result=}, {ask.replacement=}"
+        )
 
     test_once("XXYYZZ", False, lambda s: s == "XXYYZZ")
     test_once("问", False, lambda s: s == "问")
     test_once("还是还是还是", False, lambda s: s == "还是还是还是")
     for _ in range(10):
         test_once("A还是B", True, lambda s: s in ["A", "B"])
-        test_once("a还是b,\nc还是d", True,
-                  lambda s: s in ["a,\nc", "a,\nd", "b,\nc", "b,\nd"])
         test_once(
-            "XZC是/火还是水还是风还是雷还是水还是冰还是岩/属性角色", True, lambda s: s in [
-                "XZC是/火/属性角色",
-                "XZC是/水/属性角色",
-                "XZC是/风/属性角色",
-                "XZC是/雷/属性角色",
-                "XZC是/冰/属性角色",
-                "XZC是/岩/属性角色",
-            ])
-        test_once(r"问11:59之后是/12\:00还是00\:00", True,
-                  lambda s: s in [r"问11:59之后是/12\:00", r"问11:59之后是/00\:00"])
+            "a还是b,\nc还是d", True, lambda s: s in ["a,\nc", "a,\nd", "b,\nc", "b,\nd"]
+        )
+        test_once(
+            "XZC是/火还是水还是风还是雷还是水还是冰还是岩/属性角色",
+            True,
+            lambda s: (
+                s
+                in [
+                    "XZC是/火/属性角色",
+                    "XZC是/水/属性角色",
+                    "XZC是/风/属性角色",
+                    "XZC是/雷/属性角色",
+                    "XZC是/冰/属性角色",
+                    "XZC是/岩/属性角色",
+                ]
+            ),
+        )
+        test_once(
+            r"问11:59之后是/12\:00还是00\:00",
+            True,
+            lambda s: s in [r"问11:59之后是/12\:00", r"问11:59之后是/00\:00"],
+        )
 
     def preprocess(message: Message) -> Message:
         s, sym = MessageExtension.encode(message)
@@ -147,7 +163,4 @@ def test_ask_preprocess():
     assert result1 in [Message([at]), Message([image]), Message([face])]
     result2 = preprocess(complex2)
     assert ask.replacement
-    assert result2 in [
-        Message([some_text, image, some_text]),
-        Message([at, some_text])
-    ]
+    assert result2 in [Message([some_text, image, some_text]), Message([at, some_text])]

@@ -32,7 +32,6 @@ def find_process(name: str) -> psutil.Process:
 
 
 class StatusMonitor:
-
     _last_cpu = 0
     _proc = psutil.Process()
     _proc_mongo = find_process("mongod")
@@ -54,9 +53,7 @@ class StatusMonitor:
 
         sent_task = SMT.count(group_id=group_id, since=create_time)
         recv_task = RMT.count(group_id=group_id or [], since=create_time)
-        cmd_task = RMT.count(group_id=group_id or [],
-                             since=create_time,
-                             handled=True)
+        cmd_task = RMT.count(group_id=group_id or [], since=create_time, handled=True)
 
         sent, recv, cmd = await asyncio.gather(sent_task, recv_task, cmd_task)
         return {
@@ -73,12 +70,14 @@ class StatusMonitor:
     @classmethod
     def format(cls, status: Status) -> str:
         tm = str(status["running_time"]).split(".")[0]  # remove milliseconds
-        fmt = ("Uptime: {tm}\n"
-               "CPU: {cpu}%\n"
-               "Mem: {memory}MB (Free: {memory_free}MB)\n"
-               "Mongo: {memory_mongo}MB\n"
-               "Messages (Sent/Recv): {message_sent}/{message_received}\n"
-               "Handle Commands: {commands_handled}")
+        fmt = (
+            "Uptime: {tm}\n"
+            "CPU: {cpu}%\n"
+            "Mem: {memory}MB (Free: {memory_free}MB)\n"
+            "Mongo: {memory_mongo}MB\n"
+            "Messages (Sent/Recv): {message_sent}/{message_received}\n"
+            "Handle Commands: {commands_handled}"
+        )
         return fmt.format(tm=tm, **status)
 
 
@@ -105,8 +104,9 @@ async def _(bot: Bot, event: GroupMessageEvent):
         {cmd}.this - 本群运行状态
     """
     st = await StatusMonitor.status()
-    name = await get_group_member_name(group_id=event.group_id,
-                                       user_id=int(bot.self_id))
+    name = await get_group_member_name(
+        group_id=event.group_id, user_id=int(bot.self_id)
+    )
     prefix = f"[{name}]\n"
     await stat_overview.finish(prefix + StatusMonitor.format(st))
 
@@ -115,8 +115,9 @@ async def _(bot: Bot, event: GroupMessageEvent):
 async def _(bot: Bot, event: GroupMessageEvent):
     st = await StatusMonitor.status(event.group_id)
     group = await bot.get_group_info(group_id=event.group_id)
-    name = await get_group_member_name(group_id=event.group_id,
-                                       user_id=int(bot.self_id))
+    name = await get_group_member_name(
+        group_id=event.group_id, user_id=int(bot.self_id)
+    )
     prefix = f"[{name}] ({group['group_name']})\n"
     await stat_this.finish(prefix + StatusMonitor.format(st))
 
@@ -125,13 +126,15 @@ async def _(bot: Bot, event: GroupMessageEvent):
 async def _(bot: Bot):
     group_list = await bot.get_group_list()
     status_list = await asyncio.gather(
-        *(StatusMonitor.status(group["group_id"]) for group in group_list))
+        *(StatusMonitor.status(group["group_id"]) for group in group_list)
+    )
     global_status = await StatusMonitor.status()
     # top 5 groups with the most messages
-    info_stat = sorted(zip(group_list, status_list),
-                       key=lambda x:
-                       (x[1]["message_sent"], x[1]["message_received"]),
-                       reverse=True)[:5]
+    info_stat = sorted(
+        zip(group_list, status_list),
+        key=lambda x: (x[1]["message_sent"], x[1]["message_received"]),
+        reverse=True,
+    )[:5]
     msg = StatusMonitor.format(global_status)
     lines = []
     for group_info, stat in info_stat:

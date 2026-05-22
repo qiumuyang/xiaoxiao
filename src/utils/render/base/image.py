@@ -18,7 +18,7 @@ _P = ParamSpec("_P")
 
 
 def check_writable(
-    func: Callable[Concatenate[RenderImage, _P], RenderImage]
+    func: Callable[Concatenate[RenderImage, _P], RenderImage],
 ) -> Callable[Concatenate[RenderImage, _P], RenderImage]:
 
     def wrapper(
@@ -153,8 +153,7 @@ class RenderImage:
         width = sum(im.width for im in images)
         width += max(0, len(images) - 1) * spacing
         max_baseline = max(baselines)
-        placements = [(max_baseline - b, e.height)
-                      for (b, e) in zip(baselines, images)]
+        placements = [(max_baseline - b, e.height) for (b, e) in zip(baselines, images)]
         height = max(y + h for y, h in placements)
         im = cls.empty(width, height, color)
         x = 0
@@ -218,25 +217,30 @@ class RenderImage:
         b, t, l, r = (y, y + im.height, x, x + im.width)
         if b >= self.height or t < 0 or l >= self.width or r < 0:
             return self
-        im_cropped = im.base_im[max(-b, 0):min(self.height - b, im.height),
-                                max(-l, 0):min(self.width - l, im.width)]
+        im_cropped = im.base_im[
+            max(-b, 0) : min(self.height - b, im.height),
+            max(-l, 0) : min(self.width - l, im.width),
+        ]
         # only cover where the cover image is not transparent
         mask = im_cropped[:, :, 3] != 0
-        self.base_im[max(b, 0):min(t, self.height),
-                     max(l, 0):min(r, self.width)][mask] = im_cropped[mask]
+        self.base_im[max(b, 0) : min(t, self.height), max(l, 0) : min(r, self.width)][
+            mask
+        ] = im_cropped[mask]
         return self
 
     @check_writable
     def replace(self, x: int, y: int, im: Self) -> Self:
-        """Pastes the target image onto this image at the given coordinates.
-        """
+        """Pastes the target image onto this image at the given coordinates."""
         b, t, l, r = (y, y + im.height, x, x + im.width)
         if b >= self.height or t < 0 or l >= self.width or r < 0:
             return self
-        im_cropped = im.base_im[max(-b, 0):min(self.height - b, im.height),
-                                max(-l, 0):min(self.width - l, im.width)]
-        self.base_im[max(b, 0):min(t, self.height),
-                     max(l, 0):min(r, self.width)] = im_cropped
+        im_cropped = im.base_im[
+            max(-b, 0) : min(self.height - b, im.height),
+            max(-l, 0) : min(self.width - l, im.width),
+        ]
+        self.base_im[
+            max(b, 0) : min(t, self.height), max(l, 0) : min(r, self.width)
+        ] = im_cropped
         return self
 
     @check_writable
@@ -252,32 +256,33 @@ class RenderImage:
         self_a = np.array(self.base_im[:, :, 3]).astype(np.int16)
         diff = (end.r - start.r, end.g - start.g, end.b - start.b)
 
-        transparency_r = np.zeros(
-            (self.height,
-             self.width), dtype=np.int16) if diff[0] == 0 else np.array(
-                 (self_r - start.r) / diff[0]).astype(np.int16)
-        transparency_g = np.zeros(
-            (self.height,
-             self.width), dtype=np.int16) if diff[1] == 0 else np.array(
-                 (self_g - start.g) / diff[1]).astype(np.int16)
-        transparency_b = np.zeros(
-            (self.height,
-             self.width), dtype=np.int16) if diff[2] == 0 else np.array(
-                 (self_b - start.b) / diff[2]).astype(np.int16)
+        transparency_r = (
+            np.zeros((self.height, self.width), dtype=np.int16)
+            if diff[0] == 0
+            else np.array((self_r - start.r) / diff[0]).astype(np.int16)
+        )
+        transparency_g = (
+            np.zeros((self.height, self.width), dtype=np.int16)
+            if diff[1] == 0
+            else np.array((self_g - start.g) / diff[1]).astype(np.int16)
+        )
+        transparency_b = (
+            np.zeros((self.height, self.width), dtype=np.int16)
+            if diff[2] == 0
+            else np.array((self_b - start.b) / diff[2]).astype(np.int16)
+        )
         if not spill_compensation:
-            transparency_r = np.clip(
-                np.array(transparency_r).astype(np.int16), 0, 1)
-            transparency_g = np.clip(
-                np.array(transparency_g).astype(np.int16), 0, 1)
-            transparency_b = np.clip(
-                np.array(transparency_b).astype(np.int16), 0, 1)
+            transparency_r = np.clip(np.array(transparency_r).astype(np.int16), 0, 1)
+            transparency_g = np.clip(np.array(transparency_g).astype(np.int16), 0, 1)
+            transparency_b = np.clip(np.array(transparency_b).astype(np.int16), 0, 1)
 
         if diff == (0, 0, 0):
             raise ValueError(f"Invalid colors: {start}, {end}")
-        transparency = (transparency_r + transparency_g + transparency_b) / \
-            ((0 if diff[0] == 0 else 1) +
-             (0 if diff[1] == 0 else 1) +
-             (0 if diff[2] == 0 else 1))
+        transparency = (transparency_r + transparency_g + transparency_b) / (
+            (0 if diff[0] == 0 else 1)
+            + (0 if diff[1] == 0 else 1)
+            + (0 if diff[2] == 0 else 1)
+        )
         transparency = np.clip(np.array(transparency).astype(np.int16), 0, 1)
 
         new_a = np.array(self_a - self_a * transparency).astype(np.uint8)
@@ -446,7 +451,7 @@ class RenderImage:
         height: int,
         color: Color = Palette.WHITE,
     ) -> Self:
-        self.base_im[y:y + height, x:x + width] = color
+        self.base_im[y : y + height, x : x + width] = color
         return self
 
     @check_writable
@@ -467,17 +472,20 @@ class RenderImage:
             mask = cast[ImageMask](mask_)
         h, w = mask.shape
         if h != self.height or w != self.width:
-            raise ValueError(f"Mask size must be same as image size: "
-                             f"expected ({self.height}, {self.width}), "
-                             f"got ({h}, {w})")
+            raise ValueError(
+                f"Mask size must be same as image size: "
+                f"expected ({self.height}, {self.width}), "
+                f"got ({h}, {w})"
+            )
         indices = mask != 255
         coef = mask[indices] / 255.0
         self.base_im[indices, 3] = self.base_im[indices, 3] * coef
         return self
 
     @check_writable
-    def line(self, start: tuple[int, int], end: tuple[int, int], color: Color,
-             thickness: int) -> Self:
+    def line(
+        self, start: tuple[int, int], end: tuple[int, int], color: Color, thickness: int
+    ) -> Self:
         # TODO: fix thickness (line is placed center, may overflow)
         self.base_im = cv2.line(self.base_im, start, end, color, thickness)
         return self

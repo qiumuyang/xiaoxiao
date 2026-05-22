@@ -4,8 +4,7 @@ from typing import Iterable
 
 from typing_extensions import Literal, Self, Unpack, override
 
-from ..base import (Alignment, BaseStyle, RenderImage, RenderObject, cached,
-                    volatile)
+from ..base import Alignment, BaseStyle, RenderImage, RenderObject, cached, volatile
 
 
 class Stack(RenderObject):
@@ -50,22 +49,21 @@ class Stack(RenderObject):
             vertical_alignment = alignment
         if horizontal_alignment is None:
             horizontal_alignment = alignment
-        return cls(children, vertical_alignment, horizontal_alignment,
-                   paste_mode, **kwargs)
+        return cls(
+            children, vertical_alignment, horizontal_alignment, paste_mode, **kwargs
+        )
 
     @property
     @cached
     @override
     def content_width(self) -> int:
-        return max(child.width
-                   for child in self.children) if self.children else 0
+        return max(child.width for child in self.children) if self.children else 0
 
     @property
     @cached
     @override
     def content_height(self) -> int:
-        return max(child.height
-                   for child in self.children) if self.children else 0
+        return max(child.height for child in self.children) if self.children else 0
 
     @cached
     @override

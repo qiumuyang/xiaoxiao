@@ -12,13 +12,10 @@ from src.utils.auto_arg import AutoArgumentParser, AutoArgumentParserMixin
 
 
 class ArgParser(Protocol):
-
-    def parse_args(self, args=None, namespace=None) -> argparse.Namespace:
-        ...
+    def parse_args(self, args=None, namespace=None) -> argparse.Namespace: ...
 
 
 class ImageProcessor(ABC, AutoArgumentParserMixin):
-
     _class_parsers: dict[type["ImageProcessor"], AutoArgumentParser] = {}
     _context = ContextVar("image_processor", default={})
     _parser: ArgParser
@@ -31,19 +28,23 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
             # check parser arguments match process signature
             def get_params(func):
                 return [
-                    p for p in inspect.signature(func).parameters
+                    p
+                    for p in inspect.signature(func).parameters
                     if p not in ["self", "image", "args", "kwargs"]
                 ]
 
             params = get_params(self.process)
             params_frame = get_params(self.process_frame)
 
-            if (set(params) != set(parser.dests)
-                    and set(params_frame) != set(parser.dests)):
-                raise ValueError(f"{self.__class__.__name__} arguments do not "
-                                 f"match process signature: \n"
-                                 f"  - {sorted(params)}\n"
-                                 f"  - {sorted(parser.dests)}")
+            if set(params) != set(parser.dests) and set(params_frame) != set(
+                parser.dests
+            ):
+                raise ValueError(
+                    f"{self.__class__.__name__} arguments do not "
+                    f"match process signature: \n"
+                    f"  - {sorted(params)}\n"
+                    f"  - {sorted(parser.dests)}"
+                )
             self._class_parsers[cls] = parser
         self._parser = self._class_parsers[cls]
 
@@ -72,8 +73,9 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
             width, height = image.size
             if width < min_size[0] or height < min_size[1]:
                 scale = max(min_size[0] / width, min_size[1] / height)
-                image = image.resize((int(width * scale), int(height * scale)),
-                                     resample)
+                image = image.resize(
+                    (int(width * scale), int(height * scale)), resample
+                )
         if max_size:
             im = image.copy()
             im.thumbnail(max_size, resample)
@@ -81,9 +83,9 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
         return image
 
     @classmethod
-    def to_square(cls,
-                  image: Image.Image,
-                  mode: Literal["pad", "crop"] = "crop") -> Image.Image:
+    def to_square(
+        cls, image: Image.Image, mode: Literal["pad", "crop"] = "crop"
+    ) -> Image.Image:
         """Crop or pad an image to make it square."""
         width, height = image.size
         if width == height:
@@ -112,8 +114,9 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
         finally:
             self._context.reset(context_token)
 
-    def process(self, image: Image.Image, *args,
-                **kwargs) -> BytesIO | Image.Image | None:
+    def process(
+        self, image: Image.Image, *args, **kwargs
+    ) -> BytesIO | Image.Image | None:
         """Process an image."""
         if not self.is_gif(image):
             return self.process_frame(image, *args, **kwargs)
@@ -126,19 +129,20 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
             frame = self.process_frame(frame, *args, **kwargs)
             frames.append(frame)
         io = BytesIO()
-        frames[0].save(io,
-                       format="GIF",
-                       save_all=True,
-                       append_images=frames[1:],
-                       duration=durations,
-                       loop=0,
-                       disposal=2)
+        frames[0].save(
+            io,
+            format="GIF",
+            save_all=True,
+            append_images=frames[1:],
+            duration=durations,
+            loop=0,
+            disposal=2,
+        )
         io.seek(0)
         return io
 
     @abstractmethod
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         """Process a single frame of an image."""
 
     @classmethod
@@ -156,14 +160,13 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
 
 
 class ImageAvatarProcessor(ImageProcessor):
-
     @abstractmethod
-    def process_frame(self, image: Image.Image, avatar: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(
+        self, image: Image.Image, avatar: Image.Image, *args, **kwargs
+    ) -> Image.Image:
         return image
 
-    def __call__(self, image: Image.Image, avatar: Image.Image, *args,
-                 **kwargs):
+    def __call__(self, image: Image.Image, avatar: Image.Image, *args, **kwargs):
         args = self._parser.parse_args(args[1:])
         context_token = self._context.set({})
         try:

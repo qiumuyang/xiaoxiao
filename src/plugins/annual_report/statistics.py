@@ -11,7 +11,6 @@ from .data import GroupStatistics, UserStatistics, collect_statistics
 
 @inject_env()
 class AnnualStatistics:
-
     GROUP_LOCAL = "data/dynamic/annual_report/{year}/{group_id}/group.json"
     USER_LOCAL = "data/dynamic/annual_report/{year}/{group_id}/{user_id}.json"
 
@@ -45,9 +44,8 @@ class AnnualStatistics:
         group_id: int,
     ) -> UserStatistics | None:
         path = Path(
-            cls.USER_LOCAL.format(group_id=group_id,
-                                  user_id=user_id,
-                                  year=year))
+            cls.USER_LOCAL.format(group_id=group_id, user_id=user_id, year=year)
+        )
         return cls._load(path, UserStatistics)
 
     @classmethod
@@ -86,30 +84,27 @@ class AnnualStatistics:
         group_id: int,
     ) -> UserStatistics:
         year = year or cls._default_year_by_end()
-        return await cls._get_statistics(cls._load_user, year, user_id,
-                                         group_id)
+        return await cls._get_statistics(cls._load_user, year, user_id, group_id)
 
     @classmethod
     async def process_group(cls, group_id: int):
         ends = datetime.strptime(cls.ANNUAL_STATISTICS_END, "%Y-%m-%d")
         year = cls._default_year_by_end()
-        messages = await RMT.find(group_id,
-                                  since=datetime(year, 1, 1),
-                                  until=ends)
+        messages = await RMT.find(group_id, since=datetime(year, 1, 1), until=ends)
         if group_id in cls.GROUP_INHERIT:
             # fetch old group messages and merge
             old_group_id = cls.GROUP_INHERIT[group_id]
-            old_messages = await RMT.find(old_group_id,
-                                          since=datetime(year, 1, 1),
-                                          until=ends)
+            old_messages = await RMT.find(
+                old_group_id, since=datetime(year, 1, 1), until=ends
+            )
             messages.extend(old_messages)
         group, users = collect_statistics(messages, year)
         # dump
-        cls._dump(Path(cls.GROUP_LOCAL.format(group_id=group_id, year=year)),
-                  group)
+        cls._dump(Path(cls.GROUP_LOCAL.format(group_id=group_id, year=year)), group)
         for user_id, user in users.items():
             cls._dump(
                 Path(
-                    cls.USER_LOCAL.format(group_id=group_id,
-                                          user_id=user_id,
-                                          year=year)), user)
+                    cls.USER_LOCAL.format(group_id=group_id, user_id=user_id, year=year)
+                ),
+                user,
+            )

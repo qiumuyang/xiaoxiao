@@ -24,7 +24,6 @@ class MessageType(Enum):
 
 
 class MessageSegment(_MessageSegment):
-
     @classmethod
     @override
     def image(  # type: ignore
@@ -60,19 +59,21 @@ class MessageSegment(_MessageSegment):
 
     @classmethod
     def serialize(cls, message: Message) -> list[dict[str, Any]]:
-        return [{
-            "type": segment.type,
-            "data": {
-                k: cls.serialize(v) if isinstance(v, Message) else v
-                for k, v in segment.data.items()
+        return [
+            {
+                "type": segment.type,
+                "data": {
+                    k: cls.serialize(v) if isinstance(v, Message) else v
+                    for k, v in segment.data.items()
+                },
             }
-        } for segment in message]
+            for segment in message
+        ]
 
     @classmethod
     def deserialize(cls, data: list[dict[str, Any]]) -> Message:
         try:
-            return Message(
-                [cls._deserialize_segment(segment) for segment in data])
+            return Message([cls._deserialize_segment(segment) for segment in data])
         except Exception as e:
             raise ValueError("Invalid data", data) from e
 
@@ -82,8 +83,9 @@ class MessageSegment(_MessageSegment):
         if "type" not in segment or "data" not in segment:
             raise ValueError("Invalid message segment", segment)
 
-        return _MessageSegment(segment["type"],
-                               cls._deep_deserialize_data(segment["data"]))
+        return _MessageSegment(
+            segment["type"], cls._deep_deserialize_data(segment["data"])
+        )
 
     @classmethod
     def _deep_deserialize_data(cls, value: Any) -> Any:
@@ -133,18 +135,15 @@ class MessageSegment(_MessageSegment):
         nickname: str,
         content: Message,
     ) -> "MessageSegment":
-        return cls(type="node",
-                   data={
-                       "name": nickname,
-                       "uin": str(user_id),
-                       "content": content
-                   })
+        return cls(
+            type="node",
+            data={"name": nickname, "uin": str(user_id), "content": content},
+        )
 
     @classmethod
     def markdown(cls, content: str) -> "MessageSegment":
         inner = {"content": content}
-        return cls(type="markdown",
-                   data={"content": orjson.dumps(inner).decode()})
+        return cls(type="markdown", data={"content": orjson.dumps(inner).decode()})
 
     @classmethod
     def longmsg(cls, id_: str) -> "MessageSegment":
@@ -174,9 +173,9 @@ class MessageSegment(_MessageSegment):
             raise ValueError("Not a text segment")
         return self.data["text"]
 
-    def extract_text_args(self,
-                          shlex: bool = False,
-                          quiet_errors: bool = False) -> list[str]:
+    def extract_text_args(
+        self, shlex: bool = False, quiet_errors: bool = False
+    ) -> list[str]:
         if not self.is_text():
             raise ValueError("Not a text segment")
         if not shlex:
@@ -252,9 +251,9 @@ class MessageCodec:
     PRIVATE_USE_END = 0xF8FF
 
     @classmethod
-    def encode(cls,
-               message: Message,
-               start: int = 0) -> tuple[str, dict[str, _MessageSegment]]:
+    def encode(
+        cls, message: Message, start: int = 0
+    ) -> tuple[str, dict[str, _MessageSegment]]:
         """
         Encodes a Message object into a string and symbol table.
 
@@ -282,8 +281,7 @@ class MessageCodec:
         return "".join(text), symbol_table
 
     @classmethod
-    def decode(cls, message: str,
-               symbol_table: dict[str, _MessageSegment]) -> Message:
+    def decode(cls, message: str, symbol_table: dict[str, _MessageSegment]) -> Message:
         """
         Decodes a string and symbol table back into a Message object.
 

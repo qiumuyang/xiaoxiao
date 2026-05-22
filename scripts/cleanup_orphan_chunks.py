@@ -87,21 +87,26 @@ async def cleanup_db(
         chunk_count = await db.fs.chunks.count_documents({"files_id": file_id})
 
         if dry_run:
-            print(f"  [{i + 1}/{len(to_process)}] Would delete id={file_id} "
-                  f"({chunk_count} chunks)")
+            print(
+                f"  [{i + 1}/{len(to_process)}] Would delete id={file_id} "
+                f"({chunk_count} chunks)"
+            )
             deleted_files += 1
             deleted_chunks += chunk_count
         else:
             try:
-                result = await db.fs.chunks.delete_many(
-                    {"files_id": file_id})
+                result = await db.fs.chunks.delete_many({"files_id": file_id})
                 deleted_files += 1
                 deleted_chunks += result.deleted_count
-                print(f"  [{i + 1}/{len(to_process)}] Deleted id={file_id} "
-                      f"({result.deleted_count} chunks)")
+                print(
+                    f"  [{i + 1}/{len(to_process)}] Deleted id={file_id} "
+                    f"({result.deleted_count} chunks)"
+                )
             except Exception:
-                print(f"  [{i + 1}/{len(to_process)}] FAILED id={file_id}: "
-                      f"{traceback.format_exc().strip().splitlines()[-1]}")
+                print(
+                    f"  [{i + 1}/{len(to_process)}] FAILED id={file_id}: "
+                    f"{traceback.format_exc().strip().splitlines()[-1]}"
+                )
 
     return {
         "deleted_files": deleted_files,
@@ -152,24 +157,30 @@ async def main():
         print(f"--- Database: {db_name} ---")
         print(f"  fs.files: {stats['files']} documents")
         print(f"  distinct files_id in chunks: {stats['chunk_files']}")
-        print(f"  orphan files (chunks with no fs.files entry): "
-              f"{stats['orphan_files']}")
+        print(
+            f"  orphan files (chunks with no fs.files entry): {stats['orphan_files']}"
+        )
 
         if stats["orphan_files"] == 0:
             print(f"  No orphan chunks, skipping.\n")
             continue
 
-        print(f"  Processing up to "
-              f"{'ALL' if args.limit == 0 else args.limit} orphans...")
+        print(
+            f"  Processing up to {'ALL' if args.limit == 0 else args.limit} orphans..."
+        )
 
         result = await cleanup_db(database, args.limit, args.dry_run)
 
         if args.dry_run:
-            print(f"  Would delete {result['deleted_files']} files "
-                  f"({result['deleted_chunks']} chunks)")
+            print(
+                f"  Would delete {result['deleted_files']} files "
+                f"({result['deleted_chunks']} chunks)"
+            )
         else:
-            print(f"  Deleted {result['deleted_files']} files "
-                  f"({result['deleted_chunks']} chunks)")
+            print(
+                f"  Deleted {result['deleted_files']} files "
+                f"({result['deleted_chunks']} chunks)"
+            )
         print(f"  Orphans remaining: {result['orphans_remaining']}\n")
 
     await client.close()

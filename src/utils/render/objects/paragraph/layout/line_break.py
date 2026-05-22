@@ -67,7 +67,8 @@ class LineBreaker:
                     yield self.flush()
                 # treat it as a single element
                 yield from LineBreaker([current], patience).break_lines(
-                    max_width, disable_block=True)
+                    max_width, disable_block=True
+                )
                 continue
 
             if current is not remain:
@@ -95,9 +96,11 @@ class LineBreaker:
                 if remain.width >= last_width:
                     patience -= 1
                     if patience == 0:
-                        raise ValueError(f"Element too wide to fit in line: "
-                                         f"{remain.width} >= {last_width}, "
-                                         f"element={remain}")
+                        raise ValueError(
+                            f"Element too wide to fit in line: "
+                            f"{remain.width} >= {last_width}, "
+                            f"element={remain}"
+                        )
                 else:
                     last_width = remain.width
                     patience = self.patience

@@ -4,22 +4,17 @@ from ....base import RenderImage
 
 
 class Element(Protocol):
+    @property
+    def width(self) -> int: ...
 
     @property
-    def width(self) -> int:
-        ...
+    def height(self) -> int: ...
 
     @property
-    def height(self) -> int:
-        ...
+    def line_continue(self) -> bool: ...
 
     @property
-    def line_continue(self) -> bool:
-        ...
-
-    @property
-    def inline(self) -> bool:
-        ...
+    def inline(self) -> bool: ...
 
     def split_at(self, width: int, next_width: int) -> "Split":
         """Split the element at the specified width.
@@ -35,8 +30,7 @@ class Element(Protocol):
         """
         ...
 
-    def render(self) -> "RenderImage":
-        ...
+    def render(self) -> "RenderImage": ...
 
     def merge(self, other: "Element") -> "Element | None":
         """Used to merge elements on the same line."""
@@ -44,6 +38,5 @@ class Element(Protocol):
 
 
 class Split(NamedTuple):
-
     current: Element | None
     remaining: Element | None

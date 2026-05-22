@@ -6,8 +6,7 @@ from pygments.styles import get_style_by_name
 from pygments.token import _TokenType
 from pygments.util import ClassNotFound
 
-from src.utils.render import (Color, Palette, TextDecoration, TextShading,
-                              TextStyle)
+from src.utils.render import Color, Palette, TextDecoration, TextShading, TextStyle
 
 T = TypeVar("T")
 
@@ -85,8 +84,9 @@ def tokenize_code(
     except ClassNotFound:
         style = get_style_by_name("default")
 
-    for token_type, token_content in modify_last(lex(code, lexer),
-                                                 remove_trailing_newline):
+    for token_type, token_content in modify_last(
+        lex(code, lexer), remove_trailing_newline
+    ):
         token_type_str = ".".join(t for t in str(token_type).split(".")[1:])
         token_style = style.style_for_token(token_type)
         style_dict = StyleDict(**token_style)  # type: ignore

@@ -28,8 +28,7 @@ class Zoom(ImageProcessor):
         super().__init__()
         self.mode = mode
 
-    def process(self, image: Image.Image, size: float,
-                duration: float) -> BytesIO:
+    def process(self, image: Image.Image, size: float, duration: float) -> BytesIO:
         min_frames = 15
         duration *= 1000  # Convert to milliseconds
         default_frame_duration = int(duration / min_frames)
@@ -37,8 +36,7 @@ class Zoom(ImageProcessor):
             frames, durations = [], []
             while len(frames) < min_frames:
                 for frame in self.gif_iter(image):
-                    durations.append(frame.info["duration"]
-                                     or default_frame_duration)
+                    durations.append(frame.info["duration"] or default_frame_duration)
                     frames.append(frame.convert("RGBA"))
             # rescale the duration to match the total duration
             # total_duration = sum(durations)
@@ -60,24 +58,23 @@ class Zoom(ImageProcessor):
             left = (width - new_w) // 2
             top = (height - new_h) // 2
             cropped = frame.crop((left, top, left + new_w, top + new_h))
-            frames[i] = cropped.resize((width, height),
-                                       Image.Resampling.LANCZOS)
+            frames[i] = cropped.resize((width, height), Image.Resampling.LANCZOS)
 
         io = BytesIO()
-        frames[0].save(io,
-                       format="GIF",
-                       save_all=True,
-                       append_images=frames[1:],
-                       duration=durations,
-                       loop=0,
-                       disposal=2)
+        frames[0].save(
+            io,
+            format="GIF",
+            save_all=True,
+            append_images=frames[1:],
+            duration=durations,
+            loop=0,
+            disposal=2,
+        )
         io.seek(0)
         return io
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         raise NotImplementedError()
 
 
-command_doc("拉远", category=CommandCategory.IMAGE,
-            visible_in_overview=False)(Zoom)
+command_doc("拉远", category=CommandCategory.IMAGE, visible_in_overview=False)(Zoom)

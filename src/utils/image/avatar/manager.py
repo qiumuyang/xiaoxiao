@@ -16,8 +16,7 @@ class Manager:
         """Starts the background worker thread."""
         if cls._worker_thread is None:
             cls._stop_event.clear()
-            cls._worker_thread = threading.Thread(target=cls._worker_loop,
-                                                  daemon=True)
+            cls._worker_thread = threading.Thread(target=cls._worker_loop, daemon=True)
             cls._worker_thread.start()
 
     @classmethod

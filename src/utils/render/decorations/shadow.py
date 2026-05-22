@@ -8,7 +8,6 @@ from ..base import Color, LayerDecoration, Overlay, RenderImage, RenderObject
 
 
 class Shadow(LayerDecoration):
-
     def __init__(
         self,
         offset: tuple[int, int],
@@ -69,16 +68,17 @@ class BoxShadow(Shadow):
         layer = RenderImage.empty_like(im)
         spread = self.spread
         # calculate the size of the shadow
-        width = (obj.content_width + obj.padding.width + obj.border.width * 2 +
-                 spread * 2)
-        height = (obj.content_height + obj.padding.height +
-                  obj.border.width * 2 + spread * 2)
+        width = (
+            obj.content_width + obj.padding.width + obj.border.width * 2 + spread * 2
+        )
+        height = (
+            obj.content_height + obj.padding.height + obj.border.width * 2 + spread * 2
+        )
         # calculate the offset of the shadow
         x = self.offset[0] - spread + obj.margin.left
         y = self.offset[1] - spread + obj.margin.top
         # create the shadow
-        layer = layer.replace(x, y, RenderImage.empty(width, height,
-                                                      self.color))
+        layer = layer.replace(x, y, RenderImage.empty(width, height, self.color))
         if self.blur_radius > 0:
             layer.base_im = cv2.GaussianBlur(
                 layer.base_im,
@@ -127,8 +127,8 @@ class ContentShadow(Shadow):
                 (self.blur_radius, self.blur_radius),
                 0,
             )
-        offset_x = (self.offset[0] + obj.margin.left + obj.border.width +
-                    obj.padding.left)
-        offset_y = (self.offset[1] + obj.margin.top + obj.border.width +
-                    obj.padding.top)
+        offset_x = (
+            self.offset[0] + obj.margin.left + obj.border.width + obj.padding.left
+        )
+        offset_y = self.offset[1] + obj.margin.top + obj.border.width + obj.padding.top
         return RenderImage.empty_like(im).replace(offset_x, offset_y, shadow)

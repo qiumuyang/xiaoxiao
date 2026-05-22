@@ -5,25 +5,21 @@ import pypinyin
 from src.ext import MessageSegment
 
 from ..data import Diff, Idiom
-from .data import (MAX_GUESS, UPDATE_INTERVAL, CurrentGuess, GroupData,
-                   GuessIdiomData)
+from .data import MAX_GUESS, UPDATE_INTERVAL, CurrentGuess, GroupData, GuessIdiomData
 from .render import GuessRender, RenderAttemptData, Status
 
 
 class InvalidInput(Exception):
-
     def __str__(self):
         raise NotImplementedError
 
 
 class SyllableParseFailure(InvalidInput):
-
     def __str__(self):
         return "存在不正确的音节"
 
 
 class SyllableNumMismatch(InvalidInput):
-
     def __init__(self, expect: int):
         self.expect = expect
 
@@ -32,7 +28,6 @@ class SyllableNumMismatch(InvalidInput):
 
 
 class SyllableLengthMismatch(InvalidInput):
-
     def __init__(self, expect: list[int]):
         self.expect = expect
 
@@ -41,7 +36,6 @@ class SyllableLengthMismatch(InvalidInput):
 
 
 class GuessIdiom:
-
     explicit_only = (SyllableParseFailure, SyllableLengthMismatch)
 
     def __init__(self, group_id: int):
@@ -73,14 +67,13 @@ class GuessIdiom:
         if not syllables:
             raise SyllableParseFailure
         target = Idiom.get_pinyin(guess.word)
-        syllable_count_filtered = [
-            s for s in syllables if len(s) == len(target)
-        ]
+        syllable_count_filtered = [s for s in syllables if len(s) == len(target)]
         if not syllable_count_filtered:
             raise SyllableNumMismatch(len(target))
         syllable_length_filtered = [
-            s for s in syllable_count_filtered if all(
-                len(m) == len(n) for m, n in zip(s, target))
+            s
+            for s in syllable_count_filtered
+            if all(len(m) == len(n) for m, n in zip(s, target))
         ]
         if not syllable_length_filtered:
             raise SyllableLengthMismatch([len(t) for t in target])
@@ -94,8 +87,10 @@ class GuessIdiom:
         # update global if necessary
         glob = await GuessIdiomData.get_global()
         interval = None
-        if glob.current is None or (interval := datetime.now() -
-                                    glob.current.time) > UPDATE_INTERVAL:
+        if (
+            glob.current is None
+            or (interval := datetime.now() - glob.current.time) > UPDATE_INTERVAL
+        ):
             glob = self._new_guess(glob)
             await GuessIdiomData.set_global(glob)
         assert glob.current is not None
@@ -118,8 +113,11 @@ class GuessIdiom:
     ) -> MessageSegment | None:
         group = await GuessIdiomData.get(self.group_id)
         if group.current is None:
-            return None if not explicit else MessageSegment.text(
-                "没有正在进行的猜成语游戏")
+            return (
+                None
+                if not explicit
+                else MessageSegment.text("没有正在进行的猜成语游戏")
+            )
         try:
             provided = self._check_answer(input_, group.current)
         except self.explicit_only as e:
@@ -168,11 +166,13 @@ class GuessIdiom:
                     p_new = priority.index(status)
                     p = min(p_now, p_new)
                     keyboards[syl] = priority[p]
-            attempts.append({
-                "user_id": attempt.user_id,
-                "syllables": attempt.syllables,
-                "diffs": diff,
-            })
+            attempts.append(
+                {
+                    "user_id": attempt.user_id,
+                    "syllables": attempt.syllables,
+                    "diffs": diff,
+                }
+            )
         obj = await GuessRender.render(
             attempts=attempts,
             syllables=target_syl_len,

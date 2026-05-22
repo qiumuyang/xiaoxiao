@@ -8,8 +8,12 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.command_cursor import AsyncCommandCursor
 from pymongo.asynchronous.cursor import AsyncCursor
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.results import (DeleteResult, InsertManyResult, InsertOneResult,
-                             UpdateResult)
+from pymongo.results import (
+    DeleteResult,
+    InsertManyResult,
+    InsertOneResult,
+    UpdateResult,
+)
 
 from ..env import inject_env
 from ..log import logger_wrapper
@@ -22,12 +26,11 @@ logger = logger_wrapper(__name__)
 
 
 class PydanticObjectId(ObjectId):
-
     @classmethod
-    def __get_pydantic_core_schema__(cls, _source,
-                                     handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(cls, _source, handler: GetCoreSchemaHandler):
         return core_schema.no_info_after_validator_function(
-            cls.validate, core_schema.any_schema())
+            cls.validate, core_schema.any_schema()
+        )
 
     @classmethod
     def validate(cls, v):
@@ -39,7 +42,6 @@ class PydanticObjectId(ObjectId):
 
 
 class Collection(Generic[D, T]):
-
     def __init__(self, collection: AsyncCollection) -> None:
         self.collection = collection
         self._to_mongo: Callable[[T], D] = lambda x: x  # type: ignore
@@ -51,9 +53,9 @@ class Collection(Generic[D, T]):
         # check pydantic model (shortcut)
         if issubclass(cls_t, BaseModel):
             self._to_mongo = lambda x: x.model_dump(  # type: ignore
-                mode="json")
-            self._from_mongo = lambda x: cls_t.model_validate(x
-                                                              )  # type: ignore
+                mode="json"
+            )
+            self._from_mongo = lambda x: cls_t.model_validate(x)  # type: ignore
             return self
 
         self._to_mongo = lambda x: serialize(x)
@@ -103,8 +105,7 @@ class Collection(Generic[D, T]):
         return decorator
 
     async def insert_one(self, object: T, *args, **kwargs) -> InsertOneResult:
-        return await self.collection.insert_one(self._to_mongo(object), *args,
-                                                **kwargs)
+        return await self.collection.insert_one(self._to_mongo(object), *args, **kwargs)
 
     async def insert_many(
         self,
@@ -148,8 +149,7 @@ class Collection(Generic[D, T]):
     ) -> T | None:
         if not isinstance(filter, dict):
             filter = self._to_filter(filter)
-        doc = await self.collection.find_one_and_delete(
-            filter, *args, **kwargs)
+        doc = await self.collection.find_one_and_delete(filter, *args, **kwargs)
         return self._from_mongo(doc) if doc else None
 
     async def find_one_and_update(
@@ -163,8 +163,7 @@ class Collection(Generic[D, T]):
             filter = self._to_filter(filter)
         if not isinstance(update, dict):
             update = {"$set": self._to_mongo(update)}
-        doc = await self.collection.find_one_and_update(
-            filter, update, *args, **kwargs)
+        doc = await self.collection.find_one_and_update(filter, update, *args, **kwargs)
         return self._from_mongo(doc) if doc else None
 
     def find(
@@ -203,8 +202,7 @@ class Collection(Generic[D, T]):
             filter = self._to_filter(filter)
         if not isinstance(update, dict):
             update = {"$set": self._to_mongo(update)}
-        return await self.collection.update_one(filter, update, *args,
-                                                **kwargs)
+        return await self.collection.update_one(filter, update, *args, **kwargs)
 
     async def update_many(
         self,
@@ -217,8 +215,7 @@ class Collection(Generic[D, T]):
             filter = self._to_filter(filter)
         if not isinstance(update, dict):
             update = {"$set": self._to_mongo(update)}
-        return await self.collection.update_many(filter, update, *args,
-                                                 **kwargs)
+        return await self.collection.update_many(filter, update, *args, **kwargs)
 
     async def delete_one(
         self,
@@ -251,7 +248,6 @@ class Collection(Generic[D, T]):
 
 @inject_env()
 class Mongo:
-
     DB: str = "nonebot2"
 
     _client = AsyncMongoClient()
@@ -268,8 +264,7 @@ class Mongo:
         if (db, name) not in cls._collections:
             cls._collections.append((db, name))
         else:
-            logger.warning(
-                f"Collection {name} already exists in database {db}")
+            logger.warning(f"Collection {name} already exists in database {db}")
         return Collection(cls._client[db][name])
 
     @classmethod

@@ -63,13 +63,8 @@ class ReceivedMessageTracker:
         result = await cls.received.insert_if_not_exists(data)
         if not result:
             await cls.received.update_one(
-                filter={
-                    "group_id": group_id,
-                    "message_id": message_id
-                },
-                update={"$set": {
-                    "handled": handled
-                }},
+                filter={"group_id": group_id, "message_id": message_id},
+                update={"$set": {"handled": handled}},
             )
         for sink in cls.sinks:
             await sink(result.inserted_id if result else None, data)
@@ -141,9 +136,7 @@ class ReceivedMessageTracker:
             "user_id",
             filter={
                 "group_id": group_id,
-                "time": {
-                    "$gte": datetime.now() - recent
-                },
+                "time": {"$gte": datetime.now() - recent},
             },
         )
         return cast(list[int], users)

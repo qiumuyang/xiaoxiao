@@ -6,8 +6,7 @@ from typing import Generator
 from PIL import Image as PILImage
 from typing_extensions import Self, Unpack, override
 
-from ..base import (BaseStyle, Color, Interpolation, RenderImage, RenderObject,
-                    volatile)
+from ..base import BaseStyle, Color, Interpolation, RenderImage, RenderObject, volatile
 from ..utils import PathLike
 
 
@@ -41,10 +40,10 @@ class Image(RenderObject):
         self.im.base_im.setflags(write=False)
 
     @classmethod
-    def empty(cls, width: int, height: int, color: Color,
-              **kwargs: Unpack[BaseStyle]) -> Image:
-        return cls.from_image(RenderImage.empty(width, height, color),
-                              **kwargs)
+    def empty(
+        cls, width: int, height: int, color: Color, **kwargs: Unpack[BaseStyle]
+    ) -> Image:
+        return cls.from_image(RenderImage.empty(width, height, color), **kwargs)
 
     @classmethod
     def from_file(
@@ -77,8 +76,9 @@ class Image(RenderObject):
         return Image(im, **kwargs)
 
     @classmethod
-    def from_image(cls, im: RenderImage | PILImage.Image,
-                   **kwargs: Unpack[BaseStyle]) -> Image:
+    def from_image(
+        cls, im: RenderImage | PILImage.Image, **kwargs: Unpack[BaseStyle]
+    ) -> Image:
         """Create a new Image from an existing RenderImage.
 
         Note:
@@ -89,18 +89,21 @@ class Image(RenderObject):
         return Image(im.copy(), **kwargs)
 
     @classmethod
-    def from_color(cls, width: int, height: int, color: Color,
-                   **kwargs: Unpack[BaseStyle]) -> Image:
+    def from_color(
+        cls, width: int, height: int, color: Color, **kwargs: Unpack[BaseStyle]
+    ) -> Image:
         return Image(RenderImage.empty(width, height, color), **kwargs)
 
     @classmethod
-    def horizontal_line(cls, length: int, width: int, color: Color,
-                        **kwargs: Unpack[BaseStyle]) -> Image:
+    def horizontal_line(
+        cls, length: int, width: int, color: Color, **kwargs: Unpack[BaseStyle]
+    ) -> Image:
         return cls.from_color(length, width, color, **kwargs)
 
     @classmethod
-    def vertical_line(cls, length: int, width: int, color: Color,
-                      **kwargs: Unpack[BaseStyle]) -> Image:
+    def vertical_line(
+        cls, length: int, width: int, color: Color, **kwargs: Unpack[BaseStyle]
+    ) -> Image:
         return cls.from_color(width, length, color, **kwargs)
 
     @property

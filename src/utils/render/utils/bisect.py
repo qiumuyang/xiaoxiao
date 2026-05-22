@@ -7,22 +7,17 @@ from typing_extensions import Protocol, Self
 
 
 class Comparable(Protocol):
+    def __lt__(self, other: Self) -> bool: ...
 
-    def __lt__(self, other: Self) -> bool:
-        ...
+    def __gt__(self, other: Self) -> bool: ...
 
-    def __gt__(self, other: Self) -> bool:
-        ...
+    def __le__(self, other: Self) -> bool: ...
 
-    def __le__(self, other: Self) -> bool:
-        ...
-
-    def __ge__(self, other: Self) -> bool:
-        ...
+    def __ge__(self, other: Self) -> bool: ...
 
 
-T = TypeVar('T', Comparable, int, float, str)
-V = TypeVar('V', Comparable, int, float, str)
+T = TypeVar("T", Comparable, int, float, str)
+V = TypeVar("V", Comparable, int, float, str)
 
 
 class BisectKeyWrapper(Generic[T, V]):

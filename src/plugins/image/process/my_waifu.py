@@ -5,8 +5,15 @@ from PIL import Image
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.render import Alignment, Container, Direction
 from src.utils.render import Image as ImageR
-from src.utils.render import (Palette, Paragraph, RenderImage, RenderObject,
-                              Space, Stack, TextStyle)
+from src.utils.render import (
+    Palette,
+    Paragraph,
+    RenderImage,
+    RenderObject,
+    Space,
+    Stack,
+    TextStyle,
+)
 
 from .processor import ImageAvatarProcessor
 
@@ -27,10 +34,7 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
     FONT_RATIO = 0.2
     VSPACE_RATIO = 0.25
 
-    TEMPLATE = ("如果你的老婆长这样\n"
-                "<image:inline/>\n"
-                "那么这就不是你的老婆\n"
-                "这是我的老婆")
+    TEMPLATE = "如果你的老婆长这样\n<image:inline/>\n那么这就不是你的老婆\n这是我的老婆"
 
     POINT_RATIO = 0.6
     POINT_ASSET = "data/static/image/point.png"
@@ -50,8 +54,9 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
         )
 
     @classmethod
-    def make_avatar_point(cls, avatar: Image.Image, width: int,
-                          font_size: int) -> RenderObject:
+    def make_avatar_point(
+        cls, avatar: Image.Image, width: int, font_size: int
+    ) -> RenderObject:
         text = cls.point_text(font_size)
         size = width - text.width - font_size // 2
         point = ImageR.from_file(cls.POINT_ASSET)
@@ -59,7 +64,8 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
         pavatar = Stack.from_children(
             [ImageR.from_image(avatar).resize(size, size), point],
             vertical_alignment=Alignment.END,
-            horizontal_alignment=Alignment.START)
+            horizontal_alignment=Alignment.START,
+        )
         return Container.from_children(
             [text, pavatar],
             alignment=Alignment.CENTER,
@@ -67,19 +73,22 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
             spacing=font_size // 2,
         )
 
-    def _make_avatar_point(self, avatar: Image.Image, width: int,
-                           font_size: int) -> RenderObject:
+    def _make_avatar_point(
+        self, avatar: Image.Image, width: int, font_size: int
+    ) -> RenderObject:
         ctx = self._context.get()
         if "avatar_point" not in ctx:
-            ctx["avatar_point"] = self.make_avatar_point(
-                avatar, width, font_size)
+            ctx["avatar_point"] = self.make_avatar_point(avatar, width, font_size)
         return ctx["avatar_point"]
 
-    def process_frame(self, image: Image.Image, avatar: Image.Image, *args,
-                      **kwargs) -> Image.Image:
-        image = self.scale(image,
-                           min_size=(self.MIN_WIDTH, self.MIN_WIDTH),
-                           max_size=(self.MAX_WIDTH, self.MAX_WIDTH))
+    def process_frame(
+        self, image: Image.Image, avatar: Image.Image, *args, **kwargs
+    ) -> Image.Image:
+        image = self.scale(
+            image,
+            min_size=(self.MIN_WIDTH, self.MIN_WIDTH),
+            max_size=(self.MAX_WIDTH, self.MAX_WIDTH),
+        )
         font_size = round(image.width * self.FONT_RATIO)
         vspace = round(font_size * self.VSPACE_RATIO)
         main = Paragraph.from_template(
@@ -95,11 +104,15 @@ class ThisIsMyWaifu(ImageAvatarProcessor):
             line_spacing=vspace,
         )
         point = self._make_avatar_point(avatar, main.width, font_size)
-        return Container.from_children(
-            [main, point],
-            alignment=Alignment.CENTER,
-            direction=Direction.VERTICAL,
-            spacing=vspace,
-            padding=Space.all(10),
-            background=Palette.WHITE,
-        ).render().to_pil()
+        return (
+            Container.from_children(
+                [main, point],
+                alignment=Alignment.CENTER,
+                direction=Direction.VERTICAL,
+                spacing=vspace,
+                padding=Space.all(10),
+                background=Palette.WHITE,
+            )
+            .render()
+            .to_pil()
+        )

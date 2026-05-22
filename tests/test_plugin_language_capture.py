@@ -23,6 +23,7 @@ def test_no_capture_group():
 def test_random_no_capture_group():
     import random
     import string
+
     cand = list(string.printable)
     cand.remove("(")
     cand.remove(")")
@@ -54,8 +55,10 @@ def test_multi_capture_group():
         ("(a(b(c(d)))) \\4 \\3 \\2 \\1", "abcd d cd bcd abcd"),
         ("(a)(b)c(d)(e)(f)\\1\\2\\3\\4\\5", "abcdefabdef"),
         ("(ab \\2 de \\3 gh)(cd)(fg)", "ab cd de fg ghcdfg"),
-        ("He says: (Bye, \\2). (John) says: he said \\1",
-         "He says: Bye, John. John says: he said Bye, John"),
+        (
+            "He says: (Bye, \\2). (John) says: he said \\1",
+            "He says: Bye, John. John says: he said Bye, John",
+        ),
         ("(\\2)(\\3)(\\4)(\\5)(\\6)(\\1)", ValueError),
     ]
     run_tests(tests)

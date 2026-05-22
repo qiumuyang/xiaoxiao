@@ -11,7 +11,6 @@ Edge = TypeVar("Edge")  # Edge in a graph
 
 
 class LinearPolynomial:
-
     def __init__(self, const: float = 0.0, **coef: float) -> None:
         self.const = const
         self.symbols = coef
@@ -41,67 +40,58 @@ class LinearPolynomial:
 
     def __neg__(self) -> LinearPolynomial:
         return LinearPolynomial(
-            -self.const, **{
-                key: -coef
-                for key, coef in self.symbols.items()
-            })
+            -self.const, **{key: -coef for key, coef in self.symbols.items()}
+        )
 
     def __mul__(self, other: int | float) -> LinearPolynomial:
         if isinstance(other, (int, float)):
             return LinearPolynomial(
-                self.const * other, **{
-                    key: coef * other
-                    for key, coef in self.symbols.items()
-                })
+                self.const * other,
+                **{key: coef * other for key, coef in self.symbols.items()},
+            )
         return NotImplemented
 
     def __truediv__(self, other: int | float) -> LinearPolynomial:
         if isinstance(other, (int, float)):
             return LinearPolynomial(
-                self.const / other, **{
-                    key: coef / other
-                    for key, coef in self.symbols.items()
-                })
+                self.const / other,
+                **{key: coef / other for key, coef in self.symbols.items()},
+            )
         return NotImplemented
 
     def __floordiv__(self, other: int | float) -> LinearPolynomial:
         if isinstance(other, (int, float)):
             return LinearPolynomial(
-                self.const // other, **{
-                    key: coef // other
-                    for key, coef in self.symbols.items()
-                })
+                self.const // other,
+                **{key: coef // other for key, coef in self.symbols.items()},
+            )
         return NotImplemented
 
     def __lt__(self, other: Linear) -> bool:
         """Note: This is not exact. Just for finding the minimum."""
         if isinstance(other, (int, float)):
-            return self.const < other and all(c <= 0
-                                              for c in self.symbols.values())
+            return self.const < other and all(c <= 0 for c in self.symbols.values())
         if isinstance(other, LinearPolynomial):
             return self - other < 0
         return NotImplemented
 
     def __le__(self, other: Linear) -> bool:
         if isinstance(other, (int, float)):
-            return self.const <= other and all(c <= 0
-                                               for c in self.symbols.values())
+            return self.const <= other and all(c <= 0 for c in self.symbols.values())
         if isinstance(other, LinearPolynomial):
             return self - other <= 0
         return NotImplemented
 
     def __gt__(self, other: Linear) -> bool:
         if isinstance(other, (int, float)):
-            return self.const > other and all(c >= 0
-                                              for c in self.symbols.values())
+            return self.const > other and all(c >= 0 for c in self.symbols.values())
         if isinstance(other, LinearPolynomial):
             return self - other > 0
         return NotImplemented
 
     def __ge__(self, other: Linear) -> bool:
         if isinstance(other, (int, float)):
-            return self.const >= other and all(c >= 0
-                                               for c in self.symbols.values())
+            return self.const >= other and all(c >= 0 for c in self.symbols.values())
         if isinstance(other, LinearPolynomial):
             return self - other >= 0
         return NotImplemented
@@ -114,9 +104,10 @@ class LinearPolynomial:
         return NotImplemented
 
     def __repr__(self) -> str:
-        return (f"LinearPolynomial({self.const}, "
-                f"""{' '.join(f'{coef}:{key}'
-            for key, coef in self.symbols.items())})""")
+        return (
+            f"LinearPolynomial({self.const}, "
+            f"""{" ".join(f"{coef}:{key}" for key, coef in self.symbols.items())})"""
+        )
 
     def __str__(self) -> str:
 
@@ -130,13 +121,13 @@ class LinearPolynomial:
         if self.is_const:
             return str(self.const)
         const = f"{self.const} + " if self.const != 0 else ""
-        terms = " + ".join(
-            _symbol(key, coef) for key, coef in self.symbols.items())
+        terms = " + ".join(_symbol(key, coef) for key, coef in self.symbols.items())
         return (const + terms).lstrip("+ ").replace("+ -", "- ")
 
     def eval(self, **values: float) -> float:
-        return self.const + sum(coef * values[key]
-                                for key, coef in self.symbols.items())
+        return self.const + sum(
+            coef * values[key] for key, coef in self.symbols.items()
+        )
 
     def contains_symbol(self, symbol: str | Self) -> bool:
         if isinstance(symbol, str):
@@ -151,8 +142,11 @@ class LinearPolynomial:
 
     @property
     def is_variable(self) -> bool:
-        return (len(self.symbols) == 1 and self.const == 0
-                and next(iter(self.symbols.values())) == 1)
+        return (
+            len(self.symbols) == 1
+            and self.const == 0
+            and next(iter(self.symbols.values())) == 1
+        )
 
     @property
     def var(self) -> str:
@@ -225,7 +219,6 @@ class Inequality(LinearPolynomial):
 
 
 class Point:
-
     def __init__(self, x: LinearPolynomial, y: LinearPolynomial) -> None:
         self.x = x
         self.y = y
@@ -233,9 +226,9 @@ class Point:
     @classmethod
     def of(cls, x: Linear, y: Linear) -> Self:
         return cls(
-            x if isinstance(x, LinearPolynomial)
-            else LinearPolynomial.of_const(x), y if isinstance(
-                y, LinearPolynomial) else LinearPolynomial.of_const(y))
+            x if isinstance(x, LinearPolynomial) else LinearPolynomial.of_const(x),
+            y if isinstance(y, LinearPolynomial) else LinearPolynomial.of_const(y),
+        )
 
     def __str__(self) -> str:
         return f"Point({self.x}, {self.y})"
@@ -245,7 +238,6 @@ class Point:
 
 
 class Box:
-
     def __init__(self, p1: Point, p2: Point) -> None:
         self.p1 = p1
         self.p2 = p2
@@ -309,17 +301,23 @@ class Box:
         return Box.of_size(other.p2.x - self.w, self.p1.y, self.w, self.h)
 
     def center_vertical(self, other: Self) -> Box:
-        return Box.of_size(self.p1.x, other.p1.y + (other.h - self.h) / 2,
-                           self.w, self.h)
+        return Box.of_size(
+            self.p1.x, other.p1.y + (other.h - self.h) / 2, self.w, self.h
+        )
 
     def center_horizontal(self, other: Self) -> Box:
-        return Box.of_size(other.p1.x + (other.w - self.w) / 2, self.p1.y,
-                           self.w, self.h)
+        return Box.of_size(
+            other.p1.x + (other.w - self.w) / 2, self.p1.y, self.w, self.h
+        )
 
     def center(self, other: Self) -> Box:
         """Brief alias of center_horizontal + center_vertical."""
-        return Box.of_size(other.p1.x + (other.w - self.w) / 2,
-                           other.p1.y + (other.h - self.h) / 2, self.w, self.h)
+        return Box.of_size(
+            other.p1.x + (other.w - self.w) / 2,
+            other.p1.y + (other.h - self.h) / 2,
+            self.w,
+            self.h,
+        )
 
     def relative(self, other: Self) -> Box:
         """Brief alias of align_left + align_top."""
@@ -401,11 +399,11 @@ class DependencyGraph(Generic[Node, Edge]):
             ValueError: If the graph contains a cycle.
         """
         reverse_graph = {
-            node: set(predecessors)
-            for node, predecessors in self.reverse_graph.items()
+            node: set(predecessors) for node, predecessors in self.reverse_graph.items()
         }
         queue = [
-            node for node, predecessors in reverse_graph.items()
+            node
+            for node, predecessors in reverse_graph.items()
             if len(predecessors) == 0
         ]
         result: list[Node] = []

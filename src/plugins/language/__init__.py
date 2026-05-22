@@ -21,36 +21,41 @@ from src.utils.doc import CommandCategory, command_doc
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
 
 from .ask import Ask
-from .config import (RandomResponseConfig, toggle_group_response_request,
-                     toggle_user_response)
+from .config import (
+    RandomResponseConfig,
+    toggle_group_response_request,
+    toggle_user_response,
+)
 from .history import History
 from .interact import RandomResponse
 
 record_message = on_message(priority=0, block=False)
-random_response = on_message(priority=10,
-                             block=False,
-                             rule=enabled(RandomResponseConfig))
+random_response = on_message(
+    priority=10, block=False, rule=enabled(RandomResponseConfig)
+)
 record_unhandled_message = on_message(priority=255, block=True)
 
 recall_message = on_command("撤回", aliases={"快撤回"}, block=True)
-answer_ask = on_command("问",
-                        force_whitespace=False,
-                        priority=2,
-                        block=True,
-                        rule=ratelimit("问", type="user", seconds=2))
+answer_ask = on_command(
+    "问",
+    force_whitespace=False,
+    priority=2,
+    block=True,
+    rule=ratelimit("问", type="user", seconds=2),
+)
 debug_ask = on_command("cut", force_whitespace=True, block=True)
-message_rank = on_command("发言排行",
-                          force_whitespace=True,
-                          block=True,
-                          rule=ratelimit("发言排行", type="group", seconds=15))
-disable_response = on_command("闭嘴",
-                              aliases={"闭菊"},
-                              force_whitespace=True,
-                              block=True)
-enable_response = on_command("张嘴",
-                             aliases={"张菊", "开菊", "开嘴"},
-                             force_whitespace=True,
-                             block=True)
+message_rank = on_command(
+    "发言排行",
+    force_whitespace=True,
+    block=True,
+    rule=ratelimit("发言排行", type="group", seconds=15),
+)
+disable_response = on_command(
+    "闭嘴", aliases={"闭菊"}, force_whitespace=True, block=True
+)
+enable_response = on_command(
+    "张嘴", aliases={"张菊", "开菊", "开嘴"}, force_whitespace=True, block=True
+)
 poke_source = on_notice()
 
 message_trace = CommandGroup("trace", block=True)
@@ -69,8 +74,9 @@ check_reply = reply()
 
 
 @Bot.on_called_api
-async def handle_api_result(bot: Bot, exception: Exception | None, api: str,
-                            data: dict[str, Any], result: Any):
+async def handle_api_result(
+    bot: Bot, exception: Exception | None, api: str, data: dict[str, Any], result: Any
+):
     if exception:
         return
 
@@ -78,11 +84,13 @@ async def handle_api_result(bot: Bot, exception: Exception | None, api: str,
         case "send_msg":
             session_id = SentMessageTracker.get_session_id(data)
             try:
-                await SentMessageTracker.add(session_id, result["message_id"],
-                                             data["message"])
+                await SentMessageTracker.add(
+                    session_id, result["message_id"], data["message"]
+                )
             except DocumentTooLarge:
-                await SentMessageTracker.add(session_id, result["message_id"],
-                                             Message_("[过大消息]"))
+                await SentMessageTracker.add(
+                    session_id, result["message_id"], Message_("[过大消息]")
+                )
 
 
 @recall_message.handle()
@@ -100,8 +108,7 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
         [引用{bot}] {cmd}        - 撤回被引用的消息 ***(仅限发送者为管理员)***
         [引用发送者] {cmd}      - 撤回被引用的消息 ***(仅限{bot}比发送者权限更高)***
     """
-    session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
-        event)
+    session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(event)
 
     # directly called without reply specified (+ to_me)
     if not await check_reply(bot, event, state) and event.is_tome():
@@ -119,12 +126,10 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
     #   - check bot permission
     reply: Reply = state["reply"]
     if str(reply.sender.user_id) == bot.self_id:  # bot.self_id is a string
-        session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(
-            event)
+        session_id, group_prefix = SentMessageTracker.get_session_id_or_prefix(event)
 
         # user exact match
-        message_id = await SentMessageTracker.remove(session_id,
-                                                     reply.message_id)
+        message_id = await SentMessageTracker.remove(session_id, reply.message_id)
         if message_id is not None:
             await bot.delete_msg(message_id=message_id)
             await recall_message.finish()
@@ -132,14 +137,15 @@ async def _(bot: Bot, event: MessageEvent, state: T_State):
         perm = SUPERUSER | ADMIN
         if await perm(bot, event):
             message_id = await SentMessageTracker.remove_prefix(
-                group_prefix, reply.message_id)
+                group_prefix, reply.message_id
+            )
             if message_id is not None:
                 await bot.delete_msg(message_id=message_id)
                 await recall_message.finish()
-    elif reply.sender.user_id == event.user_id and isinstance(
-            event, GroupMessageEvent):
-        mem = await bot.get_group_member_info(group_id=event.group_id,
-                                              user_id=int(bot.self_id))
+    elif reply.sender.user_id == event.user_id and isinstance(event, GroupMessageEvent):
+        mem = await bot.get_group_member_info(
+            group_id=event.group_id, user_id=int(bot.self_id)
+        )
         if mem["role"] in ("owner", "admin"):
             await bot.delete_msg(message_id=reply.message_id)
 
@@ -150,11 +156,9 @@ async def _(event: GroupMessageEvent):
 
     Suppose the message will be handled by other handlers.
     """
-    await ReceivedMessageTracker.add(event.user_id,
-                                     event.group_id,
-                                     event.message_id,
-                                     event.message,
-                                     handled=True)
+    await ReceivedMessageTracker.add(
+        event.user_id, event.group_id, event.message_id, event.message, handled=True
+    )
     # should not finish here
 
 
@@ -164,11 +168,9 @@ async def _(event: GroupMessageEvent):
 
     If the message goes through all handlers here, it is unhandled.
     """
-    await ReceivedMessageTracker.add(event.user_id,
-                                     event.group_id,
-                                     event.message_id,
-                                     event.message,
-                                     handled=False)
+    await ReceivedMessageTracker.add(
+        event.user_id, event.group_id, event.message_id, event.message, handled=False
+    )
     await record_unhandled_message.finish()
 
 
@@ -221,9 +223,7 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
 
 @debug_ask.handle()
 @command_doc("cut", category=CommandCategory.UTILITY)
-async def _(bot: OnebotBot,
-            event: GroupMessageEvent,
-            arg: Message = CommandArg()):
+async def _(bot: OnebotBot, event: GroupMessageEvent, arg: Message = CommandArg()):
     """
     显示输入的分词结果
 
@@ -238,7 +238,7 @@ async def _(bot: OnebotBot,
         >>> {cmd} 问起不起床
         问起/不/起床
     """
-    if (input := arg.extract_plain_text()):
+    if input := arg.extract_plain_text():
         await debug_ask.finish("/".join(Ask.pseg_cut(input)))
 
 
@@ -253,15 +253,13 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
         \\- “好问题，我也想知道”
     """
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    messages = await ReceivedMessageTracker.find(group_id=event.group_id,
-                                                 since=today)
+    messages = await ReceivedMessageTracker.find(group_id=event.group_id, since=today)
     user_messages = defaultdict(int)
     for message in messages:
         user_messages[message.user_id] += 1
     user_messages = sorted(user_messages.items(), key=lambda x: -x[1])
 
-    group_info = await bot.get_group_info(group_id=event.group_id,
-                                          no_cache=True)
+    group_info = await bot.get_group_info(group_id=event.group_id, no_cache=True)
     group_name = group_info["group_name"]
     date = today.strftime("%m-%d")
     if not user_messages:
@@ -271,22 +269,25 @@ async def _(bot: OnebotBot, event: GroupMessageEvent):
     result = f"{group_name} {date} 发言排行\n"
     top = 10
     top_uid, top_messages = zip(*user_messages[:top])
-    names = await asyncio.gather(*[
-        get_group_member_name(group_id=event.group_id, user_id=user_id)
-        for user_id in top_uid
-    ])
+    names = await asyncio.gather(
+        *[
+            get_group_member_name(group_id=event.group_id, user_id=user_id)
+            for user_id in top_uid
+        ]
+    )
     ranking = "\n".join(
         f"{i}. {member} {count}"
-        for i, (member, count) in enumerate(zip(names, top_messages), 1))
+        for i, (member, count) in enumerate(zip(names, top_messages), 1)
+    )
     await message_rank.finish(result + ranking)
 
 
 @random_response.handle()
 @command_doc("随机回复", category=CommandCategory.CHAT, is_placeholder=True)
-async def _(event: GroupMessageEvent,
-            ratelimit: RateLimiter = RateLimit("随机回复",
-                                               type="group",
-                                               seconds=10)):
+async def _(
+    event: GroupMessageEvent,
+    ratelimit: RateLimiter = RateLimit("随机回复", type="group", seconds=10),
+):
     """
     根据预设规则，随机回复消息
 
@@ -312,9 +313,7 @@ async def _(event: GroupMessageEvent,
 
 @trace_single.handle()
 @command_doc("trace", category=CommandCategory.UTILITY)
-async def _(bot: OnebotBot,
-            event: GroupMessageEvent,
-            arg: Message = CommandArg()):
+async def _(bot: OnebotBot, event: GroupMessageEvent, arg: Message = CommandArg()):
     """
     查看过往消息
 
@@ -347,9 +346,7 @@ async def _(bot: OnebotBot,
     else:
         index = 1
 
-    result = await History.find_single_message(bot,
-                                               event.group_id,
-                                               index=index)
+    result = await History.find_single_message(bot, event.group_id, index=index)
     if isinstance(result, Message) or result is None:
         await trace_single.finish(result)
     else:
@@ -357,9 +354,7 @@ async def _(bot: OnebotBot,
 
 
 @trace_search.handle()
-async def _(bot: OnebotBot,
-            event: GroupMessageEvent,
-            arg: Message = CommandArg()):
+async def _(bot: OnebotBot, event: GroupMessageEvent, arg: Message = CommandArg()):
     senders = []
     keywords = []
     for seg in arg:
@@ -369,20 +364,19 @@ async def _(bot: OnebotBot,
         elif segment.is_text():
             keywords.extend(segment.extract_text_args())
 
-    results = await History.find(bot,
-                                 event.group_id,
-                                 senders=senders,
-                                 keywords=keywords)
+    results = await History.find(
+        bot, event.group_id, senders=senders, keywords=keywords
+    )
     if results:
         await api.send_group_forward_msg(event.group_id, results)
 
 
 @disable_response.handle()
 @command_doc("闭嘴", aliases={"闭菊"}, category=CommandCategory.CHAT)
-async def _(event: GroupMessageEvent,
-            notice_lim: RateLimiter = RateLimit("随机回复关闭提示",
-                                                type="group",
-                                                seconds=600)):
+async def _(
+    event: GroupMessageEvent,
+    notice_lim: RateLimiter = RateLimit("随机回复关闭提示", type="group", seconds=600),
+):
     """
     关闭{bot}的随机回复
 
@@ -400,9 +394,9 @@ async def _(event: GroupMessageEvent,
         if await toggle_user_response(user_id=event.user_id, enabled=False):
             await disable_response.finish("鸮鸮对你的随机回复已关闭")
         return
-    result = await toggle_group_response_request(user_id=event.user_id,
-                                                 group_id=event.group_id,
-                                                 enabled=False)
+    result = await toggle_group_response_request(
+        user_id=event.user_id, group_id=event.group_id, enabled=False
+    )
     if type(result) is int:
         requests = RandomResponseConfig.num_reqs_to_toggle
         prompt = f"正在关闭鸮鸮的随机回复，进度 {result}/{requests}"
@@ -429,11 +423,10 @@ async def _(event: GroupMessageEvent):
     Note:
         - 可使用`{cmdhelp} 随机回复`查看功能信息
     """
-    user_toggled = await toggle_user_response(user_id=event.user_id,
-                                              enabled=True)
-    result = await toggle_group_response_request(user_id=event.user_id,
-                                                 group_id=event.group_id,
-                                                 enabled=True)
+    user_toggled = await toggle_user_response(user_id=event.user_id, enabled=True)
+    result = await toggle_group_response_request(
+        user_id=event.user_id, group_id=event.group_id, enabled=True
+    )
     requests = RandomResponseConfig.num_reqs_to_toggle
     if user_toggled:
         prompt = "鸮鸮对你的随机回复已开启"
@@ -449,11 +442,11 @@ async def _(event: GroupMessageEvent):
 
 @poke_source.handle()
 @command_doc("跟戳", category=CommandCategory.CHAT, is_placeholder=True)
-async def _(bot: Bot,
-            event: PokeNotifyEvent,
-            ratelimiter: RateLimiter = RateLimit("poke",
-                                                 type="group",
-                                                 seconds=10)):
+async def _(
+    bot: Bot,
+    event: PokeNotifyEvent,
+    ratelimiter: RateLimiter = RateLimit("poke", type="group", seconds=10),
+):
     """
     跟随其他群友戳一戳
 
@@ -466,6 +459,6 @@ async def _(bot: Bot,
     if not event.group_id:
         return
     if ratelimiter.try_acquire():
-        await bot.call_api("group_poke",
-                           group_id=event.group_id,
-                           user_id=event.target_id)
+        await bot.call_api(
+            "group_poke", group_id=event.group_id, user_id=event.target_id
+        )

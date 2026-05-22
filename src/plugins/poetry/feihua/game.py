@@ -8,7 +8,6 @@ from .data import KEYWORDS, FeiHuaData
 
 
 class FeiHua:
-
     GAME_IN_PROGRESS = "当前进行的飞花令题目是：【{keywords}】"
     GAME_RAND_START = "飞花令开始！鸮鸮帮你出题：【{keywords}】"
     GAME_NORM_START = "飞花令开始！题目是：【{keywords}】"
@@ -31,7 +30,8 @@ class FeiHua:
         group = await FeiHuaData.get(self.group_id)
         if group.in_progress:
             return MessageSegment.text(
-                self.GAME_IN_PROGRESS.format(keywords=group.display_keywords))
+                self.GAME_IN_PROGRESS.format(keywords=group.display_keywords)
+            )
 
         if not keywords:
             group.keywords = [random.choice(KEYWORDS)]
@@ -41,23 +41,24 @@ class FeiHua:
             template = self.GAME_NORM_START
 
         await FeiHuaData.set(self.group_id, group)
-        return MessageSegment.text(
-            template.format(keywords=group.display_keywords))
+        return MessageSegment.text(template.format(keywords=group.display_keywords))
 
     async def stop(self) -> MessageSegment | None:
         group = await FeiHuaData.get(self.group_id)
         if not group.in_progress:
             return MessageSegment.text(self.E_NO_GAME)
 
-        score = dict(
-            sorted(group.score.items(), key=lambda x: x[1], reverse=True))
-        members = await asyncio.gather(*[
-            get_group_member_name(group_id=self.group_id, user_id=user_id)
-            for user_id in score
-        ])
+        score = dict(sorted(group.score.items(), key=lambda x: x[1], reverse=True))
+        members = await asyncio.gather(
+            *[
+                get_group_member_name(group_id=self.group_id, user_id=user_id)
+                for user_id in score
+            ]
+        )
         ranking = "\n".join(
             f"第{i}名 {member} {sc}分"
-            for i, (member, sc) in enumerate(zip(members, score.values()), 1))
+            for i, (member, sc) in enumerate(zip(members, score.values()), 1)
+        )
 
         group.stop()
         await FeiHuaData.set(self.group_id, group)
@@ -85,29 +86,32 @@ class FeiHua:
         """
         group = await FeiHuaData.get(self.group_id)
         if not group.in_progress:
-            return None if not explicit else MessageSegment.text(
-                self.E_NO_GAME)
+            return None if not explicit else MessageSegment.text(self.E_NO_GAME)
         parts = Poetry.separate(input_)
         if sum(len(_) for _ in parts) < self.MIN_LENGTH:
             return None if not explicit else MessageSegment.text(self.E_LENGTH)
         if all(kw not in input_ for kw in group.keywords):
-            return None if not explicit else MessageSegment.text(
-                self.E_NO_KW.format(keywords=group.display_keywords))
+            return (
+                None
+                if not explicit
+                else MessageSegment.text(
+                    self.E_NO_KW.format(keywords=group.display_keywords)
+                )
+            )
         match_poetry = Poetry.search_origin(input_)
         if not match_poetry:
-            return None if not explicit else MessageSegment.text(
-                self.E_NOT_POETRY)
+            return None if not explicit else MessageSegment.text(self.E_NOT_POETRY)
         hit_part = [p for p in parts if any(kw in p for kw in group.keywords)]
         if all(p in group.parts for p in hit_part):
             return MessageSegment.text(self.E_EXIST)
         # accept the answer
         # choose the first dynasty
-        origin = min(match_poetry,
-                     key=lambda x: Poetry.dynasty.index(x["dynasty"]))
+        origin = min(match_poetry, key=lambda x: Poetry.dynasty.index(x["dynasty"]))
         group.score.setdefault(user_id, 0)
         group.score[user_id] += 1
         group.history.append((user_id, input_))
         group.parts.extend(hit_part)
         await FeiHuaData.set(self.group_id, group)
         return MessageSegment.text(
-            self.ACCEPT.format(score=group.score[user_id], **origin))
+            self.ACCEPT.format(score=group.score[user_id], **origin)
+        )

@@ -16,7 +16,6 @@ Flex = Union[T, List[T], None]
 
 
 class Undefined:
-
     _inst = None
 
     def __new__(cls) -> Undefined:
@@ -38,6 +37,5 @@ undefined = Undefined()
 
 
 class cast(Generic[T]):
-
     def __new__(cls, value: Any) -> T:
         return value

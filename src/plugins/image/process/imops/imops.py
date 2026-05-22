@@ -19,7 +19,6 @@ transformer = ImOpsTransformer()
 
 
 class ConcatArgParser:
-
     def __init__(self, dest: str, joiner: str = " ") -> None:
         self.dest = dest
         self.joiner = joiner
@@ -72,10 +71,7 @@ class TileScript(ImageProcessor):
         try:
             tree = parser.parse(expr)
         except exceptions.UnexpectedInput as e:
-            raise DSLParseError(str(e),
-                                line=e.line,
-                                column=e.column,
-                                text=expr) from e
+            raise DSLParseError(str(e), line=e.line, column=e.column, text=expr) from e
         except exceptions.LarkError as e:
             # 其他 Lark 异常
             raise DSLParseError(str(e)) from e
@@ -120,8 +116,9 @@ def merge(
     for row in mat:
         x = 0
         for img in row:
-            if img.mode in ("RGBA", "LA") or (img.mode == "P"
-                                              and "transparency" in img.info):
+            if img.mode in ("RGBA", "LA") or (
+                img.mode == "P" and "transparency" in img.info
+            ):
                 canvas.alpha_composite(img, (x, y))
             else:
                 canvas.paste(img, (x, y))
@@ -145,9 +142,9 @@ def build_cell(
     suffixes = ast.Suffix.compress(*cell.suffixes)
     for suffix in suffixes:
         if suffix.type == "rotate" and suffix.param:
-            img = img.rotate(-suffix.param,
-                             expand=True,
-                             resample=Image.Resampling.LANCZOS)
+            img = img.rotate(
+                -suffix.param, expand=True, resample=Image.Resampling.LANCZOS
+            )
         elif suffix.type == "flip_h":
             img = ImageOps.mirror(img)
         elif suffix.type == "flip_v":

@@ -15,15 +15,9 @@ def serialize(obj: Any) -> Any:
         return serialize(obj)
 
     if hasattr(obj, "__dict__"):
-        return {
-            k: _(v)
-            for k, v in obj.__dict__.items() if not k.startswith("_")
-        }
+        return {k: _(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
     if hasattr(obj, "__slots__"):
-        return {
-            k: _(getattr(obj, k))
-            for k in obj.__slots__ if not k.startswith("_")
-        }
+        return {k: _(getattr(obj, k)) for k in obj.__slots__ if not k.startswith("_")}
     return obj  # give up
 
 

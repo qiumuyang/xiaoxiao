@@ -9,10 +9,12 @@ from src.utils.doc import CommandCategory, command_doc
 from .processor import ImageProcessor
 
 
-@command_doc("大风车",
-             aliases={"逆时针旋转"},
-             category=CommandCategory.IMAGE,
-             visible_in_overview=False)
+@command_doc(
+    "大风车",
+    aliases={"逆时针旋转"},
+    category=CommandCategory.IMAGE,
+    visible_in_overview=False,
+)
 class MultiRotate(ImageProcessor):
     """
     通过**90°旋转**生成动图
@@ -36,13 +38,11 @@ class MultiRotate(ImageProcessor):
     }
 
     rps = Argument(4.0, range=(0.5, 40), positional=True, doc="旋转频率 (次/秒)")
-    mode = Argument("crop",
-                    choices=["crop", "pad"],
-                    positional=True,
-                    doc="非正方形图片处理方式")
+    mode = Argument(
+        "crop", choices=["crop", "pad"], positional=True, doc="非正方形图片处理方式"
+    )
 
-    def __init__(self, direction: Literal["clockwise",
-                                          "counterclockwise"]) -> None:
+    def __init__(self, direction: Literal["clockwise", "counterclockwise"]) -> None:
         super().__init__()
         self.direction = direction
 
@@ -83,23 +83,26 @@ class MultiRotate(ImageProcessor):
                 image = image.transpose(self.TRANS[self.direction])
                 frames.append(image)
         io = BytesIO()
-        frames[0].save(io,
-                       format="GIF",
-                       save_all=True,
-                       append_images=frames[1:],
-                       duration=durations,
-                       loop=0,
-                       disposal=2)
+        frames[0].save(
+            io,
+            format="GIF",
+            save_all=True,
+            append_images=frames[1:],
+            duration=durations,
+            loop=0,
+            disposal=2,
+        )
         io.seek(0)
         return io
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         raise NotImplementedError
 
 
 # for documentation purposes
-command_doc("反向大风车",
-            aliases={"顺时针旋转"},
-            category=CommandCategory.IMAGE,
-            visible_in_overview=False)(MultiRotate)
+command_doc(
+    "反向大风车",
+    aliases={"顺时针旋转"},
+    category=CommandCategory.IMAGE,
+    visible_in_overview=False,
+)(MultiRotate)

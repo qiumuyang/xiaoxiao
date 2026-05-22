@@ -1,8 +1,7 @@
 from contextlib import AsyncExitStack
 from typing import Literal, Union
 
-from nonebot.adapters.onebot.v11 import (GroupMessageEvent, MessageEvent,
-                                         NoticeEvent)
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent, NoticeEvent
 from nonebot.dependencies import Dependent
 from nonebot.internal.adapter import Bot, Event
 from nonebot.internal.params import Depends
@@ -11,8 +10,12 @@ from nonebot.typing import T_DependencyCache, T_RuleChecker, T_State
 from typing_extensions import override
 
 from .config import T_Config
-from .ratelimit import (RateLimiter, RateLimitManager, RateLimitType,
-                        TokenBucketRateLimiter)
+from .ratelimit import (
+    RateLimiter,
+    RateLimitManager,
+    RateLimitType,
+    TokenBucketRateLimiter,
+)
 
 
 class PostRule(Rule):
@@ -38,9 +41,13 @@ class PostRule(Rule):
         *checkers: T_RuleChecker | Dependent[bool],
     ):
         Rule.__init__(self, *checkers)
-        self.post_checker: Dependent[bool] = (post_checker if isinstance(
-            post_checker, Dependent) else Dependent[bool].parse(
-                call=post_checker, allow_types=self.HANDLER_PARAM_TYPES))
+        self.post_checker: Dependent[bool] = (
+            post_checker
+            if isinstance(post_checker, Dependent)
+            else Dependent[bool].parse(
+                call=post_checker, allow_types=self.HANDLER_PARAM_TYPES
+            )
+        )
 
     @override
     def __and__(  # type: ignore
@@ -74,8 +81,9 @@ class PostRule(Rule):
         dependency_cache: T_DependencyCache | None = None,
     ) -> bool:
         """先检查常规规则，再短路检查后置规则。"""
-        precondition = await Rule.__call__(self, bot, event, state, stack,
-                                           dependency_cache)
+        precondition = await Rule.__call__(
+            self, bot, event, state, stack, dependency_cache
+        )
         return precondition and await self.post_checker(
             bot=bot,
             event=event,
@@ -86,7 +94,6 @@ class PostRule(Rule):
 
 
 class RateLimitRule:
-
     __slots__ = ("key", "type", "seconds", "concurrency", "block")
 
     def __init__(
@@ -104,13 +111,19 @@ class RateLimitRule:
         self.block = block
 
     def __repr__(self) -> str:
-        return (f"RateLimit(key={self.key}, type={self.type.value}, "
-                f"seconds={self.seconds}, concurrency={self.concurrency}, "
-                f"block={self.block})")
+        return (
+            f"RateLimit(key={self.key}, type={self.type.value}, "
+            f"seconds={self.seconds}, concurrency={self.concurrency}, "
+            f"block={self.block})"
+        )
 
     def __eq__(self, other: object) -> bool:
-        return (isinstance(other, RateLimitRule) and self.key == other.key
-                and self.type == other.type and self.block == other.block)
+        return (
+            isinstance(other, RateLimitRule)
+            and self.key == other.key
+            and self.type == other.type
+            and self.block == other.block
+        )
 
     def __hash__(self) -> int:
         return hash((self.key, self.type, self.block))
@@ -151,7 +164,8 @@ class RateLimitRule:
             key=self.key + id,
             rate_limit=TokenBucketRateLimiter,
             capacity=self.concurrency,
-            refill_rate=self.concurrency / self.seconds)
+            refill_rate=self.concurrency / self.seconds,
+        )
         if self.block:
             await rate_limiter.acquire()
             return True
@@ -166,7 +180,8 @@ def ratelimit(
     block: bool = False,
 ) -> PostRule:
     return PostRule(
-        RateLimitRule(key, RateLimitType(type), seconds, concurrency, block))
+        RateLimitRule(key, RateLimitType(type), seconds, concurrency, block)
+    )
 
 
 class _RateLimit:
@@ -191,11 +206,16 @@ class _RateLimit:
 
     async def __call__(self, event: Event) -> RateLimiter | None:
         id = RateLimitRule.get_message_event_id(event, self.type)
-        return await RateLimitManager.create_or_get(
-            key=self.key + id,
-            rate_limit=TokenBucketRateLimiter,
-            capacity=self.concurrency,
-            refill_rate=self.concurrency / self.seconds) if id else None
+        return (
+            await RateLimitManager.create_or_get(
+                key=self.key + id,
+                rate_limit=TokenBucketRateLimiter,
+                capacity=self.concurrency,
+                refill_rate=self.concurrency / self.seconds,
+            )
+            if id
+            else None
+        )
 
 
 def RateLimit(
@@ -204,8 +224,7 @@ def RateLimit(
     seconds: float,
     concurrency: int = 1,
 ) -> RateLimiter:
-    return Depends(_RateLimit(key, type, seconds, concurrency),
-                   use_cache=False)
+    return Depends(_RateLimit(key, type, seconds, concurrency), use_cache=False)
 
 
 class ReplyRule:
@@ -218,10 +237,9 @@ class ReplyRule:
 
     __slots__ = ("startswith", "lstrip", "force_whitespace")
 
-    def __init__(self,
-                 *startswith: str,
-                 lstrip: bool = True,
-                 force_whitespace: bool = True):
+    def __init__(
+        self, *startswith: str, lstrip: bool = True, force_whitespace: bool = True
+    ):
         self.startswith = startswith
         self.lstrip = lstrip
         self.force_whitespace = force_whitespace
@@ -245,7 +263,6 @@ class ReplyRule:
 
 
 class NotReplyRule:
-
     def __call__(self, event: MessageEvent) -> bool:
         return not event.reply
 
@@ -260,7 +277,6 @@ def not_reply() -> Rule:
 
 
 class EnabledRule:
-
     def __init__(self, config: type[T_Config]):
         self.config = config
 

@@ -37,10 +37,12 @@ class FourColorGrid(ImageProcessor):
     }
 
     @classmethod
-    def adjust_tint(cls,
-                    image: Image.Image,
-                    color: tuple[int, int, int],
-                    original_factor: float = 0.15) -> Image.Image:
+    def adjust_tint(
+        cls,
+        image: Image.Image,
+        color: tuple[int, int, int],
+        original_factor: float = 0.15,
+    ) -> Image.Image:
         """
         将图像整体色调调整为任意 RGB 目标颜色。
 
@@ -67,7 +69,8 @@ class FourColorGrid(ImageProcessor):
         v = np.clip(
             v * (1 - t) + target_value * t,  # type: ignore
             0,
-            255).astype(np.uint8)
+            255,
+        ).astype(np.uint8)
 
         # Merge channels and convert back to RGB
         adjusted_hsv = cv2.merge([h, s, v])
@@ -82,8 +85,7 @@ class FourColorGrid(ImageProcessor):
 
         return result
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         image = self.scale(image, max_size=(512, 512))
         rows = []
         for row in self.COLORS:
@@ -92,23 +94,25 @@ class FourColorGrid(ImageProcessor):
                 factor = self.BRIGHTNESS_FACTOR[color_hex]
                 color = Color.from_hex(color_hex)
                 if factor > 0:
-                    color = Palette.natural_blend(Palette.WHITE, color,
-                                                  factor).to_rgb()
+                    color = Palette.natural_blend(Palette.WHITE, color, factor).to_rgb()
                 else:
-                    color = Palette.natural_blend(Palette.BLACK, color,
-                                                  -factor).to_rgb()
+                    color = Palette.natural_blend(
+                        Palette.BLACK, color, -factor
+                    ).to_rgb()
                 cols.append(RImage.from_image(self.adjust_tint(image, color)))
-            rows.append(
-                Container.from_children(cols, direction=Direction.HORIZONTAL))
-        return Container.from_children(
-            rows,
-            direction=Direction.VERTICAL,
-        ).render().to_pil()
+            rows.append(Container.from_children(cols, direction=Direction.HORIZONTAL))
+        return (
+            Container.from_children(
+                rows,
+                direction=Direction.VERTICAL,
+            )
+            .render()
+            .to_pil()
+        )
 
 
 @command_doc("特大2", category=CommandCategory.IMAGE, visible_in_overview=False)
 class FourColorGridV2(ImageProcessor):
-
     COLORS = [[30, 0], [120, 60]]
 
     @classmethod
@@ -129,10 +133,7 @@ class FourColorGridV2(ImageProcessor):
 
         # Apply morphological closing to fill small gaps in the white regions (caused by ringing)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        white_mask = cv2.morphologyEx(white_mask,
-                                      cv2.MORPH_CLOSE,
-                                      kernel,
-                                      iterations=1)
+        white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
         non_white_mask = cv2.bitwise_not(white_mask).astype(np.bool_)
 
         hsv[..., 0] = np.where(non_white_mask, hue, hsv[..., 0])
@@ -145,17 +146,19 @@ class FourColorGridV2(ImageProcessor):
             result = np.dstack((result, a))
         return Image.fromarray(result)
 
-    def process_frame(self, image: Image.Image, *args,
-                      **kwargs) -> Image.Image:
+    def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         image = self.scale(image, max_size=(512, 512))
         rows = []
         for row in self.COLORS:
             cols = []
             for hue in row:
                 cols.append(RImage.from_image(self.convert_color(image, hue)))
-            rows.append(
-                Container.from_children(cols, direction=Direction.HORIZONTAL))
-        return Container.from_children(
-            rows,
-            direction=Direction.VERTICAL,
-        ).render().to_pil()
+            rows.append(Container.from_children(cols, direction=Direction.HORIZONTAL))
+        return (
+            Container.from_children(
+                rows,
+                direction=Direction.VERTICAL,
+            )
+            .render()
+            .to_pil()
+        )

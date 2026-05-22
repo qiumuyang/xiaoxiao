@@ -26,10 +26,12 @@ class MarkdownRenderer:
 
         return decorator
 
-    def __init__(self,
-                 text: str,
-                 style: MarkdownStyle = MarkdownStyle(),
-                 content_width: int = 800) -> None:
+    def __init__(
+        self,
+        text: str,
+        style: MarkdownStyle = MarkdownStyle(),
+        content_width: int = 800,
+    ) -> None:
         self.text = text
         self.style = style
         self.content_width = content_width
@@ -37,12 +39,15 @@ class MarkdownRenderer:
             self.doc = mistletoe.Document(text)
 
     def render(self) -> RenderObject:
-        return self._dispatch_render(self.doc,
-                                     ctx=Context(
-                                         style=self.style.main,
-                                         max_width=self.content_width,
-                                         indent=0,
-                                         block_spacing=self.style.spacing))
+        return self._dispatch_render(
+            self.doc,
+            ctx=Context(
+                style=self.style.main,
+                max_width=self.content_width,
+                indent=0,
+                block_spacing=self.style.spacing,
+            ),
+        )
 
     def _dispatch_render(
         self,

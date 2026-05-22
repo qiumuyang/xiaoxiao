@@ -1,22 +1,31 @@
 from typing_extensions import Unpack
 
-from src.utils.render import (BaseStyle, BoxShadow, Color, Container,
-                              RenderImage, RenderObject, Space, cached,
-                              volatile)
+from src.utils.render import (
+    BaseStyle,
+    BoxShadow,
+    Color,
+    Container,
+    RenderImage,
+    RenderObject,
+    Space,
+    cached,
+    volatile,
+)
 
 from .render import MarkdownRenderer
 from .style import MarkdownStyle
 
 
 class Markdown(RenderObject):
-
     PAD_DIV = (20, 15)
 
-    def __init__(self,
-                 text: str,
-                 style: MarkdownStyle = MarkdownStyle(),
-                 content_width: int = 800,
-                 **kwargs: Unpack[BaseStyle]) -> None:
+    def __init__(
+        self,
+        text: str,
+        style: MarkdownStyle = MarkdownStyle(),
+        content_width: int = 800,
+        **kwargs: Unpack[BaseStyle],
+    ) -> None:
         super().__init__(**kwargs)
         with volatile(self):
             self.text = text
@@ -38,9 +47,7 @@ class Markdown(RenderObject):
 
     @cached
     def render_content(self) -> RenderImage:
-        md = MarkdownRenderer(self.text,
-                              self.style,
-                              content_width=self.md_width)
+        md = MarkdownRenderer(self.text, self.style, content_width=self.md_width)
         main = md.render()
         return Container.from_children(
             [main],
@@ -48,9 +55,7 @@ class Markdown(RenderObject):
             margin=Space.all(self.md_width // 20),
             background=self._background_color,
             decorations=[
-                BoxShadow.of(blur_radius=91,
-                             spread=4,
-                             color=Color.of(0, 0, 0, 0.8))
+                BoxShadow.of(blur_radius=91, spread=4, color=Color.of(0, 0, 0, 0.8))
             ],
         ).render()
 

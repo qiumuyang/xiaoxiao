@@ -8,18 +8,17 @@ from .factory import _get_api
 
 
 class _APIAlias(Protocol):
+    async def set_emoji_reaction(
+        self, group_id: int, message_id: int, emoji: str
+    ) -> None: ...
 
-    async def set_emoji_reaction(self, group_id: int, message_id: int,
-                                 emoji: str) -> None:
-        ...
+    async def unset_emoji_reaction(
+        self, group_id: int, message_id: int, emoji: str
+    ) -> None: ...
 
-    async def unset_emoji_reaction(self, group_id: int, message_id: int,
-                                   emoji: str) -> None:
-        ...
-
-    async def send_group_forward_msg(self, group_id: int,
-                                     messages: list[ForwardMessage]) -> None:
-        ...
+    async def send_group_forward_msg(
+        self, group_id: int, messages: list[ForwardMessage]
+    ) -> None: ...
 
 
 def __getattr__(name: str):

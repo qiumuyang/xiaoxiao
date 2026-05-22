@@ -74,14 +74,15 @@ def collect_statistics(
         num_messages = sum(months)
         if num_messages:
             most_message_day = max(days)
-            most_message = (date(year, 1, 1) +
-                            timedelta(days.index(most_message_day)),
-                            most_message_day)
+            most_message = (
+                date(year, 1, 1) + timedelta(days.index(most_message_day)),
+                most_message_day,
+            )
         else:
             most_message = None
-        sentence, times = max(user_language.get(user_id, {}).items(),
-                              key=lambda x: x[1],
-                              default=("", 0))
+        sentence, times = max(
+            user_language.get(user_id, {}).items(), key=lambda x: x[1], default=("", 0)
+        )
         users[user_id] = UserStatistics(
             num_messages=num_messages,
             message_each_month=months,
@@ -92,8 +93,7 @@ def collect_statistics(
             message_rank=0,
             talkative_days=0,
             talkative_rank=0,
-            popular_sentence=None if times < text_min_times else
-            (sentence, times),
+            popular_sentence=None if times < text_min_times else (sentence, times),
         )
     # finally collect group statistics
     group_months = [0] * 12
@@ -109,43 +109,56 @@ def collect_statistics(
     num_messages = sum(group_months)
     if num_messages:
         most_message_day = max(group_days)
-        most_message = (date(year, 1, 1) +
-                        timedelta(group_days.index(most_message_day)),
-                        most_message_day)
+        most_message = (
+            date(year, 1, 1) + timedelta(group_days.index(most_message_day)),
+            most_message_day,
+        )
         most_user_day = max(group_num_users)
-        most_user = (date(year, 1, 1) +
-                     timedelta(group_num_users.index(most_user_day)),
-                     most_user_day)
+        most_user = (
+            date(year, 1, 1) + timedelta(group_num_users.index(most_user_day)),
+            most_user_day,
+        )
     else:
         most_message = None
         most_user = None
     # group-level user ranking
     user_messages = {user_id: s.num_messages for user_id, s in users.items()}
     for rank, (user_id, _) in enumerate(
-            sorted(user_messages.items(), key=lambda x: -x[1])):
+        sorted(user_messages.items(), key=lambda x: -x[1])
+    ):
         users[user_id].message_rank = rank + 1
     for rank, (user_id, days) in enumerate(
-            sorted(talkative_user_days.items(), key=lambda x: -x[1])):
+        sorted(talkative_user_days.items(), key=lambda x: -x[1])
+    ):
         users[user_id].talkative_rank = rank + 1
         users[user_id].talkative_days = days
     # group popular sentences
     popular_sentences = sorted(
-        ((sentence, times,
-          sum(1 for user_id in active_users
-              if sentence in user_language.get(user_id, {})))
-         for sentence, times in user_language.get(group_pseudo, {}).items()
-         if times >= text_min_times_group),
+        (
+            (
+                sentence,
+                times,
+                sum(
+                    1
+                    for user_id in active_users
+                    if sentence in user_language.get(user_id, {})
+                ),
+            )
+            for sentence, times in user_language.get(group_pseudo, {}).items()
+            if times >= text_min_times_group
+        ),
         key=lambda x: -x[1],
     )[:max_num_popular_sentences]
-    group_stat = GroupStatistics(num_messages=num_messages,
-                                 message_each_month=group_months,
-                                 message_each_day=group_days,
-                                 active_days=sum(1 for day in group_days
-                                                 if day > 0),
-                                 active_users=len(active_users),
-                                 user_messages=user_messages,
-                                 user_talkative_days=talkative_user_days,
-                                 most_user=most_user,
-                                 most_message=most_message,
-                                 popular_sentences=popular_sentences)
+    group_stat = GroupStatistics(
+        num_messages=num_messages,
+        message_each_month=group_months,
+        message_each_day=group_days,
+        active_days=sum(1 for day in group_days if day > 0),
+        active_users=len(active_users),
+        user_messages=user_messages,
+        user_talkative_days=talkative_user_days,
+        most_user=most_user,
+        most_message=most_message,
+        popular_sentences=popular_sentences,
+    )
     return group_stat, users

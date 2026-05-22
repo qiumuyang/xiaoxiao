@@ -40,6 +40,7 @@ class BaseStyle(TypedDict, total=False):
         | +---------------+ |
         +-------------------+
     """
+
     background: Color
     margin: Space
     border: Border
@@ -98,8 +99,12 @@ class RenderObject(ABC, Cacheable):
             This method should NOT be @cached.
             Add @cached to `content_width`.
         """
-        width = (self.content_width + self.padding.width + self.margin.width +
-                 self.border.width * 2)
+        width = (
+            self.content_width
+            + self.padding.width
+            + self.margin.width
+            + self.border.width * 2
+        )
         return width
 
     @property
@@ -110,8 +115,12 @@ class RenderObject(ABC, Cacheable):
             This method should NOT be @cached.
             Add @cached to `content_height`.
         """
-        height = (self.content_height + self.padding.height +
-                  self.margin.height + self.border.width * 2)
+        height = (
+            self.content_height
+            + self.padding.height
+            + self.margin.height
+            + self.border.width * 2
+        )
         return height
 
     @property

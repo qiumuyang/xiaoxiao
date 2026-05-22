@@ -1,8 +1,5 @@
 class Table:
-
-    def __init__(self,
-                 header: list[str],
-                 formats: list[str] | None = None) -> None:
+    def __init__(self, header: list[str], formats: list[str] | None = None) -> None:
         self.header = header
         self.rows = []
         self.formats = formats or ["{}"] * len(header)
@@ -25,7 +22,6 @@ class Table:
         ]
 
         for row in self.rows:
-            inner = "|".join(
-                f.format(cell) for f, cell in zip(self.formats, row))
+            inner = "|".join(f.format(cell) for f, cell in zip(self.formats, row))
             rendered.append(f"|{inner}|")
         return "\n".join(rendered)

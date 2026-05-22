@@ -6,8 +6,13 @@ from typing_extensions import Unpack
 
 from src.utils.render import BaseStyle, Color, Direction
 from src.utils.render import Image as ImageObject
-from src.utils.render import (Palette, RelativeContainer, RenderImage,
-                              RenderObject, cached)
+from src.utils.render import (
+    Palette,
+    RelativeContainer,
+    RenderImage,
+    RenderObject,
+    cached,
+)
 
 from .base import ColorPolicy, DataGraph
 
@@ -18,7 +23,6 @@ class Anchor(NamedTuple):
 
 
 class BarChart(DataGraph):
-
     def __init__(
         self,
         data: list[float] | dict[Any, float] | list[int] | dict[Any, int],
@@ -42,8 +46,7 @@ class BarChart(DataGraph):
 
     @property
     def horizontal_size(self) -> tuple[int, int]:
-        w = (self.bar_width + self.bar_spacing) * len(
-            self.data) - self.bar_spacing
+        w = (self.bar_width + self.bar_spacing) * len(self.data) - self.bar_spacing
         h = self.bar_length
         return w, h
 
@@ -96,8 +99,9 @@ class BarChart(DataGraph):
         else:
             x_offset, y_offset = 0, self.bar_width // 2
 
-        for i, (key_anchor, value_anchor,
-                value) in enumerate(zip(*self.anchors, self.data.values())):
+        for i, (key_anchor, value_anchor, value) in enumerate(
+            zip(*self.anchors, self.data.values())
+        ):
             if isinstance(self.color, list):
                 color = self.color[i]
             elif isinstance(self.color, Color):
@@ -122,7 +126,6 @@ class BarChart(DataGraph):
 
 
 class BarChartWithLabel(BarChart):
-
     def __init__(
         self,
         data: dict[Any, float],

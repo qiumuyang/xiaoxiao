@@ -5,8 +5,15 @@ from typing import Iterable
 
 from typing_extensions import Self, Unpack, override
 
-from ..base import (Alignment, BaseStyle, Direction, RenderImage, RenderObject,
-                    cached, volatile)
+from ..base import (
+    Alignment,
+    BaseStyle,
+    Direction,
+    RenderImage,
+    RenderObject,
+    cached,
+    volatile,
+)
 from .spacer import Spacer, ZeroSpacingSpacer
 
 
@@ -51,26 +58,24 @@ class Container(RenderObject):
     def content_width(self) -> int:
         if self.direction == Direction.HORIZONTAL:
             children = [
-                child for child in self.children
+                child
+                for child in self.children
                 if not isinstance(child, ZeroSpacingSpacer)
             ]
             spacing = self.spacing * (len(children) - 1)
             if not children:
                 spacing = 0
             return sum(child.width for child in self.children) + spacing
-        return max(child.width
-                   for child in self.children) if self.children else 0
+        return max(child.width for child in self.children) if self.children else 0
 
     @property
     @cached
     @override
     def content_height(self) -> int:
         if self.direction == Direction.HORIZONTAL:
-            return max(child.height
-                       for child in self.children) if self.children else 0
+            return max(child.height for child in self.children) if self.children else 0
         children = [
-            child for child in self.children
-            if not isinstance(child, ZeroSpacingSpacer)
+            child for child in self.children if not isinstance(child, ZeroSpacingSpacer)
         ]
         spacing = self.spacing * (len(children) - 1)
         if not children:
@@ -94,8 +99,9 @@ class Container(RenderObject):
             spacer = Spacer.of(height=self.spacing)
         children = [self.children[0]]
         for child in self.children[1:]:
-            if (isinstance(child, ZeroSpacingSpacer)
-                    or isinstance(children[-1], ZeroSpacingSpacer)):
+            if isinstance(child, ZeroSpacingSpacer) or isinstance(
+                children[-1], ZeroSpacingSpacer
+            ):
                 children.append(child)
                 continue
             children.append(spacer)
@@ -170,29 +176,28 @@ class FixedContainer(Container):
     ) -> Self:
         if direction == Direction.HORIZONTAL:
             min_width = sum(child.width for child in children)
-            min_height = max(child.height
-                             for child in children) if children else 0
+            min_height = max(child.height for child in children) if children else 0
         else:
-            min_width = max(child.width
-                            for child in children) if children else 0
+            min_width = max(child.width for child in children) if children else 0
             min_height = sum(child.height for child in children)
 
         if width < min_width or height < min_height:
-            raise ValueError(f"Container is too small, "
-                             f"expect at least {(min_width, min_height)}, "
-                             f"got {(width, height)}")
+            raise ValueError(
+                f"Container is too small, "
+                f"expect at least {(min_width, min_height)}, "
+                f"got {(width, height)}"
+            )
 
-        return cls(width, height, justify_content, alignment, direction,
-                   children, **kwargs)
+        return cls(
+            width, height, justify_content, alignment, direction, children, **kwargs
+        )
 
     @cached
     def _render_boundary(self) -> tuple[int, int]:
         if self.direction == Direction.HORIZONTAL:
-            space = self.content_width - sum(child.width
-                                             for child in self.children)
+            space = self.content_width - sum(child.width for child in self.children)
         else:
-            space = self.content_height - sum(child.height
-                                              for child in self.children)
+            space = self.content_height - sum(child.height for child in self.children)
 
         if self.justify_content == JustifyContent.SPACE_BETWEEN:
             n = len(self.children) - 1
@@ -206,8 +211,7 @@ class FixedContainer(Container):
             offset = space
         elif self.justify_content == JustifyContent.CENTER:
             space = 0
-            offset = (self.width - sum(child.width
-                                       for child in self.children)) // 2
+            offset = (self.width - sum(child.width for child in self.children)) // 2
         elif self.justify_content == JustifyContent.END:
             space = 0
             offset = self.width - sum(child.width for child in self.children)

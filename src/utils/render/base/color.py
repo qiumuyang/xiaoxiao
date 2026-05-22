@@ -4,8 +4,11 @@ try:
     from mixbox import lerp
 except ImportError as e:
     from warnings import warn
-    warn("natural_blend requires pymixbox to be installed, "
-         "using linear blend as fallback.")
+
+    warn(
+        "natural_blend requires pymixbox to be installed, "
+        "using linear blend as fallback."
+    )
     lerp = None
 
 import colorsys
@@ -20,7 +23,6 @@ if TYPE_CHECKING:
 
 
 class Color(NamedTuple):
-
     r: int
     g: int
     b: int
@@ -41,7 +43,7 @@ class Color(NamedTuple):
         hex = hex.lstrip("#")
         if len(hex) == 3:  # short form, expand it
             hex = "".join([c * 2 for c in hex])
-        r, g, b = (int(hex[i:i + 2], 16) for i in (0, 2, 4))
+        r, g, b = (int(hex[i : i + 2], 16) for i in (0, 2, 4))
         return cls.of(r, g, b, opacity)
 
     @classmethod
@@ -254,10 +256,9 @@ class Palette:
                 yield color
 
     @classmethod
-    def dominant(cls,
-                 image: RenderImage | Image.Image,
-                 y_thresh: float = 0.95,
-                 sample: int = 128) -> Color:
+    def dominant(
+        cls, image: RenderImage | Image.Image, y_thresh: float = 0.95, sample: int = 128
+    ) -> Color:
         """Find the dominant color in an image.
 
         Args:
@@ -275,13 +276,11 @@ class Palette:
 
         for count, (r, g, b) in im.getcolors(sample * sample):  # type: ignore
             # Get color saturation, 0-1
-            saturation = colorsys.rgb_to_hsv(r / 255.0, g / 255.0,
-                                             b / 255.0)[1]
+            saturation = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)[1]
 
             # Calculate luminance - integer YUV conversion from
             # http://en.wikipedia.org/wiki/YUV
-            y = min(
-                abs(r * 2104 + g * 4130 + b * 802 + 4096 + 131072) >> 13, 235)
+            y = min(abs(r * 2104 + g * 4130 + b * 802 + 4096 + 131072) >> 13, 235)
 
             # Rescale luminance from 16-235 to 0-1
             y = (y - 16.0) / (235 - 16)

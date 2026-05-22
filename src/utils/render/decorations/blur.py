@@ -5,7 +5,6 @@ from ..base import BoxSizing, InplaceDecoration, RenderImage
 
 
 class GaussianBlur(InplaceDecoration):
-
     def __init__(
         self,
         blur_radius: int,

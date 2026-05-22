@@ -68,8 +68,7 @@ class CommandMeta:
             section_match = section_pattern.match(line)
             if section_match:
                 section_name = section_match.group(1).lower()
-                section_name = cls.SECTION_ALIAS.get(section_name,
-                                                     section_name)
+                section_name = cls.SECTION_ALIAS.get(section_name, section_name)
                 content = section_match.group(2).rstrip()
                 if current_section != section_name:
                     current_section = section_name
@@ -104,8 +103,10 @@ class CommandMeta:
     @property
     def usage(self) -> list[str]:
         return list(
-            filter(lambda x: x.rstrip(),
-                   dedent(self.meta.get("usage", "")).splitlines()))
+            filter(
+                lambda x: x.rstrip(), dedent(self.meta.get("usage", "")).splitlines()
+            )
+        )
 
     @property
     def extra(self) -> dict[str, str]:
@@ -118,10 +119,7 @@ class CommandMeta:
     def __getattr__(self, name):
         if name.startswith("_"):
             return object.__getattribute__(self, name)
-        str_keys = {
-            key
-            for key, value in self._meta.items() if isinstance(value, str)
-        }
+        str_keys = {key for key, value in self._meta.items() if isinstance(value, str)}
         if name not in str_keys:
             return self._meta.get(name)
         return self.meta.get(name)
@@ -141,7 +139,7 @@ class CommandMeta:
         inner = {
             "cmd": self._meta.get("name"),
             "cmdhelp": self.CMD_HELP,
-            "bot": EnvRecv.BOT_NAME
+            "bot": EnvRecv.BOT_NAME,
         }
         inner = dict(filter(lambda x: x[1], inner.items()))
 
@@ -155,7 +153,8 @@ class CommandMeta:
 
         return {
             k: re.sub(r"\{(.+?)\}", sub, v, flags=re.DOTALL)
-            for k, v in self._meta.items() if isinstance(v, str)
+            for k, v in self._meta.items()
+            if isinstance(v, str)
         }
 
     def export_markdown(self) -> str:
@@ -178,8 +177,7 @@ class CommandMeta:
                     lines.append(f"> *{line}*")
             parts.append("\n".join(lines))
             if not sp.strip().endswith(("。", "？", "！", "…", "”", "）")):
-                logger.warning(
-                    f"⚠️  [{self.name}] special no ending punctuation")
+                logger.warning(f"⚠️  [{self.name}] special no ending punctuation")
         else:
             logger.warning(f"❓ [{self.name}] no special")
         if self.usage:
@@ -254,8 +252,7 @@ class CommandMeta:
                     add_item(current_item, current_indent)
 
                 indent, _, content = match.groups()
-                current_indent = len(
-                    indent) // 2  # Assume 2 spaces per indent level
+                current_indent = len(indent) // 2  # Assume 2 spaces per indent level
                 current_item = content
             elif current_item is not None and line.strip():
                 # current_item += " " + line.strip()
@@ -271,7 +268,6 @@ class CommandMeta:
 
 
 class CommandOverview:
-
     def __init__(self, commands: dict[str, CommandMeta]):
         self.commands = commands
 
@@ -291,19 +287,23 @@ class CommandOverview:
             tbl = Table(["指令", "别名", "描述"])
             for cmd in commands:
                 asterisk = "\\*" if cmd.is_placeholder else ""
-                tbl.append([
-                    cmd.name + asterisk,
-                    ", ".join(cmd.aliases) if cmd.aliases else "-",
-                    cmd.description
-                ])
+                tbl.append(
+                    [
+                        cmd.name + asterisk,
+                        ", ".join(cmd.aliases) if cmd.aliases else "-",
+                        cmd.description,
+                    ]
+                )
             parts.append(tbl.render())
             return "\n\n".join(parts)
 
         intro = [
             "## 指令概览",
             f"- 使用`{CommandMeta.CMD_HELP} <指令>`查看详细信息",
-            ("- 注意： 带\\*为*功能名称*，*非实际指令*，"
-             "无法通过`<指令> [参数]...`方式触发"),
+            (
+                "- 注意： 带\\*为*功能名称*，*非实际指令*，"
+                "无法通过`<指令> [参数]...`方式触发"
+            ),
         ]
         acknowledgement = [
             "## 致谢",
@@ -320,7 +320,6 @@ class CommandOverview:
 
 
 if __name__ == "__main__":
-
     template_value = "Since eval is used,"
 
     class Complex:

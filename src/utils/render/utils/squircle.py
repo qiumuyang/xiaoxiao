@@ -3,10 +3,9 @@ import numpy as np
 from PIL import Image
 
 
-def generate_squircle_points(width: int,
-                             height: int,
-                             radius: float,
-                             num_points: int = 200) -> np.ndarray:
+def generate_squircle_points(
+    width: int, height: int, radius: float, num_points: int = 200
+) -> np.ndarray:
     """
     Generate points for a squircle (a superellipse) whose corner curvature (at 45°)
     is set so that the offset from the inscribed square’s corner equals the fixed
@@ -67,8 +66,8 @@ def generate_squircle_points(width: int,
 
     t = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
     # Compute the superellipse for a square of side 'height'
-    x = a * np.sign(np.cos(t)) * (np.abs(np.cos(t)))**(2 / n)
-    y = a * np.sign(np.sin(t)) * (np.abs(np.sin(t)))**(2 / n)
+    x = a * np.sign(np.cos(t)) * (np.abs(np.cos(t))) ** (2 / n)
+    y = a * np.sign(np.sin(t)) * (np.abs(np.sin(t))) ** (2 / n)
 
     # Move the negative part of the x-axis to the left side.
     # Move the positive part of the x-axis to the right side.
@@ -98,10 +97,9 @@ def draw_squircle_opencv(
     return img
 
 
-def draw_squircle(width: int,
-                  height: int,
-                  fill: tuple[int, int, int, int],
-                  radius: float = 0.08) -> Image.Image:
+def draw_squircle(
+    width: int, height: int, fill: tuple[int, int, int, int], radius: float = 0.08
+) -> Image.Image:
     if width <= 0 or height <= 0:
         # guard against invalid dimensions
         return Image.new("RGBA", (width, height), fill)
@@ -112,5 +110,4 @@ def draw_squircle(width: int,
         array = draw_squircle_opencv(w2, h2, (r, g, b, a), radius)
         img = Image.fromarray(array)
         return img.resize((width, height), Image.Resampling.BILINEAR)
-    return Image.fromarray(
-        draw_squircle_opencv(width, height, (r, g, b, a), radius))
+    return Image.fromarray(draw_squircle_opencv(width, height, (r, g, b, a), radius))

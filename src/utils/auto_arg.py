@@ -1,16 +1,12 @@
 import argparse
-from typing import (Callable, Generic, Protocol, Type, TypeVar,
-                    runtime_checkable)
+from typing import Callable, Generic, Protocol, Type, TypeVar, runtime_checkable
 
 
 @runtime_checkable
 class SupportsComparison(Protocol):
+    def __lt__(self, other: object) -> bool: ...
 
-    def __lt__(self, other: object) -> bool:
-        ...
-
-    def __gt__(self, other: object) -> bool:
-        ...
+    def __gt__(self, other: object) -> bool: ...
 
 
 T = TypeVar("T")
@@ -86,8 +82,7 @@ class Argument(Generic[T]):
     def check(self, value: T) -> tuple[bool, T | None]:
         if (self._range[0] or self._range[1]) is not None:
             if not isinstance(value, SupportsComparison):
-                raise ValueError(
-                    f"Value must support comparison operations: {value}")
+                raise ValueError(f"Value must support comparison operations: {value}")
             if self._range[0] is not None and value < self._range[0]:
                 return False, self._range[0]
             if self._range[1] is not None and value > self._range[1]:
@@ -110,7 +105,6 @@ class Argument(Generic[T]):
 
 
 class AutoArgumentParserMixin:
-
     @classmethod
     def add_arguments(cls, parser: "AutoArgumentParser"):
         for var_name, var_value in cls.__dict__.items():
@@ -122,27 +116,35 @@ class AutoArgumentParserMixin:
                     # bool cannot be positional
                     if var_value.positional:
                         raise ValueError(
-                            f"Cannot have positional argument of type bool: "
-                            f"{dash_name}")
+                            f"Cannot have positional argument of type bool: {dash_name}"
+                        )
                     if var_value.default:
                         arg = f"--no-{dash_name}"
-                        parser.add_argument(f"--no-{dash_name}",
-                                            action="store_false",
-                                            dest=var_name,
-                                            default=var_value.default)
+                        parser.add_argument(
+                            f"--no-{dash_name}",
+                            action="store_false",
+                            dest=var_name,
+                            default=var_value.default,
+                        )
                     else:
-                        parser.add_argument(f"--{dash_name}",
-                                            action="store_true",
-                                            default=var_value.default)
+                        parser.add_argument(
+                            f"--{dash_name}",
+                            action="store_true",
+                            default=var_value.default,
+                        )
                 else:
-                    action = parser.add_argument(f"--{dash_name}",
-                                                 type=var_value.parser_type,
-                                                 default=var_value.default)
+                    action = parser.add_argument(
+                        f"--{dash_name}",
+                        type=var_value.parser_type,
+                        default=var_value.default,
+                    )
                     if var_value.positional:
-                        parser.add_argument(action.dest,
-                                            type=var_value.parser_type,
-                                            nargs="?",
-                                            default=var_value.default)
+                        parser.add_argument(
+                            action.dest,
+                            type=var_value.parser_type,
+                            nargs="?",
+                            default=var_value.default,
+                        )
                 # store documentation
                 if not hasattr(parser, "argument_document"):
                     parser.argument_document = {}
@@ -150,7 +152,6 @@ class AutoArgumentParserMixin:
 
 
 class AutoArgumentParser(argparse.ArgumentParser):
-
     argument_document: dict[str, str]
 
     @classmethod
@@ -168,8 +169,8 @@ class AutoArgumentParser(argparse.ArgumentParser):
             args, _ = super().parse_known_args(args, namespace)
         except:
             args = argparse.Namespace(
-                **{action.dest: action.default
-                   for action in self._actions})
+                **{action.dest: action.default for action in self._actions}
+            )
         # use default values for missing arguments
         for action in self._actions:
             if not hasattr(args, action.dest):

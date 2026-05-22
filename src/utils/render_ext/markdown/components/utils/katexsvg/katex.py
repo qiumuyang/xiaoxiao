@@ -26,20 +26,18 @@ class KaTeX:
             KaTeX._ctx = ctx
         self.ctx = KaTeX._ctx
 
-    def render_to_string(self,
-                         tex: str,
-                         format: Literal["html", "mathml",
-                                         "htmlAndMathml"] = "htmlAndMathml",
-                         inline: bool = False) -> str:
-        return self.ctx.call("katex.renderToString", tex, {
-            "output": format,
-            "displayMode": not inline
-        })
+    def render_to_string(
+        self,
+        tex: str,
+        format: Literal["html", "mathml", "htmlAndMathml"] = "htmlAndMathml",
+        inline: bool = False,
+    ) -> str:
+        return self.ctx.call(
+            "katex.renderToString", tex, {"output": format, "displayMode": not inline}
+        )
 
     def render_pure_mathml(self, tex: str, inline: bool = False) -> str:
-        katex_mathml = self.render_to_string(tex,
-                                             format="mathml",
-                                             inline=inline)
+        katex_mathml = self.render_to_string(tex, format="mathml", inline=inline)
         return self.clean_mathml(katex_mathml)
 
     def render_to_svg(self, tex: str, inline: bool = False) -> str:
@@ -72,16 +70,17 @@ class KaTeX:
     def clean_mathml(katex_mathml: str) -> str:
         # remove outer span katex
         # <span class="katex"> </span>
-        katex_mathml = katex_mathml.replace("<span class=\"katex\">",
-                                            "").replace("</span>", "")
+        katex_mathml = katex_mathml.replace('<span class="katex">', "").replace(
+            "</span>", ""
+        )
         # remove <semantics> and </semantics> tags
-        katex_mathml = katex_mathml.replace("<semantics>",
-                                            "").replace("</semantics>", "")
+        katex_mathml = katex_mathml.replace("<semantics>", "").replace(
+            "</semantics>", ""
+        )
         # remove <annotation xxx> and </annotation> tags
-        katex_mathml = re.sub(r"<annotation[^>]*>.*?</annotation>",
-                              "",
-                              katex_mathml,
-                              flags=re.DOTALL)
+        katex_mathml = re.sub(
+            r"<annotation[^>]*>.*?</annotation>", "", katex_mathml, flags=re.DOTALL
+        )
         return katex_mathml
 
 

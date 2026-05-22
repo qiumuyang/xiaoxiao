@@ -8,8 +8,9 @@ from src.utils.render_ext.markdown import Markdown
 cache = Path("data/dynamic/doc-markdown")
 
 
-def load_document_image(name: str | None = None,
-                        cached: bool = True) -> Image.Image | None:
+def load_document_image(
+    name: str | None = None, cached: bool = True
+) -> Image.Image | None:
     cache.mkdir(parents=True, exist_ok=True)
     if name is None:
         file = cache / "overview.png"

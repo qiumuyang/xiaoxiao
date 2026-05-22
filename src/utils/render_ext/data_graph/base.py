@@ -6,7 +6,6 @@ from src.utils.render import BaseStyle, Color, RenderObject
 
 
 class DataGraph(RenderObject):
-
     def __init__(
         self,
         data: list[float] | dict[Any, float] | list[int] | dict[Any, int],
@@ -15,10 +14,9 @@ class DataGraph(RenderObject):
         super().__init__(**kwargs)
         if not data:
             raise ValueError("Data must not be empty")
-        self._data = data if isinstance(data, dict) else {
-            i: v
-            for i, v in enumerate(data)
-        }
+        self._data = (
+            data if isinstance(data, dict) else {i: v for i, v in enumerate(data)}
+        )
         self._max = max(self._data.values())
         self._min = min(self._data.values())
 
@@ -36,6 +34,4 @@ class DataGraph(RenderObject):
 
 
 class ColorPolicy(Protocol):
-
-    def __call__(self, v: float, min: float, max: float) -> Color:
-        ...
+    def __call__(self, v: float, min: float, max: float) -> Color: ...

@@ -7,13 +7,11 @@ from typing_extensions import Self
 
 
 class RateLimiter(ABC):
-
     def __init__(self, *args, **kwargs) -> None:
         self._wait_queue = asyncio.Queue()
 
     def __repr__(self) -> str:
-        return (f"{self.__class__.__name__}"
-                f"(waiting={self._wait_queue.qsize()})")
+        return f"{self.__class__.__name__}(waiting={self._wait_queue.qsize()})"
 
     @classmethod
     async def create(cls, *args, **kwargs):
@@ -35,15 +33,14 @@ class RateLimiter(ABC):
 
 
 class TokenBucketRateLimiter(RateLimiter):
-
-    __slots__ = ("capacity", "tokens", "refill_rate", "last_update",
-                 "_refill_task")
+    __slots__ = ("capacity", "tokens", "refill_rate", "last_update", "_refill_task")
 
     _refill_task: asyncio.Task[None]
 
     @classmethod
     async def create(  # type: ignore
-            cls, capacity: int, refill_rate: float) -> Self:
+        cls, capacity: int, refill_rate: float
+    ) -> Self:
         self = cls()
         self.capacity = capacity
         self.tokens = capacity
@@ -89,12 +86,12 @@ class TokenBucketRateLimiter(RateLimiter):
 
 
 class RateLimitManager:
-
     rate_limiters: dict[str, RateLimiter] = {}
 
     @classmethod
-    async def create_or_get(cls, key: str, rate_limit: type[RateLimiter],
-                            *args, **kwargs) -> RateLimiter:
+    async def create_or_get(
+        cls, key: str, rate_limit: type[RateLimiter], *args, **kwargs
+    ) -> RateLimiter:
         if key not in cls.rate_limiters:
             cls.rate_limiters[key] = await rate_limit.create(*args, **kwargs)
         return cls.rate_limiters[key]
@@ -107,6 +104,7 @@ class RateLimitType(Enum):
     USER: 每个用户（无论在何处）使用同一个速率限制。
     SESSION: 每个用户在不同群内使用独立的速率限制。
     """
+
     GROUP = "group"
     USER = "user"
     SESSION = "session"

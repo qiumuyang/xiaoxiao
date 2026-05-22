@@ -14,7 +14,6 @@ driver = get_driver()
 
 @inject_env()
 class Avatar:
-
     default = Image.open("data/static/avatar/fail.png").resize((640, 640))
 
     avatar_timeout: float
@@ -22,20 +21,20 @@ class Avatar:
     session: ClientSession
 
     @classmethod
-    async def _shared(cls, id: int, is_group: bool,
-                      default: Image.Image | None) -> Image.Image:
+    async def _shared(
+        cls, id: int, is_group: bool, default: Image.Image | None
+    ) -> Image.Image:
         if not is_group:
             if custom := Fetcher.load_custom_avatar(id=id):
                 return custom
-        image = await Fetcher.fetch_avatar_async(cls.session,
-                                                 id=id,
-                                                 is_group=is_group)
+        image = await Fetcher.fetch_avatar_async(cls.session, id=id, is_group=is_group)
         if image is not None:
             return image
         # on failure: fetch at background, load local or return default
         Manager.enqueue(id=id, is_group=is_group)
-        logger.warning(f"Failed to fetch {'group' if is_group else 'user'} "
-                       f"{id} avatar.")
+        logger.warning(
+            f"Failed to fetch {'group' if is_group else 'user'} {id} avatar."
+        )
         cached = Fetcher.load_local_avatar(id=id, is_group=is_group)
         return cached or default or cls.default.copy()
 
@@ -57,14 +56,13 @@ class Avatar:
 
     @classmethod
     async def update(cls, user_id: int, image: Image.Image | str | None):
-        return await Fetcher.update_user_avatar(cls.session,
-                                                user_id=user_id,
-                                                avatar=image)
+        return await Fetcher.update_user_avatar(
+            cls.session, user_id=user_id, avatar=image
+        )
 
     @classmethod
     async def startup(cls):
-        cls.session = ClientSession(timeout=ClientTimeout(
-            total=cls.avatar_timeout))
+        cls.session = ClientSession(timeout=ClientTimeout(total=cls.avatar_timeout))
         Manager.start_worker()
 
     @classmethod

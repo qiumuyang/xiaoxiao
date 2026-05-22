@@ -14,6 +14,7 @@ class OverflowWrap(Enum):
             Overflowing word should continue on the same line,
             moving to the next line only if necessary.
     """
+
     STRICT = auto()
     FLEX = auto()
 
@@ -31,6 +32,7 @@ class Hyphen(Enum):
         RULE:
             Hyphenation is allowed only at specified points (based on pyphen).
     """
+
     NONE = auto()
     ANYWHERE = auto()
     RULE = auto()
@@ -38,7 +40,6 @@ class Hyphen(Enum):
 
 @dataclass(frozen=True)
 class TextWrap:
-
     hyphen: Hyphen
     overflow: OverflowWrap
 

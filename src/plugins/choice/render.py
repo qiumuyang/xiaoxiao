@@ -3,19 +3,38 @@ from typing import Sequence, cast
 
 from src.utils.image.avatar import Avatar
 from src.utils.persistence import FileStorage
-from src.utils.render import (Alignment, BaseStyle, BoxShadow, BoxSizing,
-                              Color, Container, Decorations, Direction,
-                              FixedContainer, Image, Palette, Paragraph,
-                              RectCrop, RenderObject, Space, TextShading,
-                              TextStyle, WaterfallContainer,
-                              ZeroSpacingSpacer)
+from src.utils.render import (
+    Alignment,
+    BaseStyle,
+    BoxShadow,
+    BoxSizing,
+    Color,
+    Container,
+    Decorations,
+    Direction,
+    FixedContainer,
+    Image,
+    Palette,
+    Paragraph,
+    RectCrop,
+    RenderObject,
+    Space,
+    TextShading,
+    TextStyle,
+    WaterfallContainer,
+    ZeroSpacingSpacer,
+)
 from src.utils.render_ext.message import MessageRender
-from src.utils.userlist import (MessageItem, ReferenceItem, UserList,
-                                UserListMetadata, UserListPagination)
+from src.utils.userlist import (
+    MessageItem,
+    ReferenceItem,
+    UserList,
+    UserListMetadata,
+    UserListPagination,
+)
 
 
 class ChoiceRender:
-
     PAGE_SIZE = 20
 
     CARD_WIDTH = 220
@@ -35,9 +54,9 @@ class ChoiceRender:
     # REF_STYLE_INVALID["decoration"] = TextDecoration.line_through()
 
     INDEX_COLOR = Color.from_hex("#666666")
-    INDEX_STYLE = TextStyle(font="data/static/fonts/arialbd.ttf",
-                            size=BASE_SIZE,
-                            color=INDEX_COLOR)
+    INDEX_STYLE = TextStyle(
+        font="data/static/fonts/arialbd.ttf", size=BASE_SIZE, color=INDEX_COLOR
+    )
     TITLE_STYLE = MessageRender.STYLE_CONTENT.copy()
     TITLE_STYLE["color"] = Palette.BLACK
     PAGE_STYLE = MessageRender.STYLE_CONTENT.copy()
@@ -73,14 +92,16 @@ class ChoiceRender:
         rescale = max(1, rescale)
         update_style = TextStyle(size=round(cls.BASE_SIZE * rescale))
         if index is not None:
-            index_obj = Paragraph.of(f"# {index+1}",
-                                     style=cls.INDEX_STYLE | update_style)
+            index_obj = Paragraph.of(
+                f"# {index + 1}", style=cls.INDEX_STYLE | update_style
+            )
         else:
             index_obj = None
         if user_id is not None:
             avatar = MessageRender.render_avatar(
                 await Avatar.user(user_id),
-                avatar_size=round(cls.BASE_AVATAR_SIZE * rescale))
+                avatar_size=round(cls.BASE_AVATAR_SIZE * rescale),
+            )
         else:
             avatar = None
 
@@ -90,8 +111,8 @@ class ChoiceRender:
         )
         max_heading_width = max_width or cls.CARD_WIDTH_MAX
         max_title_w = max_heading_width - sum(
-            (o.width + spacing)
-            for o in (index_obj, avatar, extra) if o is not None)
+            (o.width + spacing) for o in (index_obj, avatar, extra) if o is not None
+        )
         max_title_size = (max_title_w, heading_height)
 
         if title is not None:
@@ -101,27 +122,30 @@ class ChoiceRender:
                 default=cls.TITLE_STYLE | update_style,
                 styles=dict(b=TextStyle(bold=True)),
                 font_size=(0, round(cls.BASE_SIZE * rescale)),
-                max_size=max_title_size)
+                max_size=max_title_size,
+            )
         else:
             title_obj = None
         left = Container.from_children(
             [obj for obj in (index_obj, title_obj, extra) if obj is not None],
             direction=Direction.HORIZONTAL,
             alignment=Alignment.CENTER,
-            spacing=spacing)
+            spacing=spacing,
+        )
 
         if max_width is None:
             max_width = max(
                 content.width,
-                sum((o.width + spacing) for o in (left, avatar)
-                    if o is not None), cls.CARD_WIDTH_MAX)
+                sum((o.width + spacing) for o in (left, avatar) if o is not None),
+                cls.CARD_WIDTH_MAX,
+            )
 
         if avatar is not None:
             heading = Container.from_children(
                 [
                     left,
-                    ZeroSpacingSpacer.of(width=max_width - left.width -
-                                         avatar.width), avatar
+                    ZeroSpacingSpacer.of(width=max_width - left.width - avatar.width),
+                    avatar,
                 ],
                 direction=Direction.HORIZONTAL,
                 alignment=Alignment.CENTER,
@@ -131,27 +155,27 @@ class ChoiceRender:
             heading = left
 
         if shadow:
-            style = BaseStyle(padding=Space.all(round(0.05 * max_width)),
-                              margin=Space.all(round(0.06 * max_width)),
-                              background=Palette.WHITE,
-                              decorations=[
-                                  RectCrop.of(
-                                      border_radius=7,
-                                      box_sizing=BoxSizing.PADDING_BOX),
-                                  BoxShadow.of(blur_radius=35,
-                                               spread=8,
-                                               color=Color.of(0, 0, 0, 0.1))
-                              ])
+            style = BaseStyle(
+                padding=Space.all(round(0.05 * max_width)),
+                margin=Space.all(round(0.06 * max_width)),
+                background=Palette.WHITE,
+                decorations=[
+                    RectCrop.of(border_radius=7, box_sizing=BoxSizing.PADDING_BOX),
+                    BoxShadow.of(
+                        blur_radius=35, spread=8, color=Color.of(0, 0, 0, 0.1)
+                    ),
+                ],
+            )
         else:
-            style = BaseStyle(padding=Space.all(round(0.05 * max_width)),
-                              background=Palette.WHITE)
+            style = BaseStyle(
+                padding=Space.all(round(0.05 * max_width)), background=Palette.WHITE
+            )
         card = Container.from_children(
             [
                 heading,
                 Image.horizontal_line(
-                    max_width,
-                    width=1,
-                    color=cast(Color, cls.INDEX_STYLE.get("color"))),
+                    max_width, width=1, color=cast(Color, cls.INDEX_STYLE.get("color"))
+                ),
                 content,
             ],
             spacing=10,
@@ -189,7 +213,8 @@ class ChoiceRender:
                 max_width=cls.CARD_WIDTH,
                 group_id=group_id,
                 background=cls.MSG_BG,
-                text_truncate=40)
+                text_truncate=40,
+            )
             background = Palette.TRANSPARENT
             decoration = Decorations.of()
         else:
@@ -200,12 +225,14 @@ class ChoiceRender:
             )
             background = cls.REF_BG if valid else cls.REF_BG_INVALID
             decoration = MessageRender.CONTENT_DECO
-        content = FixedContainer.from_children(width=cls.CARD_WIDTH_MAX,
-                                               height=content.height,
-                                               children=[content],
-                                               direction=Direction.VERTICAL,
-                                               background=background,
-                                               decorations=decoration)
+        content = FixedContainer.from_children(
+            width=cls.CARD_WIDTH_MAX,
+            height=content.height,
+            children=[content],
+            direction=Direction.VERTICAL,
+            background=background,
+            decorations=decoration,
+        )
         obj = await cls.add_heading_and_decoration(
             content=content,
             index=index,
@@ -214,14 +241,13 @@ class ChoiceRender:
         )
         image = obj.render().to_pil()
         if cached and isinstance(item, MessageItem):
-            await storage.store_as_temp(storage.encode_image(image),
-                                        cache_name)
+            await storage.store_as_temp(storage.encode_image(image), cache_name)
         return obj
 
     @classmethod
-    async def render_item_count(cls,
-                                userlist: UserList | UserListMetadata,
-                                rescale: float = 1.0):
+    async def render_item_count(
+        cls, userlist: UserList | UserListMetadata, rescale: float = 1.0
+    ):
         if isinstance(userlist, UserListMetadata):
             num_msg = userlist.num_messages
             num_ref = userlist.num_references
@@ -262,13 +288,18 @@ class ChoiceRender:
         rescale = max(min(len(items) / 2, 2.0), 1.0)
         if items:
             valid_ref = await userlist.valid_references
-            children = await asyncio.gather(*(cls.render_item_card(
-                group_id=group_id,
-                index=index,
-                item=item,
-                cached=cached,
-                valid=isinstance(item, MessageItem) or item.name in valid_ref)
-                                              for index, item in items))
+            children = await asyncio.gather(
+                *(
+                    cls.render_item_card(
+                        group_id=group_id,
+                        index=index,
+                        item=item,
+                        cached=cached,
+                        valid=isinstance(item, MessageItem) or item.name in valid_ref,
+                    )
+                    for index, item in items
+                )
+            )
             content = WaterfallContainer.from_children(
                 children,
                 columns=num_columns,
@@ -294,23 +325,27 @@ class ChoiceRender:
             return main_list
         # add page info
         page_info = Paragraph.of(
-            (f"第 {pagination.page_id + 1} / {pagination.num_pages} 页\n"
-             f"输入 “帮助 选择困难” 以查看翻页指令\n"),
+            (
+                f"第 {pagination.page_id + 1} / {pagination.num_pages} 页\n"
+                f"输入 “帮助 选择困难” 以查看翻页指令\n"
+            ),
             style=cls.PAGE_STYLE,
             alignment=Alignment.CENTER,
-            max_width=main_list.width)
-        return Container.from_children([main_list, page_info],
-                                       direction=Direction.VERTICAL,
-                                       alignment=Alignment.CENTER,
-                                       spacing=5,
-                                       background=Palette.WHITE)
+            max_width=main_list.width,
+        )
+        return Container.from_children(
+            [main_list, page_info],
+            direction=Direction.VERTICAL,
+            alignment=Alignment.CENTER,
+            spacing=5,
+            background=Palette.WHITE,
+        )
 
     @classmethod
     async def render_list_overview(cls, *lists: UserListMetadata):
         columns = [[] for _ in range(3)]
         creator_ids = list(set(userlist.creator_id for userlist in lists))
-        avatars = await asyncio.gather(*(Avatar.user(uid)
-                                         for uid in creator_ids))
+        avatars = await asyncio.gather(*(Avatar.user(uid) for uid in creator_ids))
         avatar_dict = dict(zip(creator_ids, avatars))
         for userlist in sorted(lists, key=lambda x: -x.num_items):
             title = Paragraph.of(userlist.name, style=cls.TITLE_STYLE)
@@ -330,13 +365,15 @@ class ChoiceRender:
                 Container.from_children(
                     [
                         FixedContainer.from_children(
-                            width=width, height=obj.height, children=[obj])
+                            width=width, height=obj.height, children=[obj]
+                        )
                         for width, obj in zip(widths, row_elements)
                     ],
                     direction=Direction.HORIZONTAL,
                     alignment=Alignment.CENTER,
                     spacing=40,
-                ))
+                )
+            )
         summary = Container.from_children(
             children=rows,
             direction=Direction.VERTICAL,

@@ -33,8 +33,7 @@ class Entry:
     def chinese_ratio(self) -> float:
         if not self.text:
             return 0.0
-        chinese_chars = sum(1 for ch in self.text
-                            if "\u4e00" <= ch <= "\u9fff")
+        chinese_chars = sum(1 for ch in self.text if "\u4e00" <= ch <= "\u9fff")
         return chinese_chars / len(self.text)
 
     def remove_prefix(self, prefix: str) -> str:
@@ -51,17 +50,16 @@ class Entry:
         end: str | list[str],
         keepend: bool = False,
     ) -> Iterable[list[tuple[str, str]]]:
-        ends = tuple(end) if isinstance(end, list) else (end, )
+        ends = tuple(end) if isinstance(end, list) else (end,)
         for i, (_, start_tag) in enumerate(self.posseg):
             if start_tag.startswith(start):
                 for j, (_, end_tag) in enumerate(self.posseg[i:], start=i):
                     if end_tag.startswith(ends):
-                        yield self.posseg[i:j + int(keepend)]
+                        yield self.posseg[i : j + int(keepend)]
 
 
 @inject_env()
 class Corpus:
-
     MAX_CORPUS_TEXT_LENGTH: int
 
     SHARED_GROUP_ID = 1
@@ -87,8 +85,9 @@ class Corpus:
     def maintain(cls) -> None:
         """Remove outdated entries."""
         expire = datetime.now() - cls.TTL_SENTD
-        cls.recently_sent = [(time, text) for time, text in cls.recently_sent
-                             if time > expire]
+        cls.recently_sent = [
+            (time, text) for time, text in cls.recently_sent if time > expire
+        ]
 
     @classmethod
     async def add(cls, entry: Entry) -> None:
@@ -102,10 +101,8 @@ class Corpus:
             return
         if await cls.corpus.find_one({"text": entry.text}) is not None:
             await cls.corpus.update_one(
-                filter={"text": entry.text},
-                update={"$set": {
-                    "created": entry.created
-                }})
+                filter={"text": entry.text}, update={"$set": {"created": entry.created}}
+            )
         else:
             await cls.corpus.insert_one(entry)
 
@@ -113,13 +110,8 @@ class Corpus:
     async def use(cls, entry: Entry) -> None:
         """Mark a message as used."""
         await cls.corpus.update_one(
-            filter={
-                "text": entry.text,
-                "group_id": entry.group_id
-            },
-            update={"$set": {
-                "used": datetime.now()
-            }},
+            filter={"text": entry.text, "group_id": entry.group_id},
+            update={"$set": {"used": datetime.now()}},
         )
 
     @classmethod
@@ -143,11 +135,7 @@ class Corpus:
         match_group_id = {"group_id": {"$in": group_id}}
 
         # 2. Staleness filter
-        not_stale = {
-            "created": {
-                "$gte": now - timedelta(days=cls.CORPUS_STALE_DAYS)
-            }
-        }
+        not_stale = {"created": {"$gte": now - timedelta(days=cls.CORPUS_STALE_DAYS)}}
 
         # 3. Not recently added filter
         # case 1: not used (used == created), and created before FIRST_TIME_SAMPLE_INTERVAL
@@ -190,12 +178,7 @@ class Corpus:
             if isinstance(length, int):
                 match_length = {"length": length}
             else:
-                match_length = {
-                    "length": {
-                        "$gte": length[0],
-                        "$lte": length[1]
-                    }
-                }
+                match_length = {"length": {"$gte": length[0], "$lte": length[1]}}
             # put length match at the beginning for efficiency
             pipeline.insert(0, {"$match": match_length})
         if keywords is not None:
@@ -215,24 +198,19 @@ class Corpus:
         sample: int,
     ):
         """Find corpus entry after a given message."""
-        cursor = await cls.find(group_id,
-                                 keywords=keywords,
-                                 sample=sample,
-                                 include_shared=False)
+        cursor = await cls.find(
+            group_id, keywords=keywords, sample=sample, include_shared=False
+        )
         matched = await cursor.to_list(length=sample)
         if not matched:
             return None
-        periods = [(entry["created"], entry["created"] + after)
-                   for entry in matched]
+        periods = [(entry["created"], entry["created"] + after) for entry in matched]
         return await cls.find(
             group_id,
             filter={
-                "$or": [{
-                    "created": {
-                        "$gte": start,
-                        "$lt": end
-                    }
-                } for start, end in periods]
+                "$or": [
+                    {"created": {"$gte": start, "$lt": end}} for start, end in periods
+                ]
             },
         )
 
@@ -292,7 +270,8 @@ async def add_to_corpus(_, data: RMD) -> None:
                 text=text,
                 length=len(text),
                 keywords=set(keywords),
-            ))
+            )
+        )
 
 
 @SMT.on_send
@@ -300,8 +279,7 @@ async def mark_as_sent(_, data: SMD) -> None:
     """Mark sent messages as recently sent."""
     text = data.content.extract_plain_text()
     if text:
-        Corpus.recently_sent.append(
-            (data.time, data.content.extract_plain_text()))
+        Corpus.recently_sent.append((data.time, data.content.extract_plain_text()))
 
 
 driver = get_driver()

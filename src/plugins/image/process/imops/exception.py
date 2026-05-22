@@ -1,11 +1,5 @@
 class DSLParseError(Exception):
-
-    def __init__(self,
-                 message,
-                 line=None,
-                 column=None,
-                 text=None,
-                 span: int = 40):
+    def __init__(self, message, line=None, column=None, text=None, span: int = 40):
         super().__init__(message)
         self.line = line
         self.column = column

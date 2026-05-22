@@ -2,8 +2,7 @@ from typing import NamedTuple, cast
 
 from mistletoe.block_token import BlockToken, List, ListItem
 
-from src.utils.render import (Alignment, Container, Direction, RenderObject,
-                              Space)
+from src.utils.render import Alignment, Container, Direction, RenderObject, Space
 
 from ..proto import Context
 from ..render import MarkdownRenderer
@@ -12,7 +11,6 @@ from .utils.builder import Box, Builder
 
 @MarkdownRenderer.register(List)
 class ListRenderer:
-
     def __init__(self, master: MarkdownRenderer) -> None:
         self.master = master
 
@@ -21,15 +19,18 @@ class ListRenderer:
         children = token.children or []
         assert all(isinstance(item, ListItem) for item in children)
         items = [
-            ListItemBuilder(self.master, item) for item in children
+            ListItemBuilder(self.master, item)
+            for item in children
             if isinstance(item, ListItem)
         ]
         indent = round(style.indent_factor * self.master.style.unit)
         with ctx.temp(indent=ctx.indent + 1, max_width=ctx.max_width - indent):
             bullets = [
-                Box(item.bullet(ctx, i, cast(int | None, token.start)),
+                Box(
+                    item.bullet(ctx, i, cast(int | None, token.start)),
                     width=indent,
-                    alignment_horizontal=Alignment.END).build()
+                    alignment_horizontal=Alignment.END,
+                ).build()
                 for i, item in enumerate(items)
             ]
             contents = [item.content(ctx) for item in items]
@@ -39,8 +40,12 @@ class ListRenderer:
                     [bullet, content],
                     direction=Direction.HORIZONTAL,
                     margin=Space.of(
-                        0, 0, 0, 0 if i == len(bullets) -
-                        1 else self.master.style.line_spacing))
+                        0,
+                        0,
+                        0,
+                        0 if i == len(bullets) - 1 else self.master.style.line_spacing,
+                    ),
+                )
                 for i, (bullet, content) in enumerate(zip(bullets, contents))
             ],
             direction=Direction.VERTICAL,
@@ -53,7 +58,6 @@ class ListItemResult(NamedTuple):
 
 
 class ListItemBuilder:
-
     def __init__(
         self,
         master: MarkdownRenderer,
@@ -62,10 +66,9 @@ class ListItemBuilder:
         self.master = master
         self.item = item
 
-    def bullet(self,
-               ctx: Context,
-               index: int,
-               start: int | None = None) -> RenderObject:
+    def bullet(
+        self, ctx: Context, index: int, start: int | None = None
+    ) -> RenderObject:
         style = self.master.style.list
         is_ordered = start is not None
         if is_ordered:
@@ -76,8 +79,7 @@ class ListItemBuilder:
         builder = Builder(default=ctx.style, max_width=ctx.max_width)
         with builder.style("marker", style=style.bullet(is_ordered)):
             builder.text(bullet_text)
-        space_between = round(style.bullet_margin_factor *
-                              self.master.style.unit)
+        space_between = round(style.bullet_margin_factor * self.master.style.unit)
         return builder.build(margin=Space.of(0, space_between, 0, 0))
 
     def content(self, ctx: Context) -> RenderObject:

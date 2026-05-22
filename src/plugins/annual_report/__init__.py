@@ -33,12 +33,11 @@ async def _(bot: Bot, event: GroupMessageEvent, arg_: Message = CommandArg()):
         if seg.is_at():
             user_id = seg.extract_at()
             break
-    statistics = await AnnualStatistics.user(user_id=user_id,
-                                             group_id=event.group_id)
-    name = await get_group_member_name(group_id=event.group_id,
-                                       user_id=user_id)
-    result = await AnnualReportRenderer.render_user(statistics, user_id, name,
-                                                    event.group_id)
+    statistics = await AnnualStatistics.user(user_id=user_id, group_id=event.group_id)
+    name = await get_group_member_name(group_id=event.group_id, user_id=user_id)
+    result = await AnnualReportRenderer.render_user(
+        statistics, user_id, name, event.group_id
+    )
     await annual_report.finish(MessageSegment.image(result.render().to_pil()))
 
 
@@ -58,7 +57,7 @@ async def _(bot: Bot, event: GroupMessageEvent):
     """
     statistics = await AnnualStatistics.group(group_id=event.group_id)
     info = await bot.get_group_info(group_id=event.group_id)
-    result = await AnnualReportRenderer.render_group(statistics,
-                                                     event.group_id,
-                                                     info["group_name"])
+    result = await AnnualReportRenderer.render_group(
+        statistics, event.group_id, info["group_name"]
+    )
     await annual_report.finish(MessageSegment.image(result.render().to_pil()))

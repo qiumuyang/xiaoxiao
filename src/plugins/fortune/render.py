@@ -3,18 +3,33 @@ from datetime import datetime
 from PIL import Image as PILImage
 
 from src.utils.image.avatar import Avatar
-from src.utils.render import (Alignment, Color, Container, Decorations,
-                              Direction, FixedContainer, FontFamily, Image,
-                              JustifyContent, Palette, Paragraph, RectCrop,
-                              RelativeContainer, RenderImage, RenderObject,
-                              Space, Stack, TextStroke, TextStyle)
+from src.utils.render import (
+    Alignment,
+    Color,
+    Container,
+    Decorations,
+    Direction,
+    FixedContainer,
+    FontFamily,
+    Image,
+    JustifyContent,
+    Palette,
+    Paragraph,
+    RectCrop,
+    RelativeContainer,
+    RenderImage,
+    RenderObject,
+    Space,
+    Stack,
+    TextStroke,
+    TextStyle,
+)
 
 from .config import RenderBackground
 from .fortune import Fortune, get_sunrise_sunset
 
 
 class FortuneRender:
-
     LOC = {"latitude": 32, "longitude": 118}
     _cache_date = datetime.now()
 
@@ -47,20 +62,22 @@ class FortuneRender:
     SegUIEmoji = "data/static/fonts/seguiemj.ttf"
     STLiti = "data/static/fonts/STLITI.TTF"
 
-    MAIN_FONT = FontFamily.of(regular=NotoSansHansMedium,
-                              bold=NotoSansHansBold,
-                              fallbacks=FontFamily.of(
-                                  regular=SegUIEmoji,
-                                  embedded_color=True,
-                                  scale=0.85,
-                                  baseline_correction=True))
+    MAIN_FONT = FontFamily.of(
+        regular=NotoSansHansMedium,
+        bold=NotoSansHansBold,
+        fallbacks=FontFamily.of(
+            regular=SegUIEmoji,
+            embedded_color=True,
+            scale=0.85,
+            baseline_correction=True,
+        ),
+    )
 
-    DATE_COLOR_TEMPLATE = ("<date>■  {date}</date>\n"
-                           "<luck>■  今天的幸运色是 {lucky_color}</luck>")
+    DATE_COLOR_TEMPLATE = (
+        "<date>■  {date}</date>\n<luck>■  今天的幸运色是 {lucky_color}</luck>"
+    )
     DATE_COLOR_STYLE = TextStyle(font=MAIN_FONT, size=FONT_SMALL)
-    EVENT_STYLE = TextStyle(font=MAIN_FONT,
-                            size=FONT_EVENT,
-                            color=Palette.WHITE)
+    EVENT_STYLE = TextStyle(font=MAIN_FONT, size=FONT_EVENT, color=Palette.WHITE)
 
     @classmethod
     def text_style(
@@ -69,8 +86,9 @@ class FortuneRender:
         theme_light: Color,
         lucky_color: Color,
     ) -> dict[str, TextStyle]:
-        return dict(luck=TextStyle(color=lucky_color),
-                    date=TextStyle(color=theme_light))
+        return dict(
+            luck=TextStyle(color=lucky_color), date=TextStyle(color=theme_light)
+        )
 
     @classmethod
     def render_event_row(
@@ -86,8 +104,7 @@ class FortuneRender:
             color = Palette.blend(Color.of(*color), Palette.BLACK, 0.2)
         else:
             color = Color.of(*color)
-        head = Paragraph.of(text="宜" if is_good else "忌",
-                            style=cls.EVENT_STYLE)
+        head = Paragraph.of(text="宜" if is_good else "忌", style=cls.EVENT_STYLE)
         event_height = round(cls.FONT_EVENT * cls.EVENT_EXPAND)
         head = FixedContainer.from_children(
             children=[head],
@@ -97,7 +114,9 @@ class FortuneRender:
             alignment=Alignment.CENTER,
             background=color,
             decorations=Decorations.of().final(
-                RectCrop.of(border_radius=cls.SZ // cls.EVENT_RADIUS_D)))
+                RectCrop.of(border_radius=cls.SZ // cls.EVENT_RADIUS_D)
+            ),
+        )
         event_width = round(event_height * cls.EVENT_ASPECT)
         event_objects = [
             FixedContainer.from_children(
@@ -108,16 +127,20 @@ class FortuneRender:
                 alignment=Alignment.CENTER,
                 background=color,
                 decorations=Decorations.of().final(
-                    RectCrop.of(border_radius=cls.SZ // cls.EVENT_RADIUS_D)))
+                    RectCrop.of(border_radius=cls.SZ // cls.EVENT_RADIUS_D)
+                ),
+            )
             for event in events
         ]
         children = [head] + event_objects
-        space = (width - sum([c.width
-                              for c in children])) // (len(children) - 1)
+        space = (width - sum([c.width for c in children])) // (len(children) - 1)
         return Image.from_image(
-            RenderImage.concat_horizontal([c.render() for c in children],
-                                          alignment=Alignment.CENTER,
-                                          spacing=space))
+            RenderImage.concat_horizontal(
+                [c.render() for c in children],
+                alignment=Alignment.CENTER,
+                spacing=space,
+            )
+        )
 
     @classmethod
     def render_username(
@@ -133,9 +156,11 @@ class FortuneRender:
             values=dict(name=username),
             max_size=(max_name_width, max_name_height),
             font_size=(cls.FONT_LARGE // 4, cls.FONT_LARGE),
-            default=TextStyle(font=cls.MAIN_FONT,
-                              stroke=TextStroke(width=1, color=theme_dark),
-                              color=theme_light),
+            default=TextStyle(
+                font=cls.MAIN_FONT,
+                stroke=TextStroke(width=1, color=theme_dark),
+                color=theme_light,
+            ),
             styles=dict(b=TextStyle(bold=True)),
         )
 
@@ -188,27 +213,29 @@ class FortuneRender:
             width=avatar_sz + 2 * border,
             height=avatar_sz + 2 * border,
             color=theme_dark,
-            decorations=Decorations.of(
-                RectCrop.of_square(border_radius=radius_outer)),
+            decorations=Decorations.of(RectCrop.of_square(border_radius=radius_outer)),
         )
-        avatar = Stack.from_children([avatar_bg, avatar_im],
-                                     alignment=Alignment.CENTER)
+        avatar = Stack.from_children([avatar_bg, avatar_im], alignment=Alignment.CENTER)
 
         lucky_color = Color.of(*fortune["lucky_color"])
         max_name_width = cls.SZ * 2
         max_name_height = cls.SZ // 2
-        name_text = cls.render_username(fortune["user_name"], max_name_width,
-                                        max_name_height, theme_light,
-                                        theme_dark)
+        name_text = cls.render_username(
+            fortune["user_name"],
+            max_name_width,
+            max_name_height,
+            theme_light,
+            theme_dark,
+        )
         if name_text.width < max_name_width:
             # pad at right
             name_text = Image.from_image(
                 name_text.render(),
-                margin=Space.of(0, max_name_width - name_text.width, 0, 0))
+                margin=Space.of(0, max_name_width - name_text.width, 0, 0),
+            )
         desc_text = Paragraph.from_template(
             cls.DATE_COLOR_TEMPLATE,
-            values=dict(lucky_color=lucky_color.as_hex(),
-                        date=fortune["date"]),
+            values=dict(lucky_color=lucky_color.as_hex(), date=fortune["date"]),
             default=cls.DATE_COLOR_STYLE,
             styles=cls.text_style(theme_dark, theme_light, lucky_color),
             max_width=max_name_width,
@@ -217,26 +244,24 @@ class FortuneRender:
         avatar_space_r = cls.SZ // cls.AVATAR_SPACE_D
         avatar_offset = (avatar_space_r, 0)
         upper_container = RelativeContainer(padding=Space.vertical(cls.VSPACE))
-        upper_container.add_child(avatar,
-                                  align_top=upper_container,
-                                  align_left=upper_container)
-        upper_container.add_child(name_text,
-                                  align_top=avatar,
-                                  right=avatar,
-                                  offset=avatar_offset)
-        upper_container.add_child(desc_text,
-                                  align_bottom=avatar,
-                                  right=avatar,
-                                  offset=avatar_offset)
+        upper_container.add_child(
+            avatar, align_top=upper_container, align_left=upper_container
+        )
+        upper_container.add_child(
+            name_text, align_top=avatar, right=avatar, offset=avatar_offset
+        )
+        upper_container.add_child(
+            desc_text, align_bottom=avatar, right=avatar, offset=avatar_offset
+        )
 
         # lower part: fortune text & events texts
         is_good_fortune = "吉" in fortune["fortune"]
-        fortune_color = cls.GOOD_FORTUNE_COLOR if is_good_fortune else cls.BAD_FORTUNE_COLOR
+        fortune_color = (
+            cls.GOOD_FORTUNE_COLOR if is_good_fortune else cls.BAD_FORTUNE_COLOR
+        )
         fortune_text = Paragraph.of(
             text=fortune["fortune"],
-            style=TextStyle(font=cls.STLiti,
-                            size=cls.FONT_MEDIUM,
-                            color=Palette.WHITE),
+            style=TextStyle(font=cls.STLiti, size=cls.FONT_MEDIUM, color=Palette.WHITE),
             max_width=cls.FONT_MEDIUM,
             line_spacing=6,
         )
@@ -248,39 +273,44 @@ class FortuneRender:
             alignment=Alignment.CENTER,
             background=Color.of(*fortune_color),
             decorations=Decorations.of().final(
-                RectCrop.of(border_radius=cls.SZ // cls.FORTUNE_RADIUS_D)))
+                RectCrop.of(border_radius=cls.SZ // cls.FORTUNE_RADIUS_D)
+            ),
+        )
 
         fortune_space = cls.SZ // cls.FORTUNE_SPACE_D
         event_offset = (fortune_space, 0)
         event_width = upper_container.width - fortune_text.width - fortune_space
-        event_good = cls.render_event_row(event_width,
-                                          True,
-                                          fortune["event_good"],
-                                          is_dark=is_dark)
-        event_bad = cls.render_event_row(event_width,
-                                         False,
-                                         fortune["event_bad"],
-                                         is_dark=is_dark)
+        event_good = cls.render_event_row(
+            event_width, True, fortune["event_good"], is_dark=is_dark
+        )
+        event_bad = cls.render_event_row(
+            event_width, False, fortune["event_bad"], is_dark=is_dark
+        )
 
         lower_container = RelativeContainer(padding=Space.vertical(cls.VSPACE))
-        lower_container.add_child(fortune_text,
-                                  align_top=lower_container,
-                                  align_left=lower_container)
-        lower_container.add_child(event_good,
-                                  align_top=fortune_text,
-                                  right=fortune_text,
-                                  offset=event_offset)
-        lower_container.add_child(event_bad,
-                                  align_bottom=fortune_text,
-                                  right=fortune_text,
-                                  offset=event_offset)
+        lower_container.add_child(
+            fortune_text, align_top=lower_container, align_left=lower_container
+        )
+        lower_container.add_child(
+            event_good, align_top=fortune_text, right=fortune_text, offset=event_offset
+        )
+        lower_container.add_child(
+            event_bad,
+            align_bottom=fortune_text,
+            right=fortune_text,
+            offset=event_offset,
+        )
 
-        return Container.from_children(
-            children=[
-                upper_container,
-                lower_container,
-            ],
-            padding=Space.of_side(15, 5),
-            background=bg_color,
-            direction=Direction.VERTICAL,
-        ).render().to_pil()
+        return (
+            Container.from_children(
+                children=[
+                    upper_container,
+                    lower_container,
+                ],
+                padding=Space.of_side(15, 5),
+                background=bg_color,
+                direction=Direction.VERTICAL,
+            )
+            .render()
+            .to_pil()
+        )

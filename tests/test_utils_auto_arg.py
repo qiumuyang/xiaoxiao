@@ -2,12 +2,12 @@ from argparse import Namespace
 
 import pytest
 
-from src.utils.auto_arg import (Argument, AutoArgumentParser,
-                                AutoArgumentParserMixin)
+from src.utils.auto_arg import Argument, AutoArgumentParser, AutoArgumentParserMixin
 
 
 class TestClassValid(AutoArgumentParserMixin):
     """测试用合法类，包含各种类型的参数"""
+
     int_arg = Argument(42, range=(0, 100))
     str_arg = Argument("default", choices=["a", "b", "default"])
     bool_arg = Argument(False)
@@ -17,11 +17,13 @@ class TestClassValid(AutoArgumentParserMixin):
 
 class TestClassInvalid:
     """不继承Mixin的测试类，用于测试类继承检查"""
+
     dummy = Argument(1)
 
 
 class TestClassMixture(AutoArgumentParserMixin):
     """混合位置参数和可选参数的测试类"""
+
     pos_arg = Argument("positional", positional=True)
     pos_arg2 = Argument(100, choices=[100, 150, 200], positional=True)
     opt_arg = Argument("optional_default")
@@ -68,8 +70,7 @@ class TestArgumentParsing:
 
     def test_positional_arg_override(self, valid_parser: AutoArgumentParser):
         """测试位置参数覆盖可选参数"""
-        args = valid_parser.parse_args(
-            ["--pos-arg=optional", "positional_val"])
+        args = valid_parser.parse_args(["--pos-arg=optional", "positional_val"])
         assert args.pos_arg == "positional_val"
 
     def test_bool_arg_parsing(self, valid_parser: AutoArgumentParser):
@@ -118,8 +119,7 @@ class TestValidationLogic:
         assert args.validated_arg == 10  # 返回默认值
 
 
-def test_mixed_arguments(valid_parser: AutoArgumentParser,
-                         sample_args: list[str]):
+def test_mixed_arguments(valid_parser: AutoArgumentParser, sample_args: list[str]):
     """测试混合参数解析"""
     args = valid_parser.parse_args(sample_args)
     assert args == Namespace(
@@ -127,7 +127,7 @@ def test_mixed_arguments(valid_parser: AutoArgumentParser,
         str_arg="a",
         bool_arg=True,
         pos_arg="custom_pos",
-        validated_arg=10  # 未指定时使用默认值
+        validated_arg=10,  # 未指定时使用默认值
     )
 
 
@@ -147,15 +147,14 @@ class TestPositionalWithOptional:
     """新增的测试类，完全独立于原有测试"""
 
     def test_multiple_positional_with_optional(
-            self, mixture_parser: AutoArgumentParser):
-        args = mixture_parser.parse_args(
-            ["--pos-arg2=999", "pos1_value", "200"])
+        self, mixture_parser: AutoArgumentParser
+    ):
+        args = mixture_parser.parse_args(["--pos-arg2=999", "pos1_value", "200"])
         # 验证扩展类的新参数
         assert args.pos_arg == "pos1_value"
         assert args.pos_arg2 == 200
         assert args.opt_arg == "optional_default"
-        args = mixture_parser.parse_args(
-            ["--pos-arg2=200", "pos1_value", "999"])
+        args = mixture_parser.parse_args(["--pos-arg2=200", "pos1_value", "999"])
         assert args.pos_arg == "pos1_value"
         # Be careful with this: fallback to default value
         #                       even if the first appearance is valid
@@ -166,12 +165,10 @@ class TestPositionalWithOptional:
         # 测试覆盖顺序 (后定义的参数覆盖先定义的参数)
         args1 = mixture_parser.parse_args(["--pos-arg=opt_val", "pos_val"])
         assert args1.pos_arg == "pos_val"
-        args2 = mixture_parser.parse_args(
-            ["pos_val_first", "--pos-arg=opt_val"])
+        args2 = mixture_parser.parse_args(["pos_val_first", "--pos-arg=opt_val"])
         assert args2.pos_arg == "opt_val"
 
-    def test_insufficient_positional_args(self,
-                                          mixture_parser: AutoArgumentParser):
+    def test_insufficient_positional_args(self, mixture_parser: AutoArgumentParser):
         args = mixture_parser.parse_args(["only_pos1"])
         # 验证原有参数和新参数
         assert args.pos_arg == "only_pos1"  # 来自原有类

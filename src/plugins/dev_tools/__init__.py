@@ -12,19 +12,18 @@ from src.utils.render_ext.markdown import Markdown
 
 check_message_repr = on_reply("repr", permission=SUPERUSER, block=True)
 check_reply_repr = on_reply("reply", permission=SUPERUSER, block=True)
-check_storage = on_command("storage",
-                           force_whitespace=True,
-                           permission=SUPERUSER,
-                           block=True)
+check_storage = on_command(
+    "storage", force_whitespace=True, permission=SUPERUSER, block=True
+)
 
 
 @check_message_repr.handle()
 async def _(state: T_State):
     reply: Reply = state["reply"]
     content = reply.message
-    message_json = json.dumps(MessageSegment.serialize(content),
-                              ensure_ascii=False,
-                              indent=2)
+    message_json = json.dumps(
+        MessageSegment.serialize(content), ensure_ascii=False, indent=2
+    )
     markdown_content = f"```json\n{message_json}\n```"
     image = Markdown(text=markdown_content).render().to_pil()
     await check_message_repr.finish(MessageSegment.image(image))
@@ -45,7 +44,7 @@ async def _():
     def format_size(size_b: int) -> str:
         size_mb = size_b / 1024 / 1024
         if size_mb > 1024:
-            size = f"{size_mb/1024:.2f} GB"
+            size = f"{size_mb / 1024:.2f} GB"
         else:
             size = f"{size_mb:.2f} MB"
         return size
@@ -65,18 +64,17 @@ async def _():
                 [
                     "Ephemeral",
                     format_size(stat.ephemeral_file_size),
-                    str(stat.ephemeral_file_count)
+                    str(stat.ephemeral_file_count),
                 ],
                 [
                     "Persistent",
                     format_size(stat.persistent_file_size),
-                    str(stat.persistent_file_count)
+                    str(stat.persistent_file_count),
                 ],
             ]
-            stat_tbl = "\n".join([
-                "| " + " | ".join(line) + " |"
-                for line in [header, sep, *data]
-            ])
+            stat_tbl = "\n".join(
+                ["| " + " | ".join(line) + " |" for line in [header, sep, *data]]
+            )
         texts.append("\n\n".join([heading, ttl, stat_tbl]))
 
     im = Markdown("\n\n".join(texts)).render().to_pil()

@@ -27,7 +27,6 @@ class MarkupElement(MarkupNode):
 
 
 class MarkupSyntaxError(ValueError):
-
     def __init__(self, message: str, markup: str, pos: int) -> None:
         self.markup = markup
         self.pos = pos
@@ -40,7 +39,6 @@ class MarkupSyntaxError(ValueError):
 
 
 class MarkupParser:
-
     # group 1: optional closing tag
     # group 2: tag name (alphanumeric) with optional :modifier
     # group 3: optional self-closing tag
@@ -79,11 +77,15 @@ class MarkupParser:
                     if is_closing and is_self_closing:
                         raise MarkupSyntaxError(
                             "Tag cannot be both closing and self-closing",
-                            match.group(0), 1)
+                            match.group(0),
+                            1,
+                        )
                     if is_closing and tag_name != stop_tag:
                         raise MarkupSyntaxError(
                             f"Unexpected closing tag: {tag_name} != {stop_tag}",
-                            match.group(0), 1)
+                            match.group(0),
+                            1,
+                        )
                     self.index = match.end()
                     if is_closing:
                         return nodes
@@ -92,8 +94,7 @@ class MarkupParser:
                             tag_name, modifier = tag_name.split(":", 1)
                         else:
                             tag_name, modifier = tag_name, ""
-                        nodes.append(
-                            MarkupImage(tag_name, inline=modifier == "inline"))
+                        nodes.append(MarkupImage(tag_name, inline=modifier == "inline"))
                     else:
                         children = self._parse_nodes(tag_name)
                         nodes.append(MarkupElement(tag_name, children))
@@ -104,9 +105,8 @@ class MarkupParser:
 
         if stop_tag:
             _truncate = 20
-            text = self.markup[self.index - _truncate:self.index + _truncate]
-            raise MarkupSyntaxError(f"Unclosed tag: {stop_tag}", text,
-                                    _truncate)
+            text = self.markup[self.index - _truncate : self.index + _truncate]
+            raise MarkupSyntaxError(f"Unclosed tag: {stop_tag}", text, _truncate)
         return nodes
 
     def _consume_until(self, char: str, skip: int = 0) -> str:

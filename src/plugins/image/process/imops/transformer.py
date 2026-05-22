@@ -1,11 +1,19 @@
 from lark import Transformer
 
-from .ast import (Build, BuildCell, BuildRow, FuncCall, Layout, LayoutCell,
-                  LayoutRow, Ratio, Suffix)
+from .ast import (
+    Build,
+    BuildCell,
+    BuildRow,
+    FuncCall,
+    Layout,
+    LayoutCell,
+    LayoutRow,
+    Ratio,
+    Suffix,
+)
 
 
 class ImOpsTransformer(Transformer):
-
     def start(self, items):
         layout, build = items
         return layout, build

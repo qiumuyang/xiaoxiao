@@ -19,12 +19,10 @@ if sys.version_info < (3, 9):
     from collections import UserList as _UserList
 
     class UserList(_UserList, Generic[T]):
-
         def __class_getitem__(cls, item: T) -> Type[_UserList[T]]:
             return cls
 
     class UserDict(_UserDict, Generic[K, V]):
-
         def __class_getitem__(cls, item: tuple[K, V]) -> Type[_UserDict[K, V]]:
             return cls
 else:
@@ -77,8 +75,7 @@ class Cacheable:
                         parent[k] = other
                         other.add_parent(parent)
             else:
-                raise TypeError(
-                    f"Unsupported parent type: {type(parent).__name__}")
+                raise TypeError(f"Unsupported parent type: {type(parent).__name__}")
         self._cache_parent_ = []
 
 
@@ -89,11 +86,9 @@ def _assert_not_list_or_dict(value: Any) -> None:
     Thus, we do not allow them to be used as values in Cacheable.
     """
     if isinstance(value, list) and not isinstance(value, CacheableList):
-        raise TypeError(
-            "Builtin list is not supported. Use CacheableList instead.")
+        raise TypeError("Builtin list is not supported. Use CacheableList instead.")
     if isinstance(value, dict) and not isinstance(value, CacheableDict):
-        raise TypeError(
-            "Builtin dict is not supported. Use CacheableDict instead.")
+        raise TypeError("Builtin dict is not supported. Use CacheableDict instead.")
 
 
 def _list_update(func: Callable[..., T]) -> Callable[..., T]:
@@ -152,8 +147,7 @@ def _dict_update(func: Callable[..., T]) -> Callable[..., T]:
                 value.add_parent(self)
             _assert_not_list_or_dict(value)
             if isinstance(key, Cacheable):
-                raise TypeError(
-                    f"CacheableDict keys cannot be cacheable: {key!r}")
+                raise TypeError(f"CacheableDict keys cannot be cacheable: {key!r}")
         return result
 
     return wrapper
@@ -175,8 +169,7 @@ class CacheableDict(UserDict[K, V], Cacheable):
                 value.add_parent(self)
             _assert_not_list_or_dict(value)
             if isinstance(key, Cacheable):
-                raise TypeError(
-                    f"CacheableDict keys cannot be cacheable: {key!r}")
+                raise TypeError(f"CacheableDict keys cannot be cacheable: {key!r}")
 
     def __repr__(self) -> str:
         return Cacheable.__repr__(self) + UserDict[K, V].__repr__(self)
@@ -200,8 +193,7 @@ def cached(func: Callable[[TC], T]) -> Callable[[TC], T]:
 
     def wrapper(self: TC) -> T:
         if not isinstance(self, Cacheable):
-            raise TypeError(
-                f"@cached must be used on a Cacheable object: {type(self)}")
+            raise TypeError(f"@cached must be used on a Cacheable object: {type(self)}")
         if key in self._cache_:
             return self._cache_[key]
         return self._cache_.setdefault(key, func(self))
@@ -241,7 +233,8 @@ class volatile:
             def setter(self: Cacheable, value: T) -> None:
                 _assert_not_list_or_dict(value)
                 if not hasattr(self, protected_attr) or value != getattr(
-                        self, protected_attr):
+                    self, protected_attr
+                ):
                     setattr(self, protected_attr, value)
                     self.clear_cache()
 
@@ -265,12 +258,10 @@ class volatile:
         frame = inspect.currentframe()
         back = None if frame is None else frame.f_back
         if back is None:
-            raise RuntimeError(
-                "volatile must be used in Cacheable.__init__: None")
+            raise RuntimeError("volatile must be used in Cacheable.__init__: None")
         caller = back.f_code.co_name
         if caller != "__init__":
-            raise RuntimeError(
-                f"volatile must be used in Cacheable.__init__: {caller}")
+            raise RuntimeError(f"volatile must be used in Cacheable.__init__: {caller}")
 
     def __enter__(self) -> Self:
         self.attr_names = list(self.obj.__dict__.keys())

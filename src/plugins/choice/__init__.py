@@ -15,11 +15,9 @@ from .choice import ChoiceConfig, ChoiceHandler
 from .parse import Action, Op, parse_action
 
 make_choice_reply = on_reply(("选择困难", "xzkn"), block=True)
-make_choice = on_command("选择困难",
-                         rule=not_reply(),
-                         aliases={"xzkn"},
-                         block=True,
-                         force_whitespace=True)
+make_choice = on_command(
+    "选择困难", rule=not_reply(), aliases={"xzkn"}, block=True, force_whitespace=True
+)
 choice_shortcut = on_message(priority=2, block=False)
 
 
@@ -87,17 +85,15 @@ async def _(bot: Bot, event: GroupMessageEvent, args: Message = CommandArg()):
         await handler.overview()
     else:
         rule = SUPERUSER | ADMIN
-        await handler.execute(event.user_id,
-                              action,
-                              symtab,
-                              sudo=await rule(bot, event))
+        await handler.execute(
+            event.user_id, action, symtab, sudo=await rule(bot, event)
+        )
 
 
 @make_choice_reply.handle()
-async def _(bot: Bot,
-            event: GroupMessageEvent,
-            state: T_State,
-            args: Message = CommandArg()):
+async def _(
+    bot: Bot, event: GroupMessageEvent, state: T_State, args: Message = CommandArg()
+):
     args = MessageExtension.discard(args, "reply")
     cmd, symtab = MessageExtension.encode(args)
 
@@ -107,20 +103,26 @@ async def _(bot: Bot,
 
     # rewrite action with reply content
     reply: Reply = state["reply"]
-    content = MessageExtension.filter(reply.message, MessageType.TEXT,
-                                      MessageType.AT, MessageType.FACE,
-                                      MessageType.MFACE, MessageType.IMAGE)
+    content = MessageExtension.filter(
+        reply.message,
+        MessageType.TEXT,
+        MessageType.AT,
+        MessageType.FACE,
+        MessageType.MFACE,
+        MessageType.IMAGE,
+    )
     content = MessageExtension.fix_mface(content)
 
     handler = ChoiceHandler(bot, event, make_choice_reply)
-    if (action.op == Op.NONE and len(action.items) == 1
-            and action.items[0].op == Op.ADD):
+    if action.op == Op.NONE and len(action.items) == 1 and action.items[0].op == Op.ADD:
         s, symtab_content = MessageExtension.encode(content, start=len(symtab))
         action.items[0] = action.items[0].with_content(s)
-        await handler.execute(event.user_id,
-                              action,
-                              symtab | symtab_content,
-                              sudo=await (SUPERUSER | ADMIN)(bot, event))
+        await handler.execute(
+            event.user_id,
+            action,
+            symtab | symtab_content,
+            sudo=await (SUPERUSER | ADMIN)(bot, event),
+        )
     elif action.op == Op.SHOW and not action.items:
         await handler.execute_search(content, action, symtab)
     else:
@@ -132,8 +134,7 @@ async def _(bot: Bot, event: GroupMessageEvent):
     if not all(seg.is_text() for seg in event.message):
         return
     name = event.message.extract_plain_text()
-    cfg = await ChoiceConfig.get(user_id=event.user_id,
-                                 group_id=event.group_id)
+    cfg = await ChoiceConfig.get(user_id=event.user_id, group_id=event.group_id)
     if name in cfg.shortcuts:
         handler = ChoiceHandler(bot, event, make_choice_reply)
         if msg := await handler.random_list_items(name):

@@ -77,7 +77,7 @@ def _approx(arr, k):
     while len(best_splits) < k - 1:
         best_splits.append(len(arr))  # pad with end (won’t affect result)
 
-    return best_splits[:k - 1]
+    return best_splits[: k - 1]
 
 
 def split_subarray(arr: list[int], num_subarrays: int) -> list[int]:
@@ -101,8 +101,7 @@ def _approx_unordered(arr, k):
     return sublists
 
 
-def split_subarray_unordered(arr: list[int],
-                             num_subarrays: int) -> list[list[int]]:
+def split_subarray_unordered(arr: list[int], num_subarrays: int) -> list[list[int]]:
     if num_subarrays <= 1:
         return [list(range(len(arr)))]
     return _approx_unordered(arr, num_subarrays)
@@ -112,6 +111,7 @@ if __name__ == "__main__":
     import random
     import time
     from typing import Callable
+
     n = 20
     k = 3
     arr = [random.randint(5, 100) for _ in range(n)]
@@ -123,8 +123,10 @@ if __name__ == "__main__":
         sub_sums = [sum(arr[i] for i in sub) for sub in result]
         print(method.__name__)
         print(result)
-        print(f"Elapsed: {(tok - tik) * 1000:.0f}ms, "
-              f"Max Diff: {max(sub_sums) - min(sub_sums)}, "
-              f"Sub Sums: {sub_sums}")
+        print(
+            f"Elapsed: {(tok - tik) * 1000:.0f}ms, "
+            f"Max Diff: {max(sub_sums) - min(sub_sums)}, "
+            f"Sub Sums: {sub_sums}"
+        )
 
     show_unordered(_approx_unordered)

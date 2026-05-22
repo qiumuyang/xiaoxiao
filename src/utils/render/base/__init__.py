@@ -1,12 +1,16 @@
 # ruff: noqa: F403, F405  # __init__.py API re-exports
 from .cacheable import Cacheable, cached, volatile
 from .color import Color, Palette
-from .decorations import (BoxSizing, Decorations, InplaceDecoration,
-                          LayerDecoration, Overlay)
+from .decorations import (
+    BoxSizing,
+    Decorations,
+    InplaceDecoration,
+    LayerDecoration,
+    Overlay,
+)
 from .image import ImageMask, RenderImage
 from .object import BaseStyle, RenderObject
-from .properties import (Alignment, Border, BoundingBox, Direction,
-                         Interpolation, Space)
+from .properties import Alignment, Border, BoundingBox, Direction, Interpolation, Space
 from .text import RenderText
 from .textfont import TextFont
 from .textstyle import *

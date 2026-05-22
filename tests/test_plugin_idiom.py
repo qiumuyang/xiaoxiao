@@ -28,8 +28,12 @@ def test_idiom_syllable():
         output1 = Idiom.parse_syllables(input1)
         assert expect in (output0 or [])
         assert expect in (output1 or [])
-    assert Idiom.parse_syllables("xiao") == [("xiao", ), ("xi", "ao"),
-                                             ("xia", "o"), ("xi", "a", "o")]
+    assert Idiom.parse_syllables("xiao") == [
+        ("xiao",),
+        ("xi", "ao"),
+        ("xia", "o"),
+        ("xi", "a", "o"),
+    ]
 
 
 def test_idiom_diff():
@@ -57,21 +61,19 @@ async def test_idiom_render():
     target = "xianlaihoudao"
     attempts = []
     for _ in range(4):
-        provided = "".join(
-            random.choices(string.ascii_lowercase, k=len(target)))
+        provided = "".join(random.choices(string.ascii_lowercase, k=len(target)))
         diff = Idiom.diff(target, provided)
         attempts.append(
             RenderAttemptData(
                 user_id=0,
-                syllables=[
-                    provided[0:4], provided[4:7], provided[7:10], provided[10:]
-                ],
+                syllables=[provided[0:4], provided[4:7], provided[7:10], provided[10:]],
                 diffs=diff,
-            ))
+            )
+        )
     start = time.time()
-    obj = await GuessRender.render(attempts, [4, 3, 3, 3],
-                                   key_state={"a": Status.EXACT},
-                                   answer=None)
+    obj = await GuessRender.render(
+        attempts, [4, 3, 3, 3], key_state={"a": Status.EXACT}, answer=None
+    )
     im = obj.render()
     end = time.time()
     assert end - start < 0.2

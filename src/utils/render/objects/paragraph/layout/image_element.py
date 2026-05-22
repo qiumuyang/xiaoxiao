@@ -3,7 +3,6 @@ from .element import Element, Split
 
 
 class ImageElement:
-
     def __init__(self, image: RenderImage, inline: bool = False):
         self.image = image
         self._inline = inline

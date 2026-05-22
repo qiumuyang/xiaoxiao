@@ -14,7 +14,6 @@ logger = logger_wrapper(__name__)
 
 
 class MessageComparator:
-
     async def __call__(self, message1: Message, message2: Message) -> bool:
         """Compare two messages for equality."""
         if len(message1) != len(message2):
@@ -30,8 +29,9 @@ class MessageComparator:
             else:
                 comparator = self._get_comparator(seg1.type)
 
-                if not await comparator(MessageSegment.from_onebot(seg1),
-                                        MessageSegment.from_onebot(seg2)):
+                if not await comparator(
+                    MessageSegment.from_onebot(seg1), MessageSegment.from_onebot(seg2)
+                ):
                     return False
 
         return True
@@ -46,7 +46,6 @@ class MessageComparator:
 
 
 class ImagePHashComparator(MessageComparator):
-
     METADATA_KEY = "phash"
 
     def __init__(self, threshold: int = 8) -> None:
@@ -80,7 +79,6 @@ class ImagePHashComparator(MessageComparator):
             hash_str1 = hash_str2 = ""
 
         if hash_str1 and hash_str2:
-
             hash1 = imagehash.hex_to_hash(hash_str1)
             hash2 = imagehash.hex_to_hash(hash_str2)
 

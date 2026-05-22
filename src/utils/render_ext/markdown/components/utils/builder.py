@@ -5,9 +5,17 @@ from typing import cast
 
 from typing_extensions import Unpack
 
-from src.utils.render import (Alignment, BaseStyle, Container, Direction,
-                              Paragraph, RenderImage, RenderObject, Spacer,
-                              TextStyle)
+from src.utils.render import (
+    Alignment,
+    BaseStyle,
+    Container,
+    Direction,
+    Paragraph,
+    RenderImage,
+    RenderObject,
+    Spacer,
+    TextStyle,
+)
 
 from ...style import OverrideStyle
 
@@ -24,7 +32,6 @@ def deduplicate(name: str, existing: set[str]) -> str:
 
 
 class Multiline:
-
     def __init__(self):
         self.text = ""
         self.newline = False
@@ -50,15 +57,16 @@ class Multiline:
 
 
 class Builder:
-
     _styles: dict[str, TextStyle]
     _images: dict[str, RenderObject | RenderImage]
     _content: Multiline
 
-    def __init__(self,
-                 default: TextStyle,
-                 max_width: int | None = None,
-                 allow_override: bool = True) -> None:
+    def __init__(
+        self,
+        default: TextStyle,
+        max_width: int | None = None,
+        allow_override: bool = True,
+    ) -> None:
         self._styles = {}
         self._images = {}
         self._content = Multiline()
@@ -69,11 +77,13 @@ class Builder:
     def text(self, content: str, inline: bool = True):
         self._content.append(Paragraph.formatter.escape(content), inline)
 
-    def image(self,
-              image: RenderObject | RenderImage,
-              caption: str | tuple[str, TextStyle] | None = None,
-              tag: str = "img_",
-              inline: bool = False):
+    def image(
+        self,
+        image: RenderObject | RenderImage,
+        caption: str | tuple[str, TextStyle] | None = None,
+        tag: str = "img_",
+        inline: bool = False,
+    ):
         tag = deduplicate(tag, set(self._images.keys()))
         if caption:
             if isinstance(image, RenderObject):
@@ -84,7 +94,8 @@ class Builder:
                 style = self.default
             image = RenderImage.concat_vertical(
                 [image, Paragraph.of(caption, style=style).render()],
-                alignment=Alignment.CENTER)
+                alignment=Alignment.CENTER,
+            )
         self._images[tag] = image
         self._content.append_self_closing_tag(tag, inline)
 
@@ -107,9 +118,7 @@ class Builder:
     def styles(self):
         if not self.allow_override:
             return {
-                k:
-                v if not OverrideStyle.isinstance(v) else
-                OverrideStyle.to_normal(v)
+                k: v if not OverrideStyle.isinstance(v) else OverrideStyle.to_normal(v)
                 for k, v in self._styles.items()
             }
         if OverrideStyle.isinstance(self._default):
@@ -124,21 +133,24 @@ class Builder:
     def default(self):
         return OverrideStyle.to_normal(self._default)
 
-    def build(self,
-              *,
-              max_width: int | None = None,
-              spacing: int = 0,
-              **kwargs: Unpack[BaseStyle]) -> RenderObject:
-        return Paragraph.from_markup(self.content,
-                                     default=self.default,
-                                     styles=self.styles,
-                                     images=self._images,
-                                     max_width=max_width or self.max_width,
-                                     line_spacing=spacing,
-                                     **kwargs)
+    def build(
+        self,
+        *,
+        max_width: int | None = None,
+        spacing: int = 0,
+        **kwargs: Unpack[BaseStyle],
+    ) -> RenderObject:
+        return Paragraph.from_markup(
+            self.content,
+            default=self.default,
+            styles=self.styles,
+            images=self._images,
+            max_width=max_width or self.max_width,
+            line_spacing=spacing,
+            **kwargs,
+        )
 
     class StyleContext:
-
         def __init__(self, constructor: "Builder", tag: str):
             self.constructor = constructor
             self.name = tag
@@ -155,12 +167,14 @@ class Box:
     Creates a box that contains a RenderObject with specified size.
     """
 
-    def __init__(self,
-                 obj: RenderObject,
-                 width: int | None = None,
-                 height: int | None = None,
-                 alignment_vertical: Alignment = Alignment.CENTER,
-                 alignment_horizontal: Alignment = Alignment.START) -> None:
+    def __init__(
+        self,
+        obj: RenderObject,
+        width: int | None = None,
+        height: int | None = None,
+        alignment_vertical: Alignment = Alignment.CENTER,
+        alignment_horizontal: Alignment = Alignment.START,
+    ) -> None:
         self.obj = obj
         self.width = width
         self.height = height

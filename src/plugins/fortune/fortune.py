@@ -19,9 +19,37 @@ class Fortune(TypedDict):
 
 FORTUNE_GOOD = ("大吉", "中吉", "小吉", "吉", "半吉", "末吉")
 FORTUNE_BAD = ("大凶", "小凶", "凶", "半凶", "末凶")
-EVENT = ("祭祀", "祈福", "酬神", "开光", "入宅", "分手", "乘船", "驾车", "出行", "赴任", "开市",
-         "摆烂", "修造", "盖屋", "嫁娶", "上分", "睡觉", "抽卡", "写作业", "水群", "告白", "做舔狗",
-         "单推", "dd", "打游戏", "女装", "复读", "玩bot", "打工")
+EVENT = (
+    "祭祀",
+    "祈福",
+    "酬神",
+    "开光",
+    "入宅",
+    "分手",
+    "乘船",
+    "驾车",
+    "出行",
+    "赴任",
+    "开市",
+    "摆烂",
+    "修造",
+    "盖屋",
+    "嫁娶",
+    "上分",
+    "睡觉",
+    "抽卡",
+    "写作业",
+    "水群",
+    "告白",
+    "做舔狗",
+    "单推",
+    "dd",
+    "打游戏",
+    "女装",
+    "复读",
+    "玩bot",
+    "打工",
+)
 FORTUNE = FORTUNE_GOOD + FORTUNE_BAD
 
 
@@ -36,16 +64,16 @@ def get_sunrise_sunset(
         )
         results = r.json()["results"]
     except Exception:
-        return (datetime.now().replace(hour=6, minute=0, second=0),
-                datetime.now().replace(hour=18, minute=0, second=0))
+        return (
+            datetime.now().replace(hour=6, minute=0, second=0),
+            datetime.now().replace(hour=18, minute=0, second=0),
+        )
     sunrise = datetime.strptime(results["sunrise"], "%I:%M:%S %p")
     sunset = datetime.strptime(results["sunset"], "%I:%M:%S %p")
     sunrise += timedelta(hours=8)
     sunset += timedelta(hours=8)
     today = datetime.now()
-    sunrise = sunrise.replace(year=today.year,
-                              month=today.month,
-                              day=today.day)
+    sunrise = sunrise.replace(year=today.year, month=today.month, day=today.day)
     sunset = sunset.replace(year=today.year, month=today.month, day=today.day)
     return sunrise, sunset
 

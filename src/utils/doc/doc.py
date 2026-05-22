@@ -10,12 +10,14 @@ class DocManager:
     _aliases: dict[str, str] = {}
 
     @classmethod
-    def register(cls,
-                 name: str,
-                 category: CommandCategory,
-                 aliases: Iterable[str] = (),
-                 visible_in_overview: bool = True,
-                 is_placeholder: bool = False):
+    def register(
+        cls,
+        name: str,
+        category: CommandCategory,
+        aliases: Iterable[str] = (),
+        visible_in_overview: bool = True,
+        is_placeholder: bool = False,
+    ):
 
         def decorator(fn):
             meta = CommandMeta.parse(fn)

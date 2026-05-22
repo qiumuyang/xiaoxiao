@@ -4,8 +4,15 @@ from typing import Any, Callable, Iterable
 
 from typing_extensions import Self, Unpack, override
 
-from ...base import (Alignment, BaseStyle, RenderImage, RenderObject,
-                     TextStyle, cached, volatile)
+from ...base import (
+    Alignment,
+    BaseStyle,
+    RenderImage,
+    RenderObject,
+    TextStyle,
+    cached,
+    volatile,
+)
 from .layout import Element, LineBreaker, concat_elements_by_baseline
 from .markup.generator import LayoutElementGenerator
 from .markup.parser import MarkupParser
@@ -52,12 +59,10 @@ class CustomFormatter(Formatter):
 
         # since self.format already escapes the raw values
         # we don't need to escape them here
-        return separator.join(
-            self.format(sub_format, **item) for item in value)
+        return separator.join(self.format(sub_format, **item) for item in value)
 
 
 class Paragraph(RenderObject):
-
     formatter = CustomFormatter(MarkupParser.escape)
 
     @classmethod
@@ -111,24 +116,28 @@ class Paragraph(RenderObject):
             rendered_lines.pop()  # remove last line spacing
         if not rendered_lines:
             return RenderImage.empty(0, 0)
-        return RenderImage.concat_vertical(rendered_lines,
-                                           alignment=self.alignment)
+        return RenderImage.concat_vertical(rendered_lines, alignment=self.alignment)
 
     @classmethod
-    def of(cls,
-           text: str,
-           style: TextStyle,
-           *,
-           max_width: int | None = None,
-           alignment: Alignment = Alignment.START,
-           line_spacing: int | float = 0.25,
-           **kwargs: Unpack[BaseStyle]) -> Self:
-        return cls.from_template(MarkupParser.escape(text), {},
-                                 max_width=max_width,
-                                 alignment=alignment,
-                                 line_spacing=line_spacing,
-                                 default=style,
-                                 **kwargs)
+    def of(
+        cls,
+        text: str,
+        style: TextStyle,
+        *,
+        max_width: int | None = None,
+        alignment: Alignment = Alignment.START,
+        line_spacing: int | float = 0.25,
+        **kwargs: Unpack[BaseStyle],
+    ) -> Self:
+        return cls.from_template(
+            MarkupParser.escape(text),
+            {},
+            max_width=max_width,
+            alignment=alignment,
+            line_spacing=line_spacing,
+            default=style,
+            **kwargs,
+        )
 
     @classmethod
     def from_markup(
@@ -163,13 +172,14 @@ class Paragraph(RenderObject):
         images = images or {}
         default = default or {}
         parser = MarkupParser(markup)
-        generator = LayoutElementGenerator(parser.parse(),
-                                           default=default,
-                                           styles=styles,
-                                           images=images,
-                                           unescape=MarkupParser.unescape)
-        return cls(generator.layout(), max_width, alignment, line_spacing,
-                   **kwargs)
+        generator = LayoutElementGenerator(
+            parser.parse(),
+            default=default,
+            styles=styles,
+            images=images,
+            unescape=MarkupParser.unescape,
+        )
+        return cls(generator.layout(), max_width, alignment, line_spacing, **kwargs)
 
     @classmethod
     def from_template(
@@ -191,14 +201,16 @@ class Paragraph(RenderObject):
             This method is safer than `from_markup` since it automatically
             escapes the strings filled in the template.
         """
-        return cls.from_markup(cls.formatter.format(template, **values),
-                               max_width=max_width,
-                               alignment=alignment,
-                               line_spacing=line_spacing,
-                               default=default,
-                               styles=styles,
-                               images=images,
-                               **kwargs)
+        return cls.from_markup(
+            cls.formatter.format(template, **values),
+            max_width=max_width,
+            alignment=alignment,
+            line_spacing=line_spacing,
+            default=default,
+            styles=styles,
+            images=images,
+            **kwargs,
+        )
 
     @staticmethod
     def find_max_font(
@@ -211,13 +223,16 @@ class Paragraph(RenderObject):
         line_spacing: int | float = 0.25,
         **kwargs: Unpack[BaseStyle],
     ) -> int:
-        return Paragraph.find_template_max_font(MarkupParser.escape(text), {},
-                                                font_size=font_size,
-                                                max_size=max_size,
-                                                alignment=alignment,
-                                                line_spacing=line_spacing,
-                                                default=style,
-                                                **kwargs)
+        return Paragraph.find_template_max_font(
+            MarkupParser.escape(text),
+            {},
+            font_size=font_size,
+            max_size=max_size,
+            alignment=alignment,
+            line_spacing=line_spacing,
+            default=style,
+            **kwargs,
+        )
 
     @staticmethod
     def _adjust_absolute_size(
@@ -270,23 +285,24 @@ class Paragraph(RenderObject):
         while current_size >= min:
             attempt_default = (default or {}).copy()
             attempt_styles = {k: v.copy() for k, v in (styles or {}).items()}
-            Paragraph._adjust_absolute_size(attempt_default,
-                                            *attempt_styles.values(),
-                                            target_size=current_size)
-            para = Paragraph.from_template(template,
-                                           values,
-                                           max_width=max_width,
-                                           alignment=alignment,
-                                           line_spacing=line_spacing,
-                                           default=attempt_default,
-                                           styles=attempt_styles,
-                                           images=images,
-                                           **kwargs)
+            Paragraph._adjust_absolute_size(
+                attempt_default, *attempt_styles.values(), target_size=current_size
+            )
+            para = Paragraph.from_template(
+                template,
+                values,
+                max_width=max_width,
+                alignment=alignment,
+                line_spacing=line_spacing,
+                default=attempt_default,
+                styles=attempt_styles,
+                images=images,
+                **kwargs,
+            )
             if para.height <= max_height:
                 return current_size
             current_size -= 1
-        raise ValueError(f"Cannot find fitting font size: "
-                         f"min_font_size={min}")
+        raise ValueError(f"Cannot find fitting font size: min_font_size={min}")
 
     @classmethod
     def from_template_with_font_range(
@@ -303,27 +319,31 @@ class Paragraph(RenderObject):
         images: dict[str, RenderObject | RenderImage] | None = None,
         **kwargs: Unpack[BaseStyle],
     ) -> Self:
-        max_font_size = cls.find_template_max_font(template,
-                                                   values,
-                                                   font_size=font_size,
-                                                   max_size=max_size,
-                                                   alignment=alignment,
-                                                   line_spacing=line_spacing,
-                                                   default=default,
-                                                   styles=styles,
-                                                   images=images,
-                                                   **kwargs)
+        max_font_size = cls.find_template_max_font(
+            template,
+            values,
+            font_size=font_size,
+            max_size=max_size,
+            alignment=alignment,
+            line_spacing=line_spacing,
+            default=default,
+            styles=styles,
+            images=images,
+            **kwargs,
+        )
         overwrite_default = (default or {}).copy()
         overwrite_styles = {k: v.copy() for k, v in (styles or {}).items()}
-        Paragraph._adjust_absolute_size(overwrite_default,
-                                        *overwrite_styles.values(),
-                                        target_size=max_font_size)
-        return cls.from_template(template,
-                                 values,
-                                 max_width=max_size[0],
-                                 alignment=alignment,
-                                 line_spacing=line_spacing,
-                                 default=overwrite_default,
-                                 styles=overwrite_styles,
-                                 images=images,
-                                 **kwargs)
+        Paragraph._adjust_absolute_size(
+            overwrite_default, *overwrite_styles.values(), target_size=max_font_size
+        )
+        return cls.from_template(
+            template,
+            values,
+            max_width=max_size[0],
+            alignment=alignment,
+            line_spacing=line_spacing,
+            default=overwrite_default,
+            styles=overwrite_styles,
+            images=images,
+            **kwargs,
+        )

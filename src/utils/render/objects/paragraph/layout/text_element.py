@@ -24,15 +24,17 @@ class TextElement(RenderText):
 
     hypenator: ClassVar = pyphen.Pyphen(lang="en_US")
 
-    def _compute_overflow(self, text: str, width: int, *,
-                          add_hyphen: bool) -> int:
+    def _compute_overflow(self, text: str, width: int, *, add_hyphen: bool) -> int:
         """Compute the maximum substring length that fits into width."""
         suffix = "-" if add_hyphen else ""
-        index = bisect_right(
-            range(len(text) + 1),
-            width,
-            key=lambda x: self.with_text(text[:x] + suffix).width,
-        ) - 1
+        index = (
+            bisect_right(
+                range(len(text) + 1),
+                width,
+                key=lambda x: self.with_text(text[:x] + suffix).width,
+            )
+            - 1
+        )
         return 0 if index <= 0 else index
 
     def split_at(self, width: int, next_width: int) -> Split:
@@ -64,7 +66,7 @@ class TextElement(RenderText):
         fitting_text = self.text[:overflow]
         if "\n" in fitting_text:
             index = fitting_text.index("\n")
-            cur, rem = self[:index], self[index + 1:]
+            cur, rem = self[:index], self[index + 1 :]
             rem.lstrip_safe = False
             return Split(current=cur, remaining=rem)
 
@@ -85,11 +87,11 @@ class TextElement(RenderText):
             return Split(current=cur, remaining=rem)
 
         if nxt == " ":
-            return Split(current=self[:index], remaining=self[index + 1:])
+            return Split(current=self[:index], remaining=self[index + 1 :])
 
         # eat one newline of remaining text if any
         if self.text[index] == "\n":
-            current, remaining = self.text[:index], self.text[index + 1:]
+            current, remaining = self.text[:index], self.text[index + 1 :]
             hard_break = True
         else:
             current, remaining = self.text[:index], self.text[index:]
@@ -153,29 +155,25 @@ class TextElement(RenderText):
             self.multiline = None
             return processing, self.text.removeprefix(processing)
 
-        def update_multiline(fits: str,
-                             rest: str,
-                             *,
-                             hyphenate: bool = False) -> tuple[str, str]:
+        def update_multiline(
+            fits: str, rest: str, *, hyphenate: bool = False
+        ) -> tuple[str, str]:
             # Update the stored multiline state based on
             # whether we have remaining text.
             self.multiline = (previous + fits, rest) if rest else None
-            return ((fits + "-") if hyphenate and fits and rest else
-                    fits), self.text.removeprefix(fits)
+            return (
+                (fits + "-") if hyphenate and fits and rest else fits
+            ), self.text.removeprefix(fits)
 
         if self.wrap.hyphen == Hyphen.NONE:
             # simply find the overflow position
-            overflow = self._compute_overflow(processing,
-                                              width,
-                                              add_hyphen=False)
+            overflow = self._compute_overflow(processing, width, add_hyphen=False)
             fits, rest = processing[:overflow], processing[overflow:]
             return update_multiline(fits, rest, hyphenate=False)
 
         if self.wrap.hyphen == Hyphen.ANYWHERE:
             # same as None, but add hyphen when calculating overflow
-            overflow = self._compute_overflow(processing,
-                                              width,
-                                              add_hyphen=True)
+            overflow = self._compute_overflow(processing, width, add_hyphen=True)
             fits, rest = processing[:overflow], processing[overflow:]
             # Enforce minimum character counts
             # if the whole word fits on the next line.
@@ -193,30 +191,28 @@ class TextElement(RenderText):
             full_word = previous + processing
             # Get hyphenation positions that lie in the 'processing' part.
             positions = [
-                p - len(previous) for p in self.hypenator.positions(full_word)
+                p - len(previous)
+                for p in self.hypenator.positions(full_word)
                 if p > len(previous)
             ]
             current_width = self.with_text(processing).width
             for pos in reversed(positions):
                 current_width = self.with_text(processing[:pos] + "-").width
                 if current_width <= width:
-                    return update_multiline(processing[:pos],
-                                            processing[pos:],
-                                            hyphenate=True)
+                    return update_multiline(
+                        processing[:pos], processing[pos:], hyphenate=True
+                    )
             # If no valid break was found,
             # and the first part would fit on the next line
             if current_width <= next_width:
                 return "", self.text
             # Otherwise, fallback to ANYWHERE
-            overflow = self._compute_overflow(processing,
-                                              width,
-                                              add_hyphen=True)
+            overflow = self._compute_overflow(processing, width, add_hyphen=True)
             fits, rest = processing[:overflow], processing[overflow:]
             return update_multiline(fits, rest, hyphenate=True)
         raise ValueError("Invalid hyphen setting")
 
-    def _split_word(self, cursor: int, width: int,
-                    next_width: int) -> tuple[str, str]:
+    def _split_word(self, cursor: int, width: int, next_width: int) -> tuple[str, str]:
         text = self.text
         left = right = cursor
         while left > 0 and isalpha(text[left - 1]):

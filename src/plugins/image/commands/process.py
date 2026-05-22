@@ -11,10 +11,23 @@ from src.utils.image.avatar import Avatar
 from src.utils.persistence import FileStorage
 from src.utils.render_ext.markdown import Markdown
 
-from ..process import (Flip, FlipFlop, FourColorGrid, FourColorGridV2,
-                       GrayScale, ImageAvatarProcessor, ImageProcessor,
-                       MultiRotate, Reflect, Reverse, Shake, ShouldIAlways,
-                       ThisIsMyWaifu, TileScript, Zoom)
+from ..process import (
+    Flip,
+    FlipFlop,
+    FourColorGrid,
+    FourColorGridV2,
+    GrayScale,
+    ImageAvatarProcessor,
+    ImageProcessor,
+    MultiRotate,
+    Reflect,
+    Reverse,
+    Shake,
+    ShouldIAlways,
+    ThisIsMyWaifu,
+    TileScript,
+    Zoom,
+)
 from .share import driver, logger
 
 image_procs = {
@@ -70,7 +83,8 @@ async def process_image_message(
     """
     arg_message = event.message
     args = [
-        s.extract_text_args() for seg in arg_message
+        s.extract_text_args()
+        for seg in arg_message
         if (s := MessageSegment.from_onebot(seg)) and s.is_text()
     ]
     args = [_ for a in args for arg in a if (_ := arg.strip())]
@@ -98,8 +112,7 @@ async def process_image_message(
                 image = Markdown(f"```python\n{e}\n```").render().to_pil()
                 await matcher.finish(MessageSegment.image(image))
             if result is not None:
-                await matcher.finish(MessageSegment.image(result,
-                                                          summary=name))
+                await matcher.finish(MessageSegment.image(result, summary=name))
 
 
 @driver.on_startup
@@ -107,7 +120,7 @@ async def register_process():
     storage = await FileStorage.get_instance()
     for name, processor in image_procs.items():
         if isinstance(name, str):
-            name = (name, )
+            name = (name,)
 
         rule = ratelimit("IMAGE_" + name[0], type="group", seconds=5)
         reply_matcher = on_reply(name, rule=rule, block=True)
@@ -116,14 +129,14 @@ async def register_process():
             aliases=set(name[1:]),
             priority=2,  # lower than reply
             rule=rule,
-            block=True)
+            block=True,
+        )
 
         def fn(name: str, proc: ImageProcessor):
             """Create a closure to keep the processor."""
 
             async def _(matcher: Matcher, event: MessageEvent, state: T_State):
-                await process_image_message(name, proc, matcher, event, state,
-                                            storage)
+                await process_image_message(name, proc, matcher, event, state, storage)
 
             return _
 

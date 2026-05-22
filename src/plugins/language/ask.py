@@ -8,8 +8,12 @@ import jieba
 import jieba.posseg as pseg
 from nonebot.adapters.onebot.v11 import Bot, Message
 
-from src.ext import (MessageExtension, MessageSegment, get_group_member_name,
-                     list_group_member_names)
+from src.ext import (
+    MessageExtension,
+    MessageSegment,
+    get_group_member_name,
+    list_group_member_names,
+)
 from src.utils.log import logger_wrapper
 
 from .capture_group import expand_capture_group_references
@@ -46,12 +50,11 @@ def endswith_num_and_char(s: str, chars: str, range_: tuple[int, int]):
     i = 2
     while i <= len(s) and s[-i].isdecimal():
         i += 1
-    num = s[-i + 1:-1]
+    num = s[-i + 1 : -1]
     return num and range_[0] <= int(num) <= range_[1]
 
 
 class Ask:
-
     PERSON = {"你": "我", "我": "你", "你们": "我们", "我们": "你们"}
 
     PATTERN_YES_NO = re.compile(r"^(.+)([没不])\1")
@@ -59,7 +62,17 @@ class Ask:
 
     BAD_DE = "觉舍记认懂晓识值显贪懒博"
     BAD_ASK = [
-        "问问", "问下", "问一下", "问题", "问询", "问候", "问鼎", "问起", "问世", "问路", "问及"
+        "问问",
+        "问下",
+        "问一下",
+        "问题",
+        "问询",
+        "问候",
+        "问鼎",
+        "问起",
+        "问世",
+        "问路",
+        "问及",
     ]
 
     LENGTH_CHECK_ATTEMP = 5
@@ -91,7 +104,8 @@ class Ask:
             # if punctuation is escaped, it is not a split point
             f"(?<!\\\\)([{re.escape(punctuation_choice_stop)}\n])",
             text,
-            flags=re.M)
+            flags=re.M,
+        )
         sentences, punctuation = parts[::2], parts[1::2]
         for i, sentence in enumerate(sentences):
             choices = list(filter(None, sentence.split("还是")))
@@ -99,8 +113,10 @@ class Ask:
                 sentences[i] = random.choice(choices)
                 self.replacement = self.replacement or len(choices) > 1
             # else as is
-        text = "".join(s + p for s, p in itertools.zip_longest(
-            sentences, punctuation, fillvalue=""))
+        text = "".join(
+            s + p
+            for s, p in itertools.zip_longest(sentences, punctuation, fillvalue="")
+        )
         return text
 
     def __init__(self, bot: Bot, group_id: int, question: Message) -> None:
@@ -144,7 +160,8 @@ class Ask:
             if seg.is_at():
                 # convert to plain text
                 member_name = await get_group_member_name(
-                    group_id=group_id, user_id=seg.extract_at())
+                    group_id=group_id, user_id=seg.extract_at()
+                )
                 processed_message.append(MessageSegment.at(member_name))
             else:
                 processed_message.append(seg)
@@ -156,10 +173,9 @@ class Ask:
         startswith: str = "",
         sample: int = 2,
     ) -> list[Entry]:
-        result = await CorpusPool.fetch(group_id=self.group_id,
-                                        length=length,
-                                        startswith=startswith,
-                                        count=sample)
+        result = await CorpusPool.fetch(
+            group_id=self.group_id, length=length, startswith=startswith, count=sample
+        )
         if not result:
             raise ValueError("No corpus found")
         return result
@@ -180,7 +196,9 @@ class Ask:
                 return random.choice(entries[0].text)
             if kwargs["length"] == 2:
                 words = [
-                    word for ent in entries for word, _ in ent.posseg
+                    word
+                    for ent in entries
+                    for word, _ in ent.posseg
                     if len(word) == kwargs["length"]
                 ]
                 if not words:
@@ -200,20 +218,18 @@ class Ask:
                 if length is not None:
                     # fix by adding length of startswith
                     # which will be removed later
-                    return await self.random_what(startswith=startswith,
-                                                  length=length +
-                                                  len(startswith),
-                                                  **kwargs)
+                    return await self.random_what(
+                        startswith=startswith, length=length + len(startswith), **kwargs
+                    )
                 return await self.random_what(startswith=startswith, **kwargs)
             except ValueError:
                 pass
         return await self.random_what(length=length, **kwargs)
 
     async def random_what_to_do(self, length: int | None = None):
-        entries = await self.random_corpus_entry(length=(length
-                                                         or self.MIN_WHAT,
-                                                         100),
-                                                 sample=32)
+        entries = await self.random_corpus_entry(
+            length=(length or self.MIN_WHAT, 100), sample=32
+        )
         candidates: list[tuple[str, Entry]] = []
         for entry in entries:
             for word_pos in entry.cut_pos(start="v", end=["x", "y"]):
@@ -226,11 +242,10 @@ class Ask:
                 # the following line prefers frequent length
                 # length = random.choice([len(t) for t, _ in candidates])
                 # prefer longer text
-                length = random.choices(length_distribution,
-                                        k=1,
-                                        weights=length_distribution)[0]
-            text, entry = random.choice(
-                [c for c in candidates if len(c[0]) == length])
+                length = random.choices(
+                    length_distribution, k=1, weights=length_distribution
+                )[0]
+            text, entry = random.choice([c for c in candidates if len(c[0]) == length])
             await Corpus.use(entry)
             return text
         raise ValueError
@@ -238,7 +253,7 @@ class Ask:
     async def random_reason_entry(self, length: int | None = None) -> Entry:
         kwargs = [
             dict(startswith="因为", length=length + 2 if length else None),
-            dict(length=length)
+            dict(length=length),
         ]
         if random.random() < 0.5:
             kwargs.reverse()
@@ -288,7 +303,7 @@ class Ask:
 
         while remain:
             word, pos = next(pseg.cut(remain, use_paddle=True))
-            next_remain = remain[len(word):]
+            next_remain = remain[len(word) :]
             if word == "\\":
                 # special symbol "\" indicates the next char is yielded as is
                 # except:
@@ -307,10 +322,13 @@ class Ask:
                 continue
             if match := self.PATTERN_YES_NO.match(remain):
                 self.replacement = True
-                next_remain = remain[len(match.group(0)):]
+                next_remain = remain[len(match.group(0)) :]
                 action, neg = match.group(1), match.group(2)
-                if (neg == "不" and next_remain.startswith("得")
-                        and action not in self.BAD_DE):
+                if (
+                    neg == "不"
+                    and next_remain.startswith("得")
+                    and action not in self.BAD_DE
+                ):
                     obj = next_remain[1:2]
                     if obj:
                         generated = action + random.choice("得不") + obj
@@ -337,8 +355,7 @@ class Ask:
                 elif word == "干什么":
                     fn = self.random_what_to_do
                 elif not self.replacement and 1 <= len(prev_out) <= 3:
-                    fn = partial(self.random_what_startswith,
-                                 startswith=prev_out)
+                    fn = partial(self.random_what_startswith, startswith=prev_out)
                 else:
                     fn = self.random_what
                 is_why = fn == self.random_reason
@@ -348,10 +365,9 @@ class Ask:
                     # check if previous token is nr or r (somebody)
                     # if so, remove the nr/r prefix of the generated text
                     if prev_in_pos in ["nr", "r"]:
-                        start, start_pos = next(
-                            pseg.cut(generated, use_paddle=True))
+                        start, start_pos = next(pseg.cut(generated, use_paddle=True))
                         if start_pos in ["nr", "r"] and start != generated:
-                            generated = generated[len(start):]
+                            generated = generated[len(start) :]
                     if not length_limit or len(generated) == length_limit:
                         break
                 else:
@@ -379,15 +395,17 @@ class Ask:
                 if word == "几点钟":
                     num = str(random.randint(1, 12))
                 elif word in ["几点", "几时"] and next_remain.startswith(
-                    ("几分", "几刻", "几秒")):
+                    ("几分", "几刻", "几秒")
+                ):
                     num = str(random.randint(1, 12))
                 elif word == "几分" and endswith_num_and_char(
-                        total_out, "点时", (0, 24)):
+                    total_out, "点时", (0, 24)
+                ):
                     num = str(random.randint(1, 59))
                 # yapf: disable
                 elif word == "几秒" and (
-                    endswith_num_and_char(total_out, "点时", (0, 24)) or
-                    endswith_num_and_char(total_out, "分", (0, 60))
+                    endswith_num_and_char(total_out, "点时", (0, 24))
+                    or endswith_num_and_char(total_out, "分", (0, 60))
                 ):
                     num = str(random.randint(1, 59))
                 # yapf: enable
@@ -396,7 +414,8 @@ class Ask:
                 elif word == "几月":
                     num = str(random.randint(1, 12))
                 elif word in {"几号", "几日"} and endswith_num_and_char(
-                        total_out, "月", (1, 12)):
+                    total_out, "月", (1, 12)
+                ):
                     m = re.search(r"(\d+)月$", total_out)
                     assert m is not None
                     month = int(m.group(1))

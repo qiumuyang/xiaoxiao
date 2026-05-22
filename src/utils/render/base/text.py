@@ -12,14 +12,24 @@ from .color import Color, Palette
 from .image import RenderImage
 from .properties import Space
 from .textfont import TextFont
-from .textstyle import (AbsoluteSize, FontFamily, MinimalTextStyle,
-                         TextDecoration, TextShading, TextStroke, TextStyle,
-                         TextStyleDefaults, TextWrap, enforce_minimal)
+from .textstyle import (
+    AbsoluteSize,
+    FontFamily,
+    MinimalTextStyle,
+    TextDecoration,
+    TextShading,
+    TextStroke,
+    TextStyle,
+    TextStyleDefaults,
+    TextWrap,
+    enforce_minimal,
+)
 from .textstyle.decoration import TextDecorationType
 
 
 class _Metrics(TypedDict):
     """Internal type for storing text metrics."""
+
     ascent: int
     descent: int
     bbox: tuple[float, float, float, float]
@@ -62,15 +72,17 @@ class _RenderTextBlock(Cacheable):
 
     @property
     def style(self) -> TextStyle:
-        return TextStyle(font=self.font,
-                         size=self.size,
-                         color=self.color,
-                         stroke=self.stroke,
-                         decoration=self.decoration,
-                         shading=self.shading,
-                         bold=self.bold,
-                         italic=self.italic,
-                         wrap=self.wrap)
+        return TextStyle(
+            font=self.font,
+            size=self.size,
+            color=self.color,
+            stroke=self.stroke,
+            decoration=self.decoration,
+            shading=self.shading,
+            bold=self.bold,
+            italic=self.italic,
+            wrap=self.wrap,
+        )
 
     @classmethod
     def of(
@@ -91,8 +103,18 @@ class _RenderTextBlock(Cacheable):
             font = FontFamily.of(regular=font)
         if isinstance(shading, Color):
             shading = TextShading(shading)
-        return cls(text, font, AbsoluteSize(size), color, stroke, decoration,
-                   shading, bold, italic, wrap)
+        return cls(
+            text,
+            font,
+            AbsoluteSize(size),
+            color,
+            stroke,
+            decoration,
+            shading,
+            bold,
+            italic,
+            wrap,
+        )
 
     def with_text(self, text: str) -> Self:
         return self.__class__.of(text, **enforce_minimal(self.style))
@@ -141,10 +163,9 @@ class _RenderTextBlock(Cacheable):
         else:
             stroke_width = 0
 
-        left, top, right, bottom = font.getbbox(self.text,
-                                                mode="RGBA",
-                                                stroke_width=stroke_width,
-                                                anchor="ls")
+        left, top, right, bottom = font.getbbox(
+            self.text, mode="RGBA", stroke_width=stroke_width, anchor="ls"
+        )
         ascent, descent = font.getmetrics()
 
         # 处理基线校正和底边矫正
@@ -153,7 +174,8 @@ class _RenderTextBlock(Cacheable):
                 baseline_corr = 0
             case True:
                 baseline_corr = math.ceil(
-                    -TextFont.get_metrics(font_path, self.size).y_min)
+                    -TextFont.get_metrics(font_path, self.size).y_min
+                )
             case int():
                 baseline_corr = self.font.baseline_correction
             case _:
@@ -208,15 +230,17 @@ class _RenderTextBlock(Cacheable):
         if self.stroke:
             stroke_params = {
                 "stroke_width": self.stroke.width,
-                "stroke_fill": self.stroke.color
+                "stroke_fill": self.stroke.color,
             }
 
-        draw.text(xy=(x, y),
-                  text=self.text,
-                  fill=fill,
-                  font=font,
-                  embedded_color=self.font.embedded_color,
-                  **stroke_params)
+        draw.text(
+            xy=(x, y),
+            text=self.text,
+            fill=fill,
+            font=font,
+            embedded_color=self.font.embedded_color,
+            **stroke_params,
+        )
 
     def _draw_decorations(
         self,
@@ -254,27 +278,29 @@ class _RenderTextBlock(Cacheable):
         if not simulate_italic:
             return canvas
         shear = self.font.shear
-        return canvas.transform(canvas.size,
-                                Image.Transform.AFFINE, (1, shear, 0, 0, 1, 0),
-                                resample=Image.Resampling.BICUBIC)
+        return canvas.transform(
+            canvas.size,
+            Image.Transform.AFFINE,
+            (1, shear, 0, 0, 1, 0),
+            resample=Image.Resampling.BICUBIC,
+        )
 
     @classmethod
-    def _apply_shading_background(cls, canvas: Image.Image,
-                                  shading: TextShading) -> Image.Image:
+    def _apply_shading_background(
+        cls, canvas: Image.Image, shading: TextShading
+    ) -> Image.Image:
         """应用着色背景"""
         if shading.rounded:
             sd = draw_squircle(canvas.width, canvas.height, shading.color)
         else:
-            sd = Image.new("RGBA", (canvas.width, canvas.height),
-                           shading.color)
+            sd = Image.new("RGBA", (canvas.width, canvas.height), shading.color)
         return Image.alpha_composite(sd, canvas)
 
     @property
     def baseline(self) -> int:
         """Distance from the top to the baseline of the text."""
         metrics = self._get_font_metrics()
-        return (metrics["ascent"] + metrics["stroke_width"] +
-                metrics["padding"].top)
+        return metrics["ascent"] + metrics["stroke_width"] + metrics["padding"].top
 
     @property
     def width(self) -> int:
@@ -285,18 +311,15 @@ class _RenderTextBlock(Cacheable):
         return self._get_font_metrics()["size"][1]
 
     @staticmethod
-    def get_size(text: str,
-                 **kwargs: Unpack[MinimalTextStyle]) -> tuple[int, int]:
+    def get_size(text: str, **kwargs: Unpack[MinimalTextStyle]) -> tuple[int, int]:
         obj = _RenderTextBlock.of(text, **kwargs)
         return obj.width, obj.height
 
     def __repr__(self) -> str:
-        return (f"{self.__class__.__name__}({self.text!r}, "
-                f"fontsize={self.size!r})")
+        return f"{self.__class__.__name__}({self.text!r}, fontsize={self.size!r})"
 
 
 class RenderText(_RenderTextBlock):
-
     def as_block(self) -> _RenderTextBlock:
         return _RenderTextBlock.of(self.text, **enforce_minimal(self.style))
 
@@ -339,12 +362,14 @@ class RenderText(_RenderTextBlock):
     def render(self) -> RenderImage:
         rendered_blocks = [b.render() for b in self.blocks]
         result = RenderImage.concat_horizontal_baseline(
-            rendered_blocks, [b.baseline for b in self.blocks])
+            rendered_blocks, [b.baseline for b in self.blocks]
+        )
         if self.text and self.shading:
             # apply padding
             padding = self.shading.padding
-            canvas = RenderImage.empty(result.width + padding.width,
-                                       result.height + padding.height)
+            canvas = RenderImage.empty(
+                result.width + padding.width, result.height + padding.height
+            )
             canvas.replace(padding.left, padding.top, result)
             # apply shading
             im = self._apply_shading_background(canvas.to_pil(), self.shading)

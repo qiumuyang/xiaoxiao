@@ -43,13 +43,13 @@ class Fetcher:
 
     @classmethod
     def url(cls, id: int, is_group: bool) -> str:
-        return cls.GROUP_URL.format(
-            id=id) if is_group else cls.user_template(id)
+        return cls.GROUP_URL.format(id=id) if is_group else cls.user_template(id)
 
     @classmethod
     def path(cls, id: int, is_group: bool) -> Path:
-        return Path(cls.LOCAL_FALLBACK_DIR) / (cls.GROUP_PATH if is_group else
-                                               cls.USER_PATH).format(id=id)
+        return Path(cls.LOCAL_FALLBACK_DIR) / (
+            cls.GROUP_PATH if is_group else cls.USER_PATH
+        ).format(id=id)
 
     @staticmethod
     @alru_cache(ttl=timedelta(minutes=5).total_seconds())
@@ -124,8 +124,7 @@ class Fetcher:
         id: int,
     ) -> Image.Image | None:
         """Loads a custom avatar from local storage if available."""
-        file_path = Path(
-            cls.LOCAL_FALLBACK_DIR) / cls.USER_CUSTOM_PATH.format(id=id)
+        file_path = Path(cls.LOCAL_FALLBACK_DIR) / cls.USER_CUSTOM_PATH.format(id=id)
         if file_path.exists():
             try:
                 return Image.open(file_path)
@@ -144,8 +143,7 @@ class Fetcher:
         if avatar is None:
             # remove custom, then cache
             for template in (cls.USER_CUSTOM_PATH, cls.USER_PATH):
-                file = Path(
-                    cls.LOCAL_FALLBACK_DIR) / template.format(id=user_id)
+                file = Path(cls.LOCAL_FALLBACK_DIR) / template.format(id=user_id)
                 if file.exists():
                     file.unlink()
                     if template == cls.USER_CUSTOM_PATH:
@@ -154,7 +152,8 @@ class Fetcher:
             # if neither exists, fall through to FAIL
         else:
             file = Path(cls.LOCAL_FALLBACK_DIR) / cls.USER_CUSTOM_PATH.format(
-                id=user_id)
+                id=user_id
+            )
             file.parent.mkdir(parents=True, exist_ok=True)
             if isinstance(avatar, str):
                 if session is None:

@@ -30,6 +30,7 @@ class TextStyle(TypedDict, total=False):
             The wrap style for the text, including hyphenation and overflow,
             if any.
     """
+
     font: str | FontFamily
     size: int | float | AbsoluteSize | RelativeSize
     color: Color

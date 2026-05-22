@@ -1,7 +1,6 @@
 from .decoration import TextDecoration, TextShading, TextStroke
 from .font import AbsoluteSize, FontFamily, RelativeSize
-from .typing import (MinimalTextStyle, TextStyle, TextStyleDefaults,
-                     enforce_minimal)
+from .typing import MinimalTextStyle, TextStyle, TextStyleDefaults, enforce_minimal
 from .wrap import Hyphen, OverflowWrap, TextWrap
 
 __all__ = [

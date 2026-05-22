@@ -2,9 +2,19 @@ from enum import Enum
 
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar
-from src.utils.render import (Alignment, FontFamily, Image, Palette,
-                              Paragraph, RelativeContainer, RenderObject,
-                              Space, Spacer, TextStroke, TextStyle)
+from src.utils.render import (
+    Alignment,
+    FontFamily,
+    Image,
+    Palette,
+    Paragraph,
+    RelativeContainer,
+    RenderObject,
+    Space,
+    Spacer,
+    TextStroke,
+    TextStyle,
+)
 from src.utils.render_ext.font import FontUtils
 
 
@@ -33,8 +43,7 @@ class GroupMemberAvatar:
     SPACE_RATIO = 0.02
 
     TITLE_TEMPLATE = "{nickname}"
-    TITLE_FONT = FontFamily.of(regular=NotoSansHansBold,
-                               fallbacks=FontUtils.FALLBACK)
+    TITLE_FONT = FontFamily.of(regular=NotoSansHansBold, fallbacks=FontUtils.FALLBACK)
     TITLE_FONT_SIZE_RANGE = (4, 28)
     TITLE_ASPECT = 0.25
     TITLE_FILL = Palette.BLACK
@@ -73,9 +82,9 @@ class GroupMemberAvatar:
             max_size=(max_width, max_height),
             font_size=cls.TITLE_FONT_SIZE_RANGE,
             alignment=Alignment.CENTER,
-            default=TextStyle(font=cls.TITLE_FONT,
-                              color=cls.TITLE_FILL,
-                              stroke=cls.TITLE_STROKE),
+            default=TextStyle(
+                font=cls.TITLE_FONT, color=cls.TITLE_FILL, stroke=cls.TITLE_STROKE
+            ),
             styles=cls.TITLE_EXTRA_STYLES,
         )
 
@@ -140,8 +149,7 @@ class GroupMemberAvatar:
                 rel["align_top"] = container
             else:
                 rel["below"] = previous_obj
-            offset = ((0, sp) if i > 0 and not isinstance(obj, Spacer) else
-                      (0, 0))
+            offset = (0, sp) if i > 0 and not isinstance(obj, Spacer) else (0, 0)
             previous_obj = obj
             container.add_child(obj, **rel, offset=offset)  # type: ignore
         return container.render().to_pil()

@@ -4,7 +4,6 @@ from src.ext.config import Config
 
 
 class RandomResponseConfig(Config):
-
     user_friendly: ClassVar[str] = "随机回复"
     num_reqs_to_toggle: ClassVar[int] = 3
 

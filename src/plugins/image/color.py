@@ -5,9 +5,19 @@ from typing import Iterable
 
 from PIL.Image import Image as PILImage
 
-from src.utils.render import (Alignment, Color, Container, Direction, Palette,
-                              Paragraph, RenderObject, Space, Spacer, Stack,
-                              TextStyle)
+from src.utils.render import (
+    Alignment,
+    Color,
+    Container,
+    Direction,
+    Palette,
+    Paragraph,
+    RenderObject,
+    Space,
+    Spacer,
+    Stack,
+    TextStyle,
+)
 
 color_string_pattern = re.compile(r"#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})")
 
@@ -15,9 +25,7 @@ color_string_pattern = re.compile(r"#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})")
 def mix_with_black_white(color: Color, k: int = 3) -> list[Color]:
     linsp = [1.0 / (k + 1) * (i + 1) for i in range(k)]
     whites = [Palette.natural_blend(color, Palette.WHITE, i) for i in linsp]
-    blacks = [
-        Palette.natural_blend(color, Palette.BLACK, i / 2) for i in linsp
-    ]
+    blacks = [Palette.natural_blend(color, Palette.BLACK, i / 2) for i in linsp]
     whites.reverse()
     return whites + [color] + blacks
 
@@ -44,21 +52,23 @@ def render_color(*colors: Color) -> PILImage:
     for color in colors:
         children.append(
             Container.from_children(
-                [
-                    render_single_color(c, size)
-                    for c in mix_with_black_white(color)
-                ],
+                [render_single_color(c, size) for c in mix_with_black_white(color)],
                 direction=Direction.HORIZONTAL,
-            ))
+            )
+        )
         children.append(Spacer.of(height=size // 4))
     if len(children) > 0:
         children.pop()
-    return Container.from_children(
-        children,
-        direction=Direction.VERTICAL,
-        background=Color.of(242, 242, 242),
-        padding=Space.all(size // 8),
-    ).render().to_pil()
+    return (
+        Container.from_children(
+            children,
+            direction=Direction.VERTICAL,
+            background=Color.of(242, 242, 242),
+            padding=Space.all(size // 8),
+        )
+        .render()
+        .to_pil()
+    )
 
 
 def random_color(k: int) -> Iterable[Color]:

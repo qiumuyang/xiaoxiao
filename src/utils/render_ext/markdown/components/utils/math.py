@@ -15,5 +15,6 @@ def render_math(
     im = RenderImage.from_pil(svg_to_png(svg)).rescale(rescale)
     if not inline and max_width:
         im = RenderImage.concat_vertical(
-            [im, RenderImage.empty(max_width, 0)], alignment=Alignment.CENTER)
+            [im, RenderImage.empty(max_width, 0)], alignment=Alignment.CENTER
+        )
     return im

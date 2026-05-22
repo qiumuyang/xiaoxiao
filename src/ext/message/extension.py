@@ -8,7 +8,6 @@ from src.utils.persistence import FileStorage
 
 
 class MessageExtension:
-
     @classmethod
     def _get_bot(cls) -> Bot:
         bot = get_bot()
@@ -23,8 +22,7 @@ class MessageExtension:
         bot: Bot | None = None,
     ) -> Message:
         bot = bot or cls._get_bot()
-        forward_id = await bot.call_api("send_forward_msg",
-                                        messages=Message(segments))
+        forward_id = await bot.call_api("send_forward_msg", messages=Message(segments))
         return Message(MessageSegment.forward(id_=forward_id))
 
     @classmethod
@@ -52,15 +50,15 @@ class MessageExtension:
         else:
             message = Message(markdown)
         node = MessageSegment.node_message(user_id, nickname, message)
-        forward_id = await bot.call_api("send_forward_msg",
-                                        messages=Message(node))
+        forward_id = await bot.call_api("send_forward_msg", messages=Message(node))
         # return Message(MessageSegment.longmsg(id_=forward_id))
         return Message(
             MessageSegment.node_message(
                 user_id=user_id,
                 nickname=nickname,
                 content=Message(MessageSegment.forward(id_=forward_id)),
-            ))
+            )
+        )
 
     @classmethod
     async def replace_with_local_image(cls, message: Message) -> Message:
@@ -70,8 +68,8 @@ class MessageExtension:
             if segment.is_image():
                 try:
                     data = await storage.load(
-                        url=segment.extract_url(),
-                        filename=segment.extract_filename())
+                        url=segment.extract_url(), filename=segment.extract_filename()
+                    )
                     if data is not None:
                         message[i] = MessageSegment.image(image=data)
                 except Exception:
@@ -100,9 +98,7 @@ class MessageExtension:
         message: Message,
         *discard_type: str | MessageType,
     ) -> Message:
-        t = [
-            t.value if isinstance(t, MessageType) else t for t in discard_type
-        ]
+        t = [t.value if isinstance(t, MessageType) else t for t in discard_type]
         return Message([seg for seg in message if seg.type not in t])
 
     @classmethod
@@ -117,8 +113,11 @@ class MessageExtension:
     @classmethod
     def fix_mface(cls, message: Message) -> Message:
         # 部分表情(mface)会跟随一个同名文本，这里移除多余的文本
-        if (len(message) == 2 and message[0].type == "mface"
-                and message[1].type == "text"):
+        if (
+            len(message) == 2
+            and message[0].type == "mface"
+            and message[1].type == "text"
+        ):
             mface, text = message
             if mface.data.get("summary", "") == text.data["text"]:
                 return message[:1]

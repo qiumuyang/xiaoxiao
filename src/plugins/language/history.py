@@ -15,7 +15,6 @@ from src.utils.message.send import SentMessageTracker as SMT
 
 @inject_env()
 class History:
-
     MAX_HISTORY_COUNT: int
     MAX_HISTORY_INTERVAL_DAYS: int
 
@@ -34,16 +33,18 @@ class History:
         sent = await SMT.find(group_id=group_id, since=since)
         messages = sorted(recv + sent, key=lambda x: x.time)
         # -1 for the current message
-        messages = messages[-cls.MAX_HISTORY_COUNT - 1:]
+        messages = messages[-cls.MAX_HISTORY_COUNT - 1 :]
         try:
             selected = messages[-index - 1]
         except IndexError:
             return
 
-        user_id = (selected.user_id if isinstance(selected, ReceiveMessageData)
-                   else int(bot.self_id))
-        nickname = await get_group_member_name(group_id=group_id,
-                                               user_id=user_id)
+        user_id = (
+            selected.user_id
+            if isinstance(selected, ReceiveMessageData)
+            else int(bot.self_id)
+        )
+        nickname = await get_group_member_name(group_id=group_id, user_id=user_id)
 
         # forward and longmsg
         content = selected.content
@@ -126,35 +127,52 @@ class History:
                         # only display image messages
                         continue
                     text = seg.data.get("text", "")
-                    if all(keyword in text if isinstance(keyword, str) else
-                           keyword.search(text)
-                           for keyword in accept_keywords):
+                    if all(
+                        keyword in text
+                        if isinstance(keyword, str)
+                        else keyword.search(text)
+                        for keyword in accept_keywords
+                    ):
                         filtered.append(message)
                         break
 
-        filtered = filtered[-cls.FORWARD_MESSAGE_LIMIT:]
+        filtered = filtered[-cls.FORWARD_MESSAGE_LIMIT :]
         if not filtered:
             return []
 
-        user_ids = set(m.user_id for m in filtered
-                       if isinstance(m, ReceiveMessageData))
+        user_ids = set(m.user_id for m in filtered if isinstance(m, ReceiveMessageData))
         if "bot" in accept_types:
             user_ids.add(int(bot.self_id))
 
         member_names = await asyncio.gather(
-            *(get_group_member_name(group_id=group_id, user_id=user_id)
-              for user_id in user_ids))
+            *(
+                get_group_member_name(group_id=group_id, user_id=user_id)
+                for user_id in user_ids
+            )
+        )
         uin_to_nicknames = dict(zip(user_ids, member_names))
 
-        message_uid = [(message, user_id) for message in filtered
-                       if (user_id := message.user_id if isinstance(
-                           message, ReceiveMessageData) else int(bot.self_id))]
+        message_uid = [
+            (message, user_id)
+            for message in filtered
+            if (
+                user_id := message.user_id
+                if isinstance(message, ReceiveMessageData)
+                else int(bot.self_id)
+            )
+        ]
         content = await asyncio.gather(
-            *(MessageExtension.replace_with_local_image(message.content)
-              for message, _ in message_uid))
+            *(
+                MessageExtension.replace_with_local_image(message.content)
+                for message, _ in message_uid
+            )
+        )
 
-        return [{
-            "user_id": user_id,
-            "nickname": uin_to_nicknames.get(user_id, str(user_id)),
-            "content": content,
-        } for (_, user_id), content in zip(message_uid, content)]
+        return [
+            {
+                "user_id": user_id,
+                "nickname": uin_to_nicknames.get(user_id, str(user_id)),
+                "content": content,
+            }
+            for (_, user_id), content in zip(message_uid, content)
+        ]

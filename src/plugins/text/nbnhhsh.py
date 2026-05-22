@@ -32,7 +32,6 @@ class AbbrTranslateConfig(Config):
 
 
 class AbbreviationTranslate:
-
     URL = "https://lab.magiconch.com/api/nbnhhsh/guess"
     client: aiohttp.ClientSession | None = None
 
@@ -109,7 +108,9 @@ rate_depend = RateLimit("abbr_trans", type="group", seconds=2)
 # lower priority than commands
 nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN, priority=2, block=True)
 nbnhhsh_cmd = on_command("翻译缩写", block=True, force_whitespace=True)
-nbnhhsh_cfg_cmd = on_command("翻译缩写配置", block=True, force_whitespace=True, permission=admin)
+nbnhhsh_cfg_cmd = on_command(
+    "翻译缩写配置", block=True, force_whitespace=True, permission=admin
+)
 
 
 @nbnhhsh_cmd.handle()
@@ -142,8 +143,9 @@ async def _(
         - 来源: [https://lab.magiconch.com/nbnhhsh/](https://lab.magiconch.com/nbnhhsh/)
     """
     cfg = await AbbrTranslateConfig.get(group_id=event.group_id)
-    cfg_user = await AbbrTranslateConfig.get(group_id=event.group_id,
-                                             user_id=event.user_id)
+    cfg_user = await AbbrTranslateConfig.get(
+        group_id=event.group_id, user_id=event.user_id
+    )
     abbr = event.get_message().extract_plain_text()
     is_cmd = abbr.startswith("翻译缩写")
     abbr = abbr.removeprefix("翻译缩写").strip()
@@ -162,8 +164,7 @@ async def _(
 
     includes = merge_abbr_config(global_cfg.includes, cfg.includes)
     excludes = merge_abbr_config(global_cfg.excludes, cfg.excludes)
-    translation = await AbbreviationTranslate.query(abbr, includes,
-                                                    excludes)
+    translation = await AbbreviationTranslate.query(abbr, includes, excludes)
     if not translation or not ratelimiter.try_acquire():
         await matcher.finish()
     await matcher.finish(translation)
@@ -201,9 +202,12 @@ async def config_abbr(
     message: str,
     global_scope: bool = False,
 ):
-    cfg = await AbbrTranslateConfig.get(group_id=None if global_scope else event.group_id)
-    cfg_user = await AbbrTranslateConfig.get(group_id=event.group_id,
-                                             user_id=event.user_id)
+    cfg = await AbbrTranslateConfig.get(
+        group_id=None if global_scope else event.group_id
+    )
+    cfg_user = await AbbrTranslateConfig.get(
+        group_id=event.group_id, user_id=event.user_id
+    )
     abbrs = set()
     abbrs_user = set()
     for part in shlex.split(message):
@@ -233,7 +237,8 @@ async def config_abbr(
                 assert False, "unreachable"
             abbrs.add(abbr)
         elif config_user_match := AbbreviationTranslate.CFG_USER_PATTERN.fullmatch(
-                part):
+            part
+        ):
             # user-level configuration
             op, abbr = config_user_match.groups()
             abbr = abbr.lower()
@@ -244,11 +249,12 @@ async def config_abbr(
             else:
                 assert False, "unreachable"
             abbrs_user.add(abbr)
-    await AbbrTranslateConfig.set(cfg,
-                                  group_id=None if global_scope else event.group_id)
-    await AbbrTranslateConfig.set(cfg_user,
-                                  group_id=event.group_id,
-                                  user_id=event.user_id)
+    await AbbrTranslateConfig.set(
+        cfg, group_id=None if global_scope else event.group_id
+    )
+    await AbbrTranslateConfig.set(
+        cfg_user, group_id=event.group_id, user_id=event.user_id
+    )
 
     lines = []
     for abbr in sorted(abbrs):
@@ -278,11 +284,14 @@ async def toggle_abbr(
     enabled: bool,
     global_scope: bool = False,
 ):
-    cfg = await AbbrTranslateConfig.get(group_id=None if global_scope else event.group_id)
+    cfg = await AbbrTranslateConfig.get(
+        group_id=None if global_scope else event.group_id
+    )
     inform = cfg.enabled != enabled
     cfg.enabled = enabled
-    await AbbrTranslateConfig.set(cfg,
-                                  group_id=None if global_scope else event.group_id)
+    await AbbrTranslateConfig.set(
+        cfg, group_id=None if global_scope else event.group_id
+    )
     if inform:
         scope_text = "全局" if global_scope else "快捷"
         await matcher.finish(f"{scope_text}翻译缩写已{'开启' if enabled else '关闭'}")

@@ -54,7 +54,7 @@ def parse_action(text: str) -> Action | None:
     for i, arg in enumerate(lexer):
         for op in Op:
             if arg.startswith(op.value):
-                name = arg[len(op.value):]
+                name = arg[len(op.value) :]
                 break
         else:
             assert False, "should not reach here"

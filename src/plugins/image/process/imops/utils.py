@@ -9,11 +9,10 @@ def calculate_real_size(total: int, *ratio: ast.Ratio | None) -> list[int]:
     remain = total - sum(result)
     if remain < 0:
         raise ValueError(
-            f"Exceed total size {total} with absolute pixels {sum(result)}")
+            f"Exceed total size {total} with absolute pixels {sum(result)}"
+        )
 
-    weight = [
-        r.value if r else 1.0 for r in ratio if not r or r.unit == "ratio"
-    ]
+    weight = [r.value if r else 1.0 for r in ratio if not r or r.unit == "ratio"]
     weight_sum = sum(weight)
 
     float_size = [remain * w / weight_sum for w in weight]
@@ -22,9 +21,7 @@ def calculate_real_size(total: int, *ratio: ast.Ratio | None) -> list[int]:
     remainders = [s - int_s for s, int_s in zip(float_size, int_size)]
 
     # Distribute the remaining pixels based on the largest remainders
-    for i in sorted(range(len(remainders)),
-                    key=lambda i: remainders[i],
-                    reverse=True):
+    for i in sorted(range(len(remainders)), key=lambda i: remainders[i], reverse=True):
         if remainder <= 0:
             break
         int_size[i] += 1

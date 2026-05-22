@@ -63,13 +63,12 @@ class CircleCrop(Crop):
             mask,
             (w // 2, h // 2),
             radius,
-            (255, ),
+            (255,),
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
         if self.radius is None:
-            mask = cv2.resize(mask, (im.width, im.height),
-                              interpolation=cv2.INTER_AREA)
+            mask = cv2.resize(mask, (im.width, im.height), interpolation=cv2.INTER_AREA)
         return mask.astype(np.uint8)
 
 
@@ -119,7 +118,7 @@ class RectCrop(Crop):
                 mask,
                 (start_x, start_y),
                 (start_x + width, start_y + height),
-                (255, ),
+                (255,),
                 thickness=-1,
                 lineType=cv2.LINE_AA,
             ).astype(np.uint8)
@@ -133,15 +132,14 @@ class RectCrop(Crop):
             (start_x + border_radius, start_y + border_radius),
             (start_x + border_radius, start_y + height - border_radius - 1),
             (start_x + width - border_radius - 1, start_y + border_radius),
-            (start_x + width - border_radius - 1,
-             start_y + height - border_radius - 1),
+            (start_x + width - border_radius - 1, start_y + height - border_radius - 1),
         ]
         for corner in corners:
             mask = cv2.circle(
                 mask,
                 corner,
                 border_radius,
-                (255, ),
+                (255,),
                 thickness=-1,
                 lineType=cv2.LINE_AA,
             )
@@ -149,7 +147,7 @@ class RectCrop(Crop):
             mask,
             (start_x, start_y + border_radius),
             (start_x + width, start_y + height - border_radius),
-            (255, ),
+            (255,),
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
@@ -157,7 +155,7 @@ class RectCrop(Crop):
             mask,
             (start_x + border_radius, start_y),
             (start_x + width - border_radius, start_y + height),
-            (255, ),
+            (255,),
             thickness=-1,
             lineType=cv2.LINE_AA,
         )

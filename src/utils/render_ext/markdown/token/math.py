@@ -4,7 +4,6 @@ from mistletoe.span_token import SpanToken
 
 
 class Math(SpanToken):
-
     pattern = re.compile(r"(\${1,2})([^$]+?)\1")
     parse_group = 0
 

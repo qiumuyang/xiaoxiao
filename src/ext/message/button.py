@@ -20,7 +20,6 @@ class ButtonPermission(IntEnum):
 
 
 class Button:
-
     def __init__(
         self,
         text: str,
@@ -64,12 +63,11 @@ class Button:
                 "enter": self.enter,
                 "unsupport_tips": self.unsupport_tips,
                 "at_bot_show_channel_list": True,
-            }
+            },
         }
 
 
 class ButtonGroup:
-
     MAX_ROW = 5
     MAX_COL = 5
 
@@ -100,10 +98,13 @@ class ButtonGroup:
 
     def dict(self) -> dict[str, Any]:
         return {
-            "rows": [{
-                "buttons": [
-                    button.dict(f"{i * self.MAX_COL + j}")
-                    for j, button in enumerate(row)
-                ]
-            } for i, row in enumerate(self.rows)]
+            "rows": [
+                {
+                    "buttons": [
+                        button.dict(f"{i * self.MAX_COL + j}")
+                        for j, button in enumerate(row)
+                    ]
+                }
+                for i, row in enumerate(self.rows)
+            ]
         }

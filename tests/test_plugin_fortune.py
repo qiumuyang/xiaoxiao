@@ -41,20 +41,24 @@ async def test_fortune_render_fuzzy():
     for l in range(1, min(max_len, len(string.printable)), 2):
         name = string.printable[:l]
         uid = random.randint(1000000000, 10000000000)
-        date = datetime(year=random.randint(2000, 2020),
-                        month=random.randint(1, 12),
-                        day=random.randint(1, 28)).strftime("%Y-%m-%d")
+        date = datetime(
+            year=random.randint(2000, 2020),
+            month=random.randint(1, 12),
+            day=random.randint(1, 28),
+        ).strftime("%Y-%m-%d")
         good: list[str] = random.sample(EVENT, 3)
         bad: list[str] = random.sample(EVENT, 3)
-        coro = FortuneRender.render({
-            "user_id": uid,
-            "user_name": name,
-            "date": date,
-            "event_good": good,
-            "event_bad": bad,
-            "fortune": "大吉",
-            "lucky_color": (128, 255, 255),
-        })
+        coro = FortuneRender.render(
+            {
+                "user_id": uid,
+                "user_name": name,
+                "date": date,
+                "event_good": good,
+                "event_bad": bad,
+                "fortune": "大吉",
+                "lucky_color": (128, 255, 255),
+            }
+        )
         coros.append(coro)
 
     results = await asyncio.gather(*coros)

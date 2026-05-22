@@ -2,9 +2,18 @@ from typing import Generic, Iterable, TypeVar, cast
 
 from mistletoe.block_token import Table, TableCell, TableRow
 
-from src.utils.render import (Alignment, Color, Container, Direction, Image,
-                              Interpolation, RenderObject, Space, Spacer,
-                              TextStyle)
+from src.utils.render import (
+    Alignment,
+    Color,
+    Container,
+    Direction,
+    Image,
+    Interpolation,
+    RenderObject,
+    Space,
+    Spacer,
+    TextStyle,
+)
 from src.utils.render.base.image import RenderImage
 
 from ..proto import Context
@@ -16,7 +25,6 @@ T = TypeVar("T")
 
 
 class Mat(Generic[T]):
-
     def __init__(self, mat: list[list[T | None]]) -> None:
         self.mat = mat
 
@@ -47,17 +55,13 @@ class Mat(Generic[T]):
 
 @MarkdownRenderer.register(Table)
 class TableRenderer:
-
     def __init__(self, master: MarkdownRenderer) -> None:
         self.master = master
 
     @classmethod
-    def normalize_column_width(cls,
-                               raw: list[int],
-                               max_width: int,
-                               *,
-                               min_col_width: int,
-                               thresh: float = 0.7) -> list[int]:
+    def normalize_column_width(
+        cls, raw: list[int], max_width: int, *, min_col_width: int, thresh: float = 0.7
+    ) -> list[int]:
         """Adjust column widths to fit within max_width.
 
         Args:
@@ -96,8 +100,9 @@ class TableRenderer:
         rows: list[TableRow] = [token.header]
         rows.extend(cast(list[TableRow], list(token.children or [])))
         num_cols = max(len(list(row.children or [])) for row in rows)
-        mat: list[list[Builder | None]] = [[None for _ in range(num_cols)]
-                                           for _ in range(len(rows))]
+        mat: list[list[Builder | None]] = [
+            [None for _ in range(num_cols)] for _ in range(len(rows))
+        ]
         for i in range(len(rows)):
             cells = cast(list[TableCell], list(rows[i].children or []))
             if i == 0:  # header
@@ -115,12 +120,10 @@ class TableRenderer:
 
     def _render_table(self, cells: Mat[RenderObject]):
         row_heights = [
-            max(cell.height for cell in row)
-            for row in cells.iter_nonempty_rows()
+            max(cell.height for cell in row) for row in cells.iter_nonempty_rows()
         ]
         col_widths = [
-            max(cell.width for cell in col)
-            for col in cells.iter_nonempty_cols()
+            max(cell.width for cell in col) for col in cells.iter_nonempty_cols()
         ]
         border_width = self.master.style.table.border_thick
         rendered_rows = []
@@ -137,32 +140,30 @@ class TableRenderer:
                         col_widths[j],
                         row_heights[i],
                         alignment_horizontal=align_h,
-                    ).build(padding=Space.of(
-                        0, border_width if j == len(row) - 1 else 0, 0, 0))
+                    ).build(
+                        padding=Space.of(
+                            0, border_width if j == len(row) - 1 else 0, 0, 0
+                        )
+                    )
                     for j, cell in enumerate(row)
                 ],
                 direction=Direction.HORIZONTAL,
                 background=self.master.style.table.background(i),
-                padding=Space.of(0, 0, 0,
-                                 self.master.style.table.border_thick),
+                padding=Space.of(0, 0, 0, self.master.style.table.border_thick),
             )
             rendered_rows.append(rendered_row)
-        return Container.from_children(rendered_rows,
-                                       direction=Direction.VERTICAL)
+        return Container.from_children(rendered_rows, direction=Direction.VERTICAL)
 
-    def _draw_border(self, tbl: Container,
-                     cells: Mat[RenderObject]) -> RenderImage:
+    def _draw_border(self, tbl: Container, cells: Mat[RenderObject]) -> RenderImage:
         image = tbl.render()
         border_width = self.master.style.table.border_thick
         border_color = Color.from_hex(self.master.style.table.border_color)
         x, y = 0, 0
         row_heights = [
-            max(cell.height for cell in row)
-            for row in cells.iter_nonempty_rows()
+            max(cell.height for cell in row) for row in cells.iter_nonempty_rows()
         ]
         col_widths = [
-            max(cell.width for cell in col)
-            for col in cells.iter_nonempty_cols()
+            max(cell.width for cell in col) for col in cells.iter_nonempty_cols()
         ]
         # decrease by border width to avoid overflow
         row_heights[-1] -= border_width
@@ -189,17 +190,16 @@ class TableRenderer:
         reserved_border = self.master.style.table.border_thick  # right border
         actual_max_width = ctx.max_width - reserved_padding - reserved_border
         raw_column_widths = [
-            max(cell.build().width for cell in col)
-            for col in mat.iter_nonempty_cols()
+            max(cell.build().width for cell in col) for col in mat.iter_nonempty_cols()
         ]
-        min_column_width = (self.master.style.unit *
-                            self.master.style.table.min_column_chars)
+        min_column_width = (
+            self.master.style.unit * self.master.style.table.min_column_chars
+        )
         while True:
             try:
                 col_widths = self.normalize_column_width(
-                    raw_column_widths,
-                    actual_max_width,
-                    min_col_width=min_column_width)
+                    raw_column_widths, actual_max_width, min_col_width=min_column_width
+                )
             except ValueError:
                 # unable to fit in max_width
                 # increase width then resize at the end
@@ -207,15 +207,25 @@ class TableRenderer:
             else:
                 break
         # 2. render each cell and calculate row heights / column widths
-        cells = Mat([[
-            cell.build(max_width=col_widths[j],
-                       padding=Space.of_side(*padding),
-                       spacing=self.master.style.line_spacing)
-            if cell else Spacer.of() for j, cell in enumerate(row)
-        ] for row in mat.iter_rows()])
+        cells = Mat(
+            [
+                [
+                    cell.build(
+                        max_width=col_widths[j],
+                        padding=Space.of_side(*padding),
+                        spacing=self.master.style.line_spacing,
+                    )
+                    if cell
+                    else Spacer.of()
+                    for j, cell in enumerate(row)
+                ]
+                for row in mat.iter_rows()
+            ]
+        )
         # 3. render table
         table = self._render_table(cells)
         # 4. add border
         image = self._draw_border(table, cells)
         return Image.from_image(image).thumbnail(
-            ctx.max_width, -1, interpolation=Interpolation.LANCZOS)
+            ctx.max_width, -1, interpolation=Interpolation.LANCZOS
+        )

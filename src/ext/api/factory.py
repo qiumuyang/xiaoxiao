@@ -10,7 +10,6 @@ from .impl.llonebot import LLOneBotAPI
 
 @inject_env()
 class _APIFactory:
-
     BACKEND: str = "llonebot"  # or "lagrange"
 
     _instance: API | None = None
@@ -20,8 +19,7 @@ class _APIFactory:
         if cls._instance is None:
             bot = get_bot()
             if not isinstance(bot, Bot):
-                raise RuntimeError(
-                    f"Expect OneBot v11 instance, got {type(bot)}")
+                raise RuntimeError(f"Expect OneBot v11 instance, got {type(bot)}")
             match cls.BACKEND.lower():
                 case "llonebot":
                     cls._instance = LLOneBotAPI(bot)

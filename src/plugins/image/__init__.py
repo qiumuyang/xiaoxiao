@@ -72,8 +72,8 @@ async def _(state: T_State):
         if segment.is_image() or segment.is_mface():
             urls.append(segment.extract_url(force_http=False))
     await image_url.finish(
-        MessageSegment.reply(reply.message_id) +
-        MessageSegment.text("\n".join(urls)))
+        MessageSegment.reply(reply.message_id) + MessageSegment.text("\n".join(urls))
+    )
 
 
 @quote.handle()
@@ -92,10 +92,9 @@ async def _(event: GroupMessageEvent, state: T_State):
         await quote.finish("无法获取发送者ID")
     avatar = await Avatar.user(reply.sender.user_id)
     name = await get_user_name(reply, group_id=event.group_id)
-    msg = await MessageRender.create(avatar,
-                                     reply.message,
-                                     group_id=event.group_id,
-                                     nickname=name)
+    msg = await MessageRender.create(
+        avatar, reply.message, group_id=event.group_id, nickname=name
+    )
     await quote.finish(MessageSegment.image(msg.render().to_pil()))
 
 
@@ -108,5 +107,4 @@ async def add_to_storage(_, data: RMD) -> None:
     for seg in data.content:
         segment = MessageSegment.from_onebot(seg)
         if segment.is_image():
-            await storage.load(segment.extract_url(),
-                               segment.extract_filename())
+            await storage.load(segment.extract_url(), segment.extract_filename())

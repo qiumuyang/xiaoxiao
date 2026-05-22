@@ -4,11 +4,25 @@ from functools import lru_cache
 from typing import TypedDict
 
 from src.utils.image.avatar import Avatar
-from src.utils.render import (Alignment, Color, Container, Decorations,
-                              Direction, FixedContainer, FontFamily, Image,
-                              JustifyContent, Palette, Paragraph, RectCrop,
-                              RenderObject, Space, Spacer, TextDecoration,
-                              TextStyle)
+from src.utils.render import (
+    Alignment,
+    Color,
+    Container,
+    Decorations,
+    Direction,
+    FixedContainer,
+    FontFamily,
+    Image,
+    JustifyContent,
+    Palette,
+    Paragraph,
+    RectCrop,
+    RenderObject,
+    Space,
+    Spacer,
+    TextDecoration,
+    TextStyle,
+)
 
 from ..data import Diff, IdiomItem
 from .data import MAX_GUESS
@@ -37,7 +51,6 @@ class Status(Enum):
 
 
 class Alphabet:
-
     MS_YAHEI = "data/static/fonts/MSYAHEI.ttc"
 
     THEME = {
@@ -74,15 +87,16 @@ class Alphabet:
         if not character.strip():
             inner_object = Spacer.of()
         else:
-            inner_object = Paragraph.of(text=character.upper(),
-                                        style=TextStyle(font=cls.MS_YAHEI,
-                                                        size=font_size,
-                                                        color=foreground))
+            inner_object = Paragraph.of(
+                text=character.upper(),
+                style=TextStyle(font=cls.MS_YAHEI, size=font_size, color=foreground),
+            )
         decorations = tuple()
         style = {}
         if rounded_border:
             decorations = Decorations.of().after_padding(
-                RectCrop.of(border_radius=fixed_size[0] // 8))
+                RectCrop.of(border_radius=fixed_size[0] // 8)
+            )
         return FixedContainer.from_children(
             width=fixed_size[0],
             height=fixed_size[1],
@@ -96,7 +110,6 @@ class Alphabet:
 
 
 class Keyboard:
-
     KEYS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
 
     FIXED_SIZE = (36, 50)
@@ -134,14 +147,16 @@ class Keyboard:
                         background=Alphabet.THEME[status]["background"],
                         foreground=Alphabet.THEME[status]["foreground"],
                         rounded_border=True,
-                    ))
+                    )
+                )
             rows.append(
                 Container.from_children(
                     children=row_objects,
                     alignment=Alignment.CENTER,
                     direction=Direction.HORIZONTAL,
                     spacing=cls.HSPACE,
-                ))
+                )
+            )
         return Container.from_children(
             children=rows,
             alignment=Alignment.CENTER,
@@ -151,7 +166,6 @@ class Keyboard:
 
 
 class GuessAttempt:
-
     FIXED_SIZE = (40, 60)
     FONT_SIZE = 36
     AVATAR_SIZE = (20, 20)
@@ -175,12 +189,11 @@ class GuessAttempt:
                 )
 
     @classmethod
-    async def render_attempt(cls, user_id: int, syllables: list[str],
-                             diff: list[Diff]) -> RenderObject:
+    async def render_attempt(
+        cls, user_id: int, syllables: list[str], diff: list[Diff]
+    ) -> RenderObject:
         avatar = await Avatar.user(user_id)
-        objects: list[RenderObject] = [
-            Image.from_image(avatar.resize(cls.AVATAR_SIZE))
-        ]
+        objects: list[RenderObject] = [Image.from_image(avatar.resize(cls.AVATAR_SIZE))]
         s = 0
         for syllable in syllables:
             for character in syllable:
@@ -195,8 +208,7 @@ class GuessAttempt:
                     rounded_border=False,
                 )
                 objects.append(char)
-            objects.append(Spacer.of(width=cls.SYLLABLE_SPACE -
-                                     2 * cls.HSPACE))
+            objects.append(Spacer.of(width=cls.SYLLABLE_SPACE - 2 * cls.HSPACE))
         if objects:
             objects.pop()  # remove the last spacer
         return Container.from_children(
@@ -220,8 +232,7 @@ class GuessAttempt:
                     rounded_border=False,
                 )
                 objects.append(char)
-            objects.append(Spacer.of(width=cls.SYLLABLE_SPACE -
-                                     2 * cls.HSPACE))
+            objects.append(Spacer.of(width=cls.SYLLABLE_SPACE - 2 * cls.HSPACE))
         if objects:
             objects.pop()
         return Container.from_children(
@@ -239,9 +250,11 @@ class GuessAttempt:
     ) -> RenderObject:
         objects = []
         for attempt in attempts:
-            objects.append(await cls.render_attempt(attempt["user_id"],
-                                                    attempt["syllables"],
-                                                    attempt["diffs"]))
+            objects.append(
+                await cls.render_attempt(
+                    attempt["user_id"], attempt["syllables"], attempt["diffs"]
+                )
+            )
         for _ in range(MAX_GUESS - len(attempts)):
             objects.append(await cls.render_placeholder(syllables))
         return Container.from_children(
@@ -253,12 +266,12 @@ class GuessAttempt:
 
 
 class IdiomRender:
-
     STKAITI = "data/static/fonts/STKAITI.TTF"
     MS_YAHEI = "data/static/fonts/MSYAHEI.ttc"
-    WORD_FONT = FontFamily.of(regular="data/static/fonts/STLITI.TTF",
-                              fallbacks=FontFamily.of(regular=STKAITI,
-                                                      scale=0.9))
+    WORD_FONT = FontFamily.of(
+        regular="data/static/fonts/STLITI.TTF",
+        fallbacks=FontFamily.of(regular=STKAITI, scale=0.9),
+    )
 
     DEFAULT_TEXT_STYLE = TextStyle(
         font=MS_YAHEI,
@@ -270,10 +283,8 @@ class IdiomRender:
         "p": TextStyle(font=MS_YAHEI, decoration=TextDecoration.underline()),
         "d": TextStyle(font=STKAITI),
     }
-    TEMPLATE_CENTER = ("<w>{word}</w>\n"
-                       "<p>{pinyin}</p>\n")
-    TEMPLATE_LEFT = ("<d>{explanation}</d>\n"
-                     "<d>{derivation}</d>\n")
+    TEMPLATE_CENTER = "<w>{word}</w>\n<p>{pinyin}</p>\n"
+    TEMPLATE_LEFT = "<d>{explanation}</d>\n<d>{derivation}</d>\n"
 
     @classmethod
     def render(cls, idiom: IdiomItem, max_width: int | None) -> RenderObject:
@@ -284,20 +295,22 @@ class IdiomRender:
             explanation = "释义：" + explanation
         if derivation:
             derivation = "出处：" + derivation
-        sc = Paragraph.from_template(cls.TEMPLATE_CENTER,
-                                     values=dict(word=idiom["word"],
-                                                 pinyin=pinyin),
-                                     default=cls.DEFAULT_TEXT_STYLE,
-                                     styles=cls.EXT_TEXT_STYLES,
-                                     max_width=max_width,
-                                     alignment=Alignment.CENTER)
-        sl = Paragraph.from_template(cls.TEMPLATE_LEFT,
-                                     values=dict(explanation=explanation,
-                                                 derivation=derivation),
-                                     default=cls.DEFAULT_TEXT_STYLE,
-                                     styles=cls.EXT_TEXT_STYLES,
-                                     max_width=max_width,
-                                     alignment=Alignment.START)
+        sc = Paragraph.from_template(
+            cls.TEMPLATE_CENTER,
+            values=dict(word=idiom["word"], pinyin=pinyin),
+            default=cls.DEFAULT_TEXT_STYLE,
+            styles=cls.EXT_TEXT_STYLES,
+            max_width=max_width,
+            alignment=Alignment.CENTER,
+        )
+        sl = Paragraph.from_template(
+            cls.TEMPLATE_LEFT,
+            values=dict(explanation=explanation, derivation=derivation),
+            default=cls.DEFAULT_TEXT_STYLE,
+            styles=cls.EXT_TEXT_STYLES,
+            max_width=max_width,
+            alignment=Alignment.START,
+        )
         return Container.from_children(
             children=[sc, sl],
             alignment=Alignment.CENTER,
@@ -306,7 +319,6 @@ class IdiomRender:
 
 
 class GuessRender:
-
     KEYBOARD_SPACE = 20
     ANSWER_SPACE = 20
     MARGIN = 15

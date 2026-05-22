@@ -4,8 +4,15 @@ from typing import Callable, NamedTuple, cast
 import mistletoe.span_token as T
 from typing_extensions import Required
 
-from src.utils.render import (Color, FontFamily, Space, TextDecoration,
-                              TextShading, TextStyle, TextWrap)
+from src.utils.render import (
+    Color,
+    FontFamily,
+    Space,
+    TextDecoration,
+    TextShading,
+    TextStyle,
+    TextWrap,
+)
 
 from .token import Emoji
 
@@ -13,7 +20,6 @@ StrOrPath = str | Path
 
 
 class OverrideStyle(TextStyle):
-
     foreground_color: Required[Color]
 
     @staticmethod  # type: ignore
@@ -60,16 +66,20 @@ class TextSize(NamedTuple):
 
 
 class TextFont(NamedTuple):
-    main: FontFamily = FontFamily.of(regular="data/static/fonts/MSYAHEI.ttc",
-                                     bold="data/static/fonts/MSYAHEIbd.ttc")
+    main: FontFamily = FontFamily.of(
+        regular="data/static/fonts/MSYAHEI.ttc", bold="data/static/fonts/MSYAHEIbd.ttc"
+    )
     code: FontFamily = FontFamily.of(
         regular="data/static/fonts/MapleMonoNormalNL-CN-Regular.ttf",
         bold="data/static/fonts/MapleMonoNormalNL-CN-Bold.ttf",
         italic="data/static/fonts/MapleMonoNormalNL-CN-Italic.ttf",
-        bold_italic="data/static/fonts/MapleMonoNormalNL-CN-BoldItalic.ttf")
-    emoji: FontFamily = FontFamily.of(regular="data/static/fonts/seguiemj.ttf",
-                                      embedded_color=True,
-                                      baseline_correction=True)
+        bold_italic="data/static/fonts/MapleMonoNormalNL-CN-BoldItalic.ttf",
+    )
+    emoji: FontFamily = FontFamily.of(
+        regular="data/static/fonts/seguiemj.ttf",
+        embedded_color=True,
+        baseline_correction=True,
+    )
 
 
 class Heading(NamedTuple):
@@ -81,10 +91,12 @@ class Heading(NamedTuple):
     margin_factor: float = 0.5
 
     def level(self, level: int) -> TextStyle:
-        return TextStyle(font=self.font,
-                         size=self.sizes[level - 1],
-                         color=Color.from_hex(self.color),
-                         bold=self.bold[level - 1])
+        return TextStyle(
+            font=self.font,
+            size=self.sizes[level - 1],
+            color=Color.from_hex(self.color),
+            bold=self.bold[level - 1],
+        )
 
     def line_offset(self, level: int) -> int | None:
         rel = self.line_below[level - 1]
@@ -93,8 +105,7 @@ class Heading(NamedTuple):
     def margin_below(self, level: int) -> int:
         line_below = self.line_below[level - 1]
         size = self.sizes[level - 1]
-        return round(self.margin_factor *
-                     size) if line_below is not None else 0
+        return round(self.margin_factor * size) if line_below is not None else 0
 
 
 class CodeBlock(NamedTuple):
@@ -109,10 +120,12 @@ class CodeBlock(NamedTuple):
 
     @property
     def style(self) -> TextStyle:
-        return TextStyle(font=self.font,
-                         size=self.size,
-                         color=Color.from_hex(self.color),
-                         wrap=TextWrap.of(hyphen="none"))
+        return TextStyle(
+            font=self.font,
+            size=self.size,
+            color=Color.from_hex(self.color),
+            wrap=TextWrap.of(hyphen="none"),
+        )
 
 
 class CodeInline(NamedTuple):
@@ -129,9 +142,11 @@ class CodeInline(NamedTuple):
             font=self.font,
             size=self.size,
             color=Color.from_hex(self.color),
-            shading=TextShading(color=Color.from_hex(self.background),
-                                rounded=self.rounded,
-                                padding=Space.of_side(4, 2)),
+            shading=TextShading(
+                color=Color.from_hex(self.background),
+                rounded=self.rounded,
+                padding=Space.of_side(4, 2),
+            ),
         )
         if self.force_regular:
             sty["bold"] = False
@@ -151,11 +166,13 @@ class Quote(NamedTuple):
 
     @property
     def style(self) -> OverrideStyle:
-        return OverrideStyle(font=self.font,
-                             size=self.size,
-                             color=Color.from_hex(self.color),
-                             italic=self.italic,
-                             foreground_color=Color.from_hex(self.color))
+        return OverrideStyle(
+            font=self.font,
+            size=self.size,
+            color=Color.from_hex(self.color),
+            italic=self.italic,
+            foreground_color=Color.from_hex(self.color),
+        )
 
 
 class Link(NamedTuple):
@@ -203,9 +220,21 @@ def num(n: int) -> str:
 
 
 def roman(n: int) -> str:
-    m = [(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"),
-         (90, "XC"), (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"),
-         (4, "IV"), (1, "I")]
+    m = [
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    ]
     result = ""
     for value, letter in m:
         while n >= value:
@@ -242,20 +271,19 @@ class List(NamedTuple):
         return fn(index) + "."
 
     def bullet(self, is_ordered: bool) -> TextStyle:
-        return TextStyle(size=self.ordered_bullet_size
-                         if is_ordered else self.unordered_bullet_size,
-                         color=Color.from_hex(self.bullet_color))
+        return TextStyle(
+            size=self.ordered_bullet_size if is_ordered else self.unordered_bullet_size,
+            color=Color.from_hex(self.bullet_color),
+        )
 
 
 class Spacing(int):
-
     parent: "MarkdownStyle"
     divisor: int
 
-    def __new__(cls,
-                default: int,
-                parent: "MarkdownStyle",
-                divisor: int = 4) -> "Spacing":
+    def __new__(
+        cls, default: int, parent: "MarkdownStyle", divisor: int = 4
+    ) -> "Spacing":
         o = super().__new__(cls, default)
         o.divisor = divisor
         o.parent = parent
@@ -278,7 +306,6 @@ class Spacing(int):
 
 
 class MarkdownStyle(NamedTuple):
-
     bg_palette: BackgroundPalette = BackgroundPalette()
     text_palette: TextPalette = TextPalette()
     palette: Palette = Palette()
@@ -293,13 +320,13 @@ class MarkdownStyle(NamedTuple):
 
     @property
     def line_spacing(self) -> Spacing:
-        return Spacing(self.unit // self.line_space_divisor, self,
-                       self.line_space_divisor)
+        return Spacing(
+            self.unit // self.line_space_divisor, self, self.line_space_divisor
+        )
 
     @property
     def spacing(self) -> Spacing:
-        return Spacing(self.unit // self.space_divisor, self,
-                       self.space_divisor)
+        return Spacing(self.unit // self.space_divisor, self, self.space_divisor)
 
     @property
     def background(self) -> Color:
@@ -307,35 +334,45 @@ class MarkdownStyle(NamedTuple):
 
     @property
     def main(self) -> TextStyle:
-        return TextStyle(font=self.text_font.main,
-                         size=self.text_size.main,
-                         color=Color.from_hex(self.text_palette.main))
+        return TextStyle(
+            font=self.text_font.main,
+            size=self.text_size.main,
+            color=Color.from_hex(self.text_palette.main),
+        )
 
     @property
     def caption(self) -> TextStyle:
-        return TextStyle(font=self.text_font.main,
-                         size=self.text_size.caption,
-                         color=Color.from_hex(self.text_palette.caption))
+        return TextStyle(
+            font=self.text_font.main,
+            size=self.text_size.caption,
+            color=Color.from_hex(self.text_palette.caption),
+        )
 
     @property
     def heading(self) -> Heading:
-        return Heading(font=self.text_font.main,
-                       sizes=self.text_size.heading,
-                       color=self.text_palette.heading)
+        return Heading(
+            font=self.text_font.main,
+            sizes=self.text_size.heading,
+            color=self.text_palette.heading,
+        )
 
     @property
     def code_block(self) -> CodeBlock:
-        return CodeBlock(font=self.text_font.code,
-                         size=self.text_size.main,
-                         color=self.text_palette.code_block,
-                         background=self.bg_palette.code_block)
+        return CodeBlock(
+            font=self.text_font.code,
+            size=self.text_size.main,
+            color=self.text_palette.code_block,
+            background=self.bg_palette.code_block,
+        )
 
     @property
     def code_inline(self) -> CodeInline:
-        return CodeInline(font=self.text_font.code,
-                          size=self.text_size.code_inline,
-                          color=self.text_palette.code_block,
-                          background=self.bg_palette.code_inline)
+        return CodeInline(
+            font=self.text_font.code,
+            size=self.text_size.code_inline,
+            color=self.text_palette.code_block,
+            background=self.bg_palette.code_inline,
+        )
 
     @property
     def link(self) -> Link:
@@ -343,17 +380,21 @@ class MarkdownStyle(NamedTuple):
 
     @property
     def quote(self) -> Quote:
-        return Quote(font=self.text_font.main,
-                     size=self.text_size.main,
-                     color=self.text_palette.quote,
-                     bar_color=self.palette.quote_bar,
-                     background=self.bg_palette.quote)
+        return Quote(
+            font=self.text_font.main,
+            size=self.text_size.main,
+            color=self.text_palette.quote,
+            bar_color=self.palette.quote_bar,
+            background=self.bg_palette.quote,
+        )
 
     @property
     def table(self) -> Table:
-        return Table(main=self.bg_palette.table_main,
-                     alt=self.bg_palette.table_alt,
-                     border_color=self.palette.table_border)
+        return Table(
+            main=self.bg_palette.table_main,
+            alt=self.bg_palette.table_alt,
+            border_color=self.palette.table_border,
+        )
 
     @property
     def span(self) -> dict[type[T.SpanToken], tuple[TextStyle, str]]:
@@ -362,8 +403,7 @@ class MarkdownStyle(NamedTuple):
             T.Strong: (TextStyle(bold=True), "strong"),
             T.InlineCode: (self.code_inline.style, "code"),
             T.Link: (self.link.style, "a"),
-            T.Strikethrough:
-            (TextStyle(decoration=TextDecoration.line_through()), "s"),
+            T.Strikethrough: (TextStyle(decoration=TextDecoration.line_through()), "s"),
             T.EscapeSequence: (TextStyle(), "esc"),
             Emoji: (TextStyle(font=self.text_font.emoji), "emoji"),
         }
@@ -375,8 +415,9 @@ class MarkdownStyle(NamedTuple):
     @property
     def list(self) -> List:
         return List(
-            unordered_bullet_size=round(self.text_size.main *
-                                        self.text_size.unordered_bullet_scale),
+            unordered_bullet_size=round(
+                self.text_size.main * self.text_size.unordered_bullet_scale
+            ),
             ordered_bullet_size=self.text_size.main,
             bullet_color=self.text_palette.main,
         )

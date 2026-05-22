@@ -6,10 +6,8 @@ from .element import Element
 
 @runtime_checkable
 class SupportsBaseline(Protocol):
-
     @property
-    def baseline(self) -> int:
-        ...
+    def baseline(self) -> int: ...
 
 
 def concat_elements_by_baseline(
@@ -32,9 +30,7 @@ def concat_elements_by_baseline(
     """
     max_below = 0
     if mode == "align_bottom":
-        baseline_elements = [
-            e for e in elements if isinstance(e, SupportsBaseline)
-        ]
+        baseline_elements = [e for e in elements if isinstance(e, SupportsBaseline)]
         if baseline_elements:
             max_below = max(e.height - e.baseline for e in baseline_elements)
 
@@ -45,8 +41,7 @@ def concat_elements_by_baseline(
     max_baseline = max(baselines)
 
     # (vertical start, total height)
-    placements = [(max_baseline - b, e.height)
-                  for (b, e) in zip(baselines, elements)]
+    placements = [(max_baseline - b, e.height) for (b, e) in zip(baselines, elements)]
 
     total_height = max(y + h for y, h in placements)
     total_width = sum(e.width for e in elements)
