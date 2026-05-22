@@ -38,8 +38,8 @@ def test_fortune():
 async def test_fortune_render_fuzzy():
     max_len = 50
     coros = []
-    for l in range(1, min(max_len, len(string.printable)), 2):
-        name = string.printable[:l]
+    for length in range(1, min(max_len, len(string.printable)), 2):
+        name = string.printable[:length]
         uid = random.randint(1000000000, 10000000000)
         date = datetime(
             year=random.randint(2000, 2020),

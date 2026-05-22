@@ -73,8 +73,8 @@ class TextFont:
     def load_font(cls, *args, **kwargs) -> ImageFont.FreeTypeFont:
         try:
             return ImageFont.truetype(*args, **kwargs)
-        except OSError:
-            raise ValueError(f"Font file not found: {kwargs['font']}")
+        except OSError as e:
+            raise ValueError(f"Font file not found: {kwargs['font']}") from e
 
     @classmethod
     @lru_cache

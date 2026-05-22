@@ -29,7 +29,7 @@ def calculate_real_size(total: int, *ratio: ast.Ratio | None) -> list[int]:
 
     j = 0
     int_result: list[int] = []
-    for i, r in enumerate(ratio):
+    for _, r in enumerate(ratio):
         if not r or r.unit == "ratio":
             int_result.append(int_size[j])
             j += 1

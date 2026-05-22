@@ -71,8 +71,8 @@ def parse_page_or_item_number(
         num = int(s)
         if num == 0:
             raise ValueError
-    except ValueError:
-        raise InvalidIndexError(s, "页码")
+    except ValueError as e:
+        raise InvalidIndexError(s, "页码") from e
     return Number(num - 1 if num > 0 else num, True)
 
 

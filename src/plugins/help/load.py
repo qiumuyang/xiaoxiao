@@ -19,7 +19,7 @@ def load_document_image(
     if file.exists() and cached:
         try:
             return Image.open(file)
-        except:
+        except OSError:
             pass
     if name is None:
         markdown = DocManager.export_overview()

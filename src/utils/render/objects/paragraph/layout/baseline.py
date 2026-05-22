@@ -41,7 +41,10 @@ def concat_elements_by_baseline(
     max_baseline = max(baselines)
 
     # (vertical start, total height)
-    placements = [(max_baseline - b, e.height) for (b, e) in zip(baselines, elements, strict=False)]
+    placements = [
+        (max_baseline - b, e.height)
+        for (b, e) in zip(baselines, elements, strict=False)
+    ]
 
     total_height = max(y + h for y, h in placements)
     total_width = sum(e.width for e in elements)

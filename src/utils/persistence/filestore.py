@@ -41,6 +41,9 @@ def _parse_timedelta(tm: str) -> timedelta:
     return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
 
 
+_bg_tasks: set[asyncio.Task] = set()
+
+
 @inject_env()
 class FileStorage:
     """
@@ -103,7 +106,9 @@ class FileStorage:
 
         @get_driver().on_startup
         async def _():
-            asyncio.create_task(cls._cleanup_loop())
+            task = asyncio.create_task(cls._cleanup_loop())
+            _bg_tasks.add(task)
+            task.add_done_callback(_bg_tasks.discard)
 
     @classmethod
     async def _cleanup_loop(cls):

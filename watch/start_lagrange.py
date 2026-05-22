@@ -16,8 +16,9 @@ dotenv.load_dotenv()
 
 assert "SUPERUSERS" in os.environ, "SUPERUSERS environment variable is required!"
 
-START_COMMAND = ("cd ~/Lagrange.Core/ && "
-                 "dotnet run --project Lagrange.OneBot --framework net8.0")
+START_COMMAND = (
+    "cd ~/Lagrange.Core/ && dotnet run --project Lagrange.OneBot --framework net8.0"
+)
 KEYSTORE_PATH = Path("~/Lagrange.Core/keystore.json").expanduser()
 QR_CODE_FETCHED = "[INFORMATION]: QrCode Fetched"
 QR_CODE_PROMPT = "Please scan the QR code above"
@@ -82,10 +83,9 @@ def restart(relogin: bool = True) -> tuple[subprocess.Popen, str]:
     time.sleep(1)
     if relogin and KEYSTORE_PATH.exists():
         KEYSTORE_PATH.unlink()
-    proc = subprocess.Popen(START_COMMAND,
-                            shell=True,
-                            stdout=subprocess.PIPE,
-                            text=True)
+    proc = subprocess.Popen(
+        START_COMMAND, shell=True, stdout=subprocess.PIPE, text=True
+    )
     url = parse_login_url(proc)
     return proc, url
 
@@ -95,10 +95,9 @@ def start_and_watch():
     Starts the bot and monitors its output for specific events.
     Restarts the bot if necessary.
     """
-    proc = subprocess.Popen(START_COMMAND,
-                            shell=True,
-                            stdout=subprocess.PIPE,
-                            text=True)
+    proc = subprocess.Popen(
+        START_COMMAND, shell=True, stdout=subprocess.PIPE, text=True
+    )
     try:
         while proc.poll() is None:
             line = proc.stdout.readline() if proc.stdout else ""

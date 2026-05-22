@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, Flag, auto
 from typing import ClassVar, Literal, TypedDict
 
@@ -90,7 +90,7 @@ class TextShading:
 
     color: Color
     rounded: bool = True
-    padding: Space = Space.all(0)
+    padding: Space = field(default_factory=lambda: Space.all(0))
 
 
 @dataclass(frozen=True)

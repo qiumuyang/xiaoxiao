@@ -65,7 +65,7 @@ class AbbreviationTranslate:
         abbr = abbr.lower()
         try:
             results = await AbbreviationTranslate.fetch(abbr)
-        except:
+        except Exception:
             return ""
 
         includes = includes or {}

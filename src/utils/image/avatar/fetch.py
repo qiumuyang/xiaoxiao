@@ -164,11 +164,11 @@ class Fetcher:
                     return UpdateStatus.FAIL
             # process custom image
             dim = min(avatar.size)
-            l = (avatar.width - dim) // 2
-            t = (avatar.height - dim) // 2
-            r = l + dim
-            b = t + dim
-            crop = avatar.crop((l, t, r, b))
+            left = (avatar.width - dim) // 2
+            top = (avatar.height - dim) // 2
+            right = left + dim
+            bottom = top + dim
+            crop = avatar.crop((left, top, right, bottom))
             crop.thumbnail((640, 640))
             crop.convert("RGB").save(file)
             return UpdateStatus.UPDATED

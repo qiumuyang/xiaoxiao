@@ -113,7 +113,7 @@ class AutoArgumentParserMixin:
                 arg_type = var_value.get_type()
                 dash_name = var_name.replace("_", "-")
                 arg = f"--{dash_name}"
-                if arg_type == bool:
+                if arg_type is bool:
                     # bool cannot be positional
                     if var_value.positional:
                         raise ValueError(
@@ -168,7 +168,7 @@ class AutoArgumentParser(argparse.ArgumentParser):
     def parse_args(self, args=None, namespace=None):  # type: ignore
         try:
             args, _ = super().parse_known_args(args, namespace)
-        except:
+        except Exception:
             args = argparse.Namespace(
                 **{action.dest: action.default for action in self._actions}
             )

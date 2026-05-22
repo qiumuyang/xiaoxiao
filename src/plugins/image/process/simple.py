@@ -43,12 +43,12 @@ class Reflect(ImageProcessor):
 
     def process_frame(self, image: Image.Image, *args, **kwargs) -> Image.Image:
         w, h = image.size
-        l, t, r, b = self.CROP[self.source]
-        lx, ty, rx, by = map(math.floor, (w * l, h * t, w * r, h * b))
+        left, top, right, bottom = self.CROP[self.source]
+        lx, ty, rx, by = map(math.floor, (w * left, h * top, w * right, h * bottom))
         half = image.crop((lx, ty, rx, by))
         half = half.transpose(self.TRANS[self.source])
         result = image.copy()
-        result.paste(half, (math.ceil(w * (1 - r)), math.ceil(h * (1 - b))))
+        result.paste(half, (math.ceil(w * (1 - right)), math.ceil(h * (1 - bottom))))
         return result
 
 

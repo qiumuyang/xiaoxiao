@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 import numpy as np
 import numpy.typing as npt
 
-ImageMask = Union[npt.NDArray[np.uint8], npt.NDArray[np.bool_]]
-PathLike = Union[str, Path]
+ImageMask = npt.NDArray[np.uint8] | npt.NDArray[np.bool_]
+PathLike = str | Path
 
 T = TypeVar("T")
 D = TypeVar("D")
 
-Flex = Union[T, list[T], None]
+Flex = T | list[T] | None
 
 
 class Undefined:

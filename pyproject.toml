@@ -48,6 +48,8 @@ ignore = [
 "src/plugins/**.py" = ["B008"]
 # Render engine: Border.zero/Space.zero/Color.of/MarkdownStyle are stateless factories
 "src/utils/render*/**.py" = ["B008"]
+# Scripts need sys.path/nonebot.init() before project imports
+"scripts/*.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

@@ -57,7 +57,9 @@ class FeiHua:
         )
         ranking = "\n".join(
             f"第{i}名 {member} {sc}分"
-            for i, (member, sc) in enumerate(zip(members, score.values(), strict=False), 1)
+            for i, (member, sc) in enumerate(
+                zip(members, score.values(), strict=False), 1
+            )
         )
 
         group.stop()

@@ -154,7 +154,10 @@ class RenderImage:
         width = sum(im.width for im in images)
         width += max(0, len(images) - 1) * spacing
         max_baseline = max(baselines)
-        placements = [(max_baseline - b, e.height) for (b, e) in zip(baselines, images, strict=False)]
+        placements = [
+            (max_baseline - b, e.height)
+            for (b, e) in zip(baselines, images, strict=False)
+        ]
         height = max(y + h for y, h in placements)
         im = cls.empty(width, height, color)
         x = 0
@@ -215,32 +218,34 @@ class RenderImage:
         If a pixel in target is transparent,
         the pixel in this image is not changed.
         """
-        b, t, l, r = (y, y + im.height, x, x + im.width)
-        if b >= self.height or t < 0 or l >= self.width or r < 0:
+        bottom, top, left, right = (y, y + im.height, x, x + im.width)
+        if bottom >= self.height or top < 0 or left >= self.width or right < 0:
             return self
         im_cropped = im.base_im[
-            max(-b, 0) : min(self.height - b, im.height),
-            max(-l, 0) : min(self.width - l, im.width),
+            max(-bottom, 0) : min(self.height - bottom, im.height),
+            max(-left, 0) : min(self.width - left, im.width),
         ]
         # only cover where the cover image is not transparent
         mask = im_cropped[:, :, 3] != 0
-        self.base_im[max(b, 0) : min(t, self.height), max(l, 0) : min(r, self.width)][
-            mask
-        ] = im_cropped[mask]
+        self.base_im[
+            max(bottom, 0) : min(top, self.height),
+            max(left, 0) : min(right, self.width),
+        ][mask] = im_cropped[mask]
         return self
 
     @check_writable
     def replace(self, x: int, y: int, im: Self) -> Self:
         """Pastes the target image onto this image at the given coordinates."""
-        b, t, l, r = (y, y + im.height, x, x + im.width)
-        if b >= self.height or t < 0 or l >= self.width or r < 0:
+        bottom, top, left, right = (y, y + im.height, x, x + im.width)
+        if bottom >= self.height or top < 0 or left >= self.width or right < 0:
             return self
         im_cropped = im.base_im[
-            max(-b, 0) : min(self.height - b, im.height),
-            max(-l, 0) : min(self.width - l, im.width),
+            max(-bottom, 0) : min(self.height - bottom, im.height),
+            max(-left, 0) : min(self.width - left, im.width),
         ]
         self.base_im[
-            max(b, 0) : min(t, self.height), max(l, 0) : min(r, self.width)
+            max(bottom, 0) : min(top, self.height),
+            max(left, 0) : min(right, self.width),
         ] = im_cropped
         return self
 

@@ -45,7 +45,9 @@ def init_db():
             """
             INSERT OR IGNORE INTO config (id, login_url, update_time)
             VALUES (1, '', ?)
-        """, (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ))
+        """,
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),),
+        )
     conn.close()
 
 
@@ -91,22 +93,25 @@ def update_login_url():
             UPDATE config
             SET login_url = ?, update_time = ?
             WHERE id = 1
-        """, (login_url, update_time))
+        """,
+            (login_url, update_time),
+        )
     conn.close()
 
-    return jsonify({
-        "message": "Login URL updated successfully",
-        "url": login_url,
-        "update_time": update_time
-    }), 200
+    return jsonify(
+        {
+            "message": "Login URL updated successfully",
+            "url": login_url,
+            "update_time": update_time,
+        }
+    ), 200
 
 
 @app.route("/", methods=["GET"])
 def get_qrcode():
     """Generate and return the QR code for the login URL"""
     conn = get_db()
-    cursor = conn.execute(
-        "SELECT login_url, update_time FROM config WHERE id = 1")
+    cursor = conn.execute("SELECT login_url, update_time FROM config WHERE id = 1")
     result = cursor.fetchone()
     conn.close()
 

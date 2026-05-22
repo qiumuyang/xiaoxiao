@@ -71,11 +71,12 @@ class RandomResponse:
         sent_messages = await SMT.find(group_id=group_id, recalled=False, since=since)
         is_recv = [True] * len(received_messages) + [False] * len(sent_messages)
         messages = sorted(
-            zip(received_messages + sent_messages, is_recv, strict=False), key=lambda x: x[0].time
+            zip(received_messages + sent_messages, is_recv, strict=False),
+            key=lambda x: x[0].time,
         )
         # check if there are enough messages after last response
         i = 0
-        for i, (_, recv) in enumerate(reversed(messages)):
+        for i, (_, recv) in enumerate(reversed(messages)):  # noqa: B007
             if not recv:
                 break
         if i < cls.RECENT_MIN_INTERVAL_MUTE:

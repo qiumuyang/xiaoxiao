@@ -18,7 +18,7 @@ class ArgParser(Protocol):
 
 class ImageProcessor(ABC, AutoArgumentParserMixin):
     _class_parsers: dict[type["ImageProcessor"], AutoArgumentParser] = {}
-    _context = ContextVar("image_processor", default={})
+    _context = ContextVar("image_processor", default=None)
     _parser: ArgParser
 
     def __init__(self) -> None:

@@ -35,7 +35,7 @@ def deserialize(data: dict[str, Any], cls: type) -> Any:
             for arg in get_args(t):
                 try:
                     return _(v, arg)
-                except:
+                except (ValueError, TypeError):
                     pass
             raise ValueError(f"Cannot match {v} to {t}")
         return deserialize(v, t)

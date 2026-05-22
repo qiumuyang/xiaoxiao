@@ -88,9 +88,14 @@ stat_this = stat.command("this", rule=ratelimit, force_whitespace=True)
 stat_all = stat.command("all", force_whitespace=True, permission=SUPERUSER)
 
 
+_bg_tasks: set[asyncio.Task] = set()
+
+
 @get_driver().on_startup
 async def _():
-    asyncio.create_task(StatusMonitor.sample_cpu())
+    task = asyncio.create_task(StatusMonitor.sample_cpu())
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
 
 
 @stat_overview.handle()

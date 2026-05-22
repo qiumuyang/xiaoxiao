@@ -43,6 +43,7 @@ def notify():
     if errs:
         with open("email_errs.log", "a") as f:
             from datetime import datetime
+
             f.write(
                 f"{datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S')} {errs}\n"
             )
@@ -52,7 +53,5 @@ def notify():
 def report(url: str):
     # post to REPORT_TO/update
     target = urljoin(REPORT_TO, "update")
-    r = requests.post(target,
-                      headers={"X-API-KEY": API_KEY},
-                      json={"url": url})
+    r = requests.post(target, headers={"X-API-KEY": API_KEY}, json={"url": url})
     r.raise_for_status()

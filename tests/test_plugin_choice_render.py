@@ -112,7 +112,9 @@ async def test_render_item_card():
 
 @pytest.mark.asyncio
 async def test_render_list():
-    items = functools.reduce(operator.iadd, [
+    items = functools.reduce(
+        operator.iadd,
+        [
             [
                 MessageItem(content=Message(generate_sentence()), creator_id=222),
                 ReferenceItem(name="test", creator_id=3481996679),
@@ -142,7 +144,9 @@ async def test_render_list():
                 ),
             ]
             for _ in range(20)
-        ], [])
+        ],
+        [],
+    )
     with patch.object(UserList, "valid_references", new_callable=PropertyMock) as mock:
 
         async def valid_references():

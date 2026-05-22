@@ -83,7 +83,11 @@ async def register_avatar():
 
             async def _(bot: Bot, matcher: Matcher, event: GroupMessageEvent):
                 await response_avatar(
-                    name, avatar, bot=bot, matcher=matcher, event=event
+                    name,
+                    avatar,
+                    bot=bot,
+                    matcher=matcher,  # noqa: B023
+                    event=event,
                 )
 
             return _
