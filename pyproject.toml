@@ -43,6 +43,9 @@ dev = [
     "ruff>=0.8",
 ]
 
+[tool.uv]
+index-url = "https://mirrors.aliyun.com/pypi/simple/"
+
 [tool.nonebot]
 adapters = [
     { name = "OneBot V11", module_name = "nonebot.adapters.onebot.v11" }
