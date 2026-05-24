@@ -1,5 +1,4 @@
 import emoji
-from nonebot import on_command, on_notice
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.permission import SUPERUSER
@@ -14,13 +13,13 @@ from src.ext.message import (
     MessageExtension,
     MessageSegment,
 )
-from src.ext.on import on_reply
+from src.utils.observability.wrappers import on_command, on_notice, on_reply
 
 reaction_reply = on_reply("贴", block=True)
 send_keyboard = on_command("keyboard", permission=SUPERUSER, block=True)
 send_reply = on_command("reply_me", permission=SUPERUSER, block=True)
 # cannot use default permission since notice event does not have user_id
-follow_reaction = on_notice()
+follow_reaction = on_notice(metric_label="follow_reaction")
 
 
 @send_keyboard.handle()

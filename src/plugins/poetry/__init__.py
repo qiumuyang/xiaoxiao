@@ -1,16 +1,16 @@
 import re
 
-from nonebot import on_command, on_regex
 from nonebot.adapters import Message
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 from nonebot.params import CommandArg
 
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command, on_regex
 
 from .feihua.game import FeiHua
 
 matcher = on_command("飞花令", block=True, force_whitespace=True)
-shortcut = on_regex(r"^[\u4e00-\u9fa5]{2,}", block=False)
+shortcut = on_regex(r"^[\u4e00-\u9fa5]{2,}", metric_label="飞花令", block=False)
 single_hans = re.compile(r"[\u4e00-\u9fa5]")
 
 

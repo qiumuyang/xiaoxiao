@@ -1,15 +1,14 @@
-from nonebot import on_command
 from nonebot.adapters import Message
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent, Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
 from src.ext import MessageSegment, get_user_name
-from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar
 from src.utils.message.receive import MessageData as RMD
 from src.utils.message.receive import ReceivedMessageTracker as RMT
+from src.utils.observability.wrappers import on_command, on_reply
 from src.utils.persistence import FileStorage
 from src.utils.render_ext.message import MessageRender
 

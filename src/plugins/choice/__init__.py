@@ -1,4 +1,3 @@
-from nonebot import on_command, on_message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
@@ -6,10 +5,10 @@ from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
 from src.ext import MessageExtension, MessageType
-from src.ext.on import on_reply
 from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import not_reply
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command, on_message, on_reply
 
 from .choice import ChoiceConfig, ChoiceHandler
 from .parse import Action, Op, parse_action
@@ -18,7 +17,7 @@ make_choice_reply = on_reply(("选择困难", "xzkn"), block=True)
 make_choice = on_command(
     "选择困难", rule=not_reply(), aliases={"xzkn"}, block=True, force_whitespace=True
 )
-choice_shortcut = on_message(priority=2, block=False)
+choice_shortcut = on_message(priority=2, metric_label="选择困难", block=False)
 
 
 async def _parse(cmd: str, matcher: type[Matcher]) -> Action | None:

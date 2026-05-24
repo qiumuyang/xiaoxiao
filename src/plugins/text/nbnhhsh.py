@@ -7,7 +7,6 @@ from typing import ClassVar, NotRequired, TypedDict
 
 import aiohttp
 from async_lru import alru_cache
-from nonebot import on_command, on_regex
 from nonebot.adapters.onebot.v11 import GroupMessageEvent
 from nonebot.matcher import Matcher
 
@@ -15,6 +14,7 @@ from src.ext import RateLimit, RateLimiter
 from src.ext.config import Config
 from src.ext.permission import admin
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command, on_regex
 
 
 class Response(TypedDict):
@@ -105,10 +105,10 @@ def merge_abbr_config(*configs: dict[str, list[str]]) -> dict[str, list[str]]:
 rate_depend = RateLimit("abbr_trans", type="group", seconds=2)
 
 # lower priority than commands
-nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN, priority=2, block=True)
+nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN, priority=2, metric_label="翻译缩写", block=True)
 nbnhhsh_cmd = on_command("翻译缩写", block=True, force_whitespace=True)
 nbnhhsh_cfg_cmd = on_command(
-    "翻译缩写配置", block=True, force_whitespace=True, permission=admin
+    "翻译缩写配置", metric_label="翻译缩写", block=True, force_whitespace=True, permission=admin
 )
 
 

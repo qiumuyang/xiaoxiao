@@ -1,9 +1,9 @@
-from nonebot import on_command
 from nonebot.adapters import Message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot.params import CommandArg
 
 from src.ext import MessageSegment
+from src.utils.observability.wrappers import on_command
 
 from .load import load_document_image
 

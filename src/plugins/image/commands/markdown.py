@@ -1,12 +1,11 @@
-from nonebot import on_command
 from nonebot.adapters import Message
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
 from src.ext import MessageSegment
-from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command, on_reply
 from src.utils.render_ext.markdown import Markdown
 
 render_markdown = on_command(

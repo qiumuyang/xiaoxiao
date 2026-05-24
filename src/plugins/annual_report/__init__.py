@@ -1,9 +1,9 @@
-from nonebot import on_command
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message
 from nonebot.params import CommandArg
 
 from src.ext import MessageSegment, get_group_member_name
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command
 
 from .render import AnnualReportRenderer
 from .statistics import AnnualStatistics

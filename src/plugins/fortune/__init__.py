@@ -1,10 +1,10 @@
-from nonebot import on_command
 from nonebot.adapters import Message
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot.params import CommandArg
 
 from src.ext import MessageSegment, get_user_name
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command
 
 from .config import FortuneConfig, RenderBackground
 from .fortune import get_fortune

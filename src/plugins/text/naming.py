@@ -2,9 +2,8 @@
 
 import random
 
-from nonebot import on_command
-
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command
 
 
 class SubcultureNamingMachine:

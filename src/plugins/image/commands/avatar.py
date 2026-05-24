@@ -1,4 +1,3 @@
-from nonebot import on_command
 from nonebot.adapters import Message
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
@@ -7,9 +6,9 @@ from nonebot.params import CommandArg
 from nonebot.typing import T_State
 
 from src.ext import MessageSegment, get_group_member_name, ratelimit
-from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar, UpdateStatus
+from src.utils.observability.wrappers import on_command, on_reply
 
 from ..group_member_avatar import RBQ, GroupMemberAvatar, LittleAngel, Mesugaki
 from .share import driver, logger
