@@ -120,7 +120,7 @@ class FileStorage:
                 try:
                     await instance._cleanup_expired()
                 except Exception:
-                    logger.exception("Cleanup failed")
+                    logger.error("Cleanup failed")
 
     async def _cleanup_expired(self):
         """Delete expired ephemeral files using fs_bucket (cascades to chunks)."""
