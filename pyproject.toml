@@ -33,6 +33,7 @@ dependencies = [
     "requests",
     "typing-extensions>=4.10.0",
     "watchdog",
+    "prometheus-client>=0.25.0",
 ]
 
 [dependency-groups]

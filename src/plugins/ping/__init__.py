@@ -1,7 +1,7 @@
-from nonebot import on_command
 from nonebot.matcher import Matcher
 
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.observability.wrappers import on_command
 
 ping = on_command("ping", block=True, force_whitespace=True)
 

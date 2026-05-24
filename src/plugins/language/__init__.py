@@ -1,9 +1,10 @@
 import asyncio
+import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from nonebot import CommandGroup, on_command, on_message, on_notice
+from nonebot import CommandGroup
 from nonebot.adapters import Bot, Message
 from nonebot.adapters.onebot.v11 import Bot as OnebotBot
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
@@ -18,6 +19,13 @@ from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import RateLimit, RateLimiter, enabled, ratelimit, reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.message import ReceivedMessageTracker, SentMessageTracker
+from src.utils.observability import metrics
+from src.utils.observability.wrappers import (
+    on_command,
+    on_message,
+    on_notice,
+    with_metric,
+)
 
 from .ask import Ask
 from .config import (
@@ -28,11 +36,18 @@ from .config import (
 from .history import History
 from .interact import RandomResponse
 
-record_message = on_message(priority=0, block=False)
-random_response = on_message(
-    priority=10, block=False, rule=enabled(RandomResponseConfig)
+record_message = on_message(
+    priority=0, block=False, metric_label="record_message"
 )
-record_unhandled_message = on_message(priority=255, block=True)
+random_response = on_message(
+    priority=10,
+    block=False,
+    rule=enabled(RandomResponseConfig),
+    metric_label="random_response",
+)
+record_unhandled_message = on_message(
+    priority=255, block=True, metric_label="record_unhandled_message"
+)
 
 recall_message = on_command("撤回", aliases={"快撤回"}, block=True)
 answer_ask = on_command(
@@ -55,27 +70,46 @@ disable_response = on_command(
 enable_response = on_command(
     "张嘴", aliases={"张菊", "开菊", "开嘴"}, force_whitespace=True, block=True
 )
-poke_source = on_notice()
+poke_source = on_notice(metric_label="poke_source")
 
 message_trace = CommandGroup("trace", block=True)
-trace_single = message_trace.command(
-    tuple(),
-    force_whitespace=True,
-    rule=ratelimit("trace_single", type="group", seconds=5),
+trace_single = with_metric(
+    message_trace.command(
+        tuple(),
+        force_whitespace=True,
+        rule=ratelimit("trace_single", type="group", seconds=5),
+    ),
+    label="trace",
 )
-trace_search = message_trace.command(
-    "search",
-    force_whitespace=True,
-    rule=ratelimit("trace_search", type="group", seconds=5),
+trace_search = with_metric(
+    message_trace.command(
+        "search",
+        force_whitespace=True,
+        rule=ratelimit("trace_search", type="group", seconds=5),
+    ),
+    label="trace",
 )
 
 check_reply = reply()
+
+_api_start_time: dict[int, float] = {}
+
+
+@Bot.on_calling_api
+async def _metrics_api_start(bot: Bot, api: str, data: dict[str, Any]):
+    _api_start_time[id(data)] = time.perf_counter()
 
 
 @Bot.on_called_api
 async def handle_api_result(
     bot: Bot, exception: Exception | None, api: str, data: dict[str, Any], result: Any
 ):
+    start = _api_start_time.pop(id(data), None)
+    if start is not None:
+        duration = time.perf_counter() - start
+        status = metrics.ApiStatus.ERROR if exception else metrics.ApiStatus.SUCCESS
+        metrics.API_DURATION.labels(api=api, status=status.value).observe(duration)
+
     if exception:
         return
 

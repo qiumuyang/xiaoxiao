@@ -1,3 +1,4 @@
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -10,6 +11,7 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageEvent
 from src.ext import MessageSegment as ExtMessageSegment
 
 from ..log import logger_wrapper
+from ..observability import metrics
 from ..persistence import Collection, Mongo
 
 logger = logger_wrapper(__name__)
@@ -25,6 +27,12 @@ class MessageData:
 
 
 Sink = Callable[[ObjectId, MessageData], Awaitable[Any]]
+
+
+def _extract_group_id(session_id: str) -> str:
+    if m := re.match(r"^group_(\d+)_.*", session_id):
+        return m.group(1)
+    return "private"
 
 
 class SentMessageTracker:
@@ -71,6 +79,8 @@ class SentMessageTracker:
             content=content.copy(),
         )
         result = await cls.sent.insert_one(data)
+        _group_id = _extract_group_id(session_id)
+        metrics.MSG_SENT_TOTAL.labels(group_id=_group_id).inc()
         for sink in cls.sinks:
             await sink(result.inserted_id, data)
 

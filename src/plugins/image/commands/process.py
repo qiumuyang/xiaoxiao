@@ -1,13 +1,12 @@
-from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
 from nonebot.typing import T_State
 
 from src.ext import MessageSegment, ratelimit
-from src.ext.on import on_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.image.avatar import Avatar
+from src.utils.observability.wrappers import on_command, on_reply
 from src.utils.persistence import FileStorage
 from src.utils.render_ext.markdown import Markdown
 

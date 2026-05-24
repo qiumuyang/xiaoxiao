@@ -11,6 +11,8 @@ from src.ext import get_group_member_name, ratelimit
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.message import ReceivedMessageTracker as RMT
 from src.utils.message import SentMessageTracker as SMT
+from src.utils.observability import metrics
+from src.utils.observability.wrappers import with_metric
 
 
 class Status(TypedDict):
@@ -38,8 +40,12 @@ class StatusMonitor:
 
     @classmethod
     async def sample_cpu(cls):
+        metrics.PROCESS_START_TIME.set(cls._proc.create_time())
         while True:
             cls._last_cpu = round(cls._proc.cpu_percent())
+            metrics.CPU_PERCENT.set(cls._last_cpu)
+            metrics.MEMORY_RSS_BYTES.set(cls._proc.memory_info().rss)
+            metrics.MEMORY_AVAILABLE_BYTES.set(psutil.virtual_memory().available)
             await asyncio.sleep(1)
 
     @classmethod
@@ -83,9 +89,19 @@ class StatusMonitor:
 
 ratelimit = ratelimit("status", "group", seconds=10)
 stat = CommandGroup(cmd="status", block=True)
-stat_overview = stat.command(tuple(), rule=ratelimit, force_whitespace=True)
-stat_this = stat.command("this", rule=ratelimit, force_whitespace=True)
-stat_all = stat.command("all", force_whitespace=True, permission=SUPERUSER)
+
+
+stat_overview = with_metric(
+    stat.command(tuple(), rule=ratelimit, force_whitespace=True), label="status"
+)
+
+stat_this = with_metric(
+    stat.command("this", rule=ratelimit, force_whitespace=True), label="status"
+)
+
+stat_all = with_metric(
+    stat.command("all", force_whitespace=True, permission=SUPERUSER), label="status"
+)
 
 
 _bg_tasks: set[asyncio.Task] = set()

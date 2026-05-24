@@ -10,6 +10,7 @@ from nonebot.adapters.onebot.v11 import Message
 from src.ext.message import MessageSegment as ExtMessageSegment
 
 from ..log import logger_wrapper
+from ..observability import metrics
 from ..persistence import Collection, Mongo
 
 logger = logger_wrapper(__name__)
@@ -77,6 +78,10 @@ class ReceivedMessageTracker:
                 filter={"group_id": group_id, "message_id": message_id},
                 update={"$set": {"handled": handled}},
             )
+        metrics.MSG_RECEIVED_TOTAL.labels(
+            group_id=str(group_id),
+            handled="true" if handled else "false",
+        ).inc()
         for sink in cls.sinks:
             await sink(result.inserted_id if result else None, data)
 

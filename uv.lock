@@ -1173,6 +1173,15 @@ wheels = [
 ]
 
 [[package]]
+name = "prometheus-client"
+version = "0.25.0"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/1b/fb/d9aa83ffe43ce1f19e557c0971d04b90561b0cfd50762aafb01968285553/prometheus_client-0.25.0.tar.gz", hash = "sha256:5e373b75c31afb3c86f1a52fa1ad470c9aace18082d39ec0d2f918d11cc9ba28" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/8d/9b/d4b1e644385499c8346fa9b622a3f030dce14cd6ef8a1871c221a17a67e7/prometheus_client-0.25.0-py3-none-any.whl", hash = "sha256:d5aec89e349a6ec230805d0df882f3807f74fd6c1a2fa86864e3c2279059fed1" },
+]
+
+[[package]]
 name = "propcache"
 version = "0.5.2"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -2101,6 +2110,7 @@ dependencies = [
     { name = "orjson" },
     { name = "paddlepaddle" },
     { name = "pillow" },
+    { name = "prometheus-client" },
     { name = "psutil" },
     { name = "py-mini-racer" },
     { name = "pydantic" },
@@ -2141,6 +2151,7 @@ requires-dist = [
     { name = "orjson" },
     { name = "paddlepaddle" },
     { name = "pillow", specifier = "==10.4.0" },
+    { name = "prometheus-client", specifier = ">=0.25.0" },
     { name = "psutil" },
     { name = "py-mini-racer" },
     { name = "pydantic", specifier = ">=2" },
