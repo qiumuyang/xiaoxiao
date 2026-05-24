@@ -78,6 +78,7 @@ class Corpus:
 
     @classmethod
     async def init(cls) -> None:
+        await cls.corpus.collection.create_index({"text": 1})
         await cls.corpus.collection.create_index({"keywords": 1})
         await cls.corpus.collection.create_index({"group_id": 1, "created": 1})
         await cls.corpus.collection.create_index({"group_id": 1, "used": 1})

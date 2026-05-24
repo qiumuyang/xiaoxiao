@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 from bson import ObjectId
+from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import Message
 
 from src.ext.message import MessageSegment as ExtMessageSegment
@@ -36,6 +37,15 @@ class ReceivedMessageTracker:
     received: MessageCollection = Mongo.collection(KEY)
 
     sinks: list[Sink] = []
+
+    @classmethod
+    async def init(cls) -> None:
+        await cls.received.collection.create_index(
+            [("group_id", 1), ("message_id", 1)]
+        )
+        await cls.received.collection.create_index(
+            [("group_id", 1), ("time", -1)]
+        )
 
     @classmethod
     def on_receive(cls, sink: Sink) -> None:
@@ -190,3 +200,11 @@ def _(data: MessageData) -> dict:
         "group_id": data.group_id,
         "message_id": data.message_id,
     }
+
+
+driver = get_driver()
+
+
+@driver.on_startup
+async def init_rmt() -> None:
+    await ReceivedMessageTracker.init()
