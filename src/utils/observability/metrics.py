@@ -16,7 +16,7 @@ class ApiStatus(StrEnum):
 MATCHER_DURATION = Histogram(
     "xiaoxiao_matcher_duration_seconds",
     "Time spent processing a matcher",
-    ["matcher", "matcher_type", "sub_command", "group_id", "status"],
+    ["matcher", "matcher_type", "sub_command", "status"],
     buckets=(
         0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
         float("inf"),

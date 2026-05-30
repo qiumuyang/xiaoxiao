@@ -1,6 +1,6 @@
 import time
 
-from nonebot.adapters.onebot.v11 import Event, GroupMessageEvent
+from nonebot.adapters.onebot.v11 import Event
 from nonebot.internal.matcher import Matcher
 from nonebot.message import run_postprocessor, run_preprocessor
 from nonebot.rule import CommandRule, RegexRule
@@ -65,12 +65,6 @@ class MatcherIdentifier:
         return ""
 
 
-def _get_event_group(event: Event) -> str:
-    if isinstance(event, GroupMessageEvent):
-        return str(event.group_id)
-    return event.get_type() or "unknown"
-
-
 @run_preprocessor
 async def _(matcher: Matcher, event: Event, state: T_State):
     state["_mt_start"] = time.perf_counter()
@@ -94,6 +88,5 @@ async def _(
         matcher=MatcherIdentifier.get_label(matcher),
         matcher_type=MatcherIdentifier.get_type(matcher),
         sub_command=MatcherIdentifier.get_sub_command(matcher),
-        group_id=_get_event_group(event),
         status=status.value,
     ).observe(duration)
