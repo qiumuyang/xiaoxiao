@@ -11,16 +11,17 @@ from src.ext import get_group_member_name, ratelimit
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.message import ReceivedMessageTracker as RMT
 from src.utils.message import SentMessageTracker as SMT
+from src.utils.observability.vm import VMClient
 from src.utils.observability.wrappers import with_metric
 
 _start_time = time.time()
 
 
 class Status(TypedDict):
-    cpu: int
-    memory: int
-    memory_mongo: int
-    memory_free: int
+    cpu: str
+    memory: str
+    memory_mongo: str
+    memory_free: str
     message_sent: int
     message_received: int
     commands_handled: int
@@ -32,16 +33,36 @@ class StatusMonitor:
     async def status(cls, group_id: int | None = None) -> Status:
         running_time = datetime.now() - datetime.fromtimestamp(_start_time)
 
+        cpu_task = VMClient.query_value(
+            "100 - avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node\"}[2m])) * 100"
+        )
+        mem_task = VMClient.query_value(
+            "process_resident_memory_bytes{job=\"xiaoxiao\"} / 1024 / 1024"
+        )
+        mem_free_task = VMClient.query_value(
+            "node_memory_MemAvailable_bytes{job=\"node\"} / 1024 / 1024"
+        )
+        mem_mongo_task = VMClient.query_value(
+            "namedprocess_namegroup_memory_bytes{groupname=\"mongod\", memtype=\"resident\"} / 1024 / 1024"
+        )
+
         sent_task = SMT.count(group_id=group_id, since=datetime.fromtimestamp(_start_time))
         recv_task = RMT.count(group_id=group_id or [], since=datetime.fromtimestamp(_start_time))
         cmd_task = RMT.count(group_id=group_id or [], since=datetime.fromtimestamp(_start_time), handled=True)
 
-        sent, recv, cmd = await asyncio.gather(sent_task, recv_task, cmd_task)
+        cpu, memory, memory_free, memory_mongo, sent, recv, cmd = await asyncio.gather(
+            cpu_task, mem_task, mem_free_task, mem_mongo_task,
+            sent_task, recv_task, cmd_task,
+        )
+
+        def _fmt(val: float | None) -> str:
+            return f"{val:.0f}" if val is not None else "N/A"
+
         return {
-            "cpu": 0,
-            "memory": 0,
-            "memory_mongo": 0,
-            "memory_free": 0,
+            "cpu": f"{_fmt(cpu)}%",
+            "memory": f"{_fmt(memory)}MB",
+            "memory_mongo": f"{_fmt(memory_mongo)}MB",
+            "memory_free": f"{_fmt(memory_free)}MB",
             "message_sent": sent,
             "message_received": recv,
             "commands_handled": cmd,
@@ -53,9 +74,9 @@ class StatusMonitor:
         tm = str(status["running_time"]).split(".")[0]  # remove milliseconds
         fmt = (
             "Uptime: {tm}\n"
-            "CPU: {cpu}%\n"
-            "Mem: {memory}MB (Free: {memory_free}MB)\n"
-            "Mongo: {memory_mongo}MB\n"
+            "CPU: {cpu}\n"
+            "Mem: {memory} (Free: {memory_free})\n"
+            "Mongo: {memory_mongo}\n"
             "Messages (Sent/Recv): {message_sent}/{message_received}\n"
             "Handle Commands: {commands_handled}"
         )

@@ -10,7 +10,8 @@ VictoriaMetrics (systemd, :8428)
   │
   ├── scrape 15s → http://127.0.0.1:8080/metrics  (bot — business)
   ├── scrape 15s → http://127.0.0.1:9100/metrics  (node_exporter — OS)
-  └── scrape 15s → http://127.0.0.1:9216/metrics  (mongodb_exporter — DB)
+  ├── scrape 15s → http://127.0.0.1:9216/metrics  (mongodb_exporter — DB)
+  └── scrape 15s → http://127.0.0.1:9256/metrics  (process_exporter — processes)
 ```
 
 ### Scope Split
@@ -20,6 +21,7 @@ VictoriaMetrics (systemd, :8428)
 | Bot `/metrics` | Business only | `xiaoxiao_msg_received_total`, `xiaoxiao_matcher_duration_seconds`, `xiaoxiao_api_duration_seconds` |
 | node_exporter | OS/hardware | `node_cpu_seconds_total`, `node_memory_MemAvailable_bytes`, `process_resident_memory_bytes` |
 | mongodb_exporter | MongoDB health | `mongodb_up`, `mongodb_connections`, `mongodb_op_counters_total` |
+| process_exporter | Per-process RSS/CPU | `namedprocess_namegroup_memory_bytes{groupname="mongod"}` |
 
 Note: `prometheus_client` auto-registers `process_*` / `python_*` / `gc_*` metrics on import.
 These appear in the bot's `/metrics` output alongside business metrics at no extra cost.
@@ -64,6 +66,11 @@ scrape_configs:
     scrape_interval: 15s
     static_configs:
       - targets: ["127.0.0.1:9216"]
+
+  - job_name: process
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["127.0.0.1:9256"]
 ```
 
 ### Systemd Service
@@ -188,11 +195,68 @@ sudo systemctl enable --now mongodb_exporter
 
 Expected RSS: ~33 MB.
 
+## Process Exporter
+
+Tracks per-process metrics (RSS, CPU) for named processes. Configured to
+monitor `mongod`.
+
+### Install
+
+```bash
+VERSION=0.8.7
+curl -LO https://github.com/ncabatoff/process-exporter/releases/download/v${VERSION}/process-exporter-${VERSION}.linux-amd64.tar.gz
+tar xzf process-exporter-${VERSION}.linux-amd64.tar.gz
+sudo cp process-exporter-${VERSION}.linux-amd64/process-exporter /usr/local/bin/
+sudo chmod +x /usr/local/bin/process-exporter
+rm -rf process-exporter-${VERSION}*
+```
+
+### Config
+
+`/etc/process_exporter/config.yml`:
+
+```yaml
+process_names:
+  - name: "mongod"
+    cmdline:
+      - ".+mongod.+"
+```
+
+### Systemd Service
+
+`/etc/systemd/system/process_exporter.service`:
+
+```ini
+[Unit]
+Description=Process Exporter
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+ExecStart=/usr/local/bin/process-exporter \
+    --config.path=/etc/process_exporter/config.yml \
+    --web.listen-address=127.0.0.1:9256
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now process_exporter
+```
+
+Expected RSS: ~8 MB.
+
 ## Operations
 
 ```bash
 # All service statuses
-sudo systemctl status victoria-metrics node_exporter mongodb_exporter
+sudo systemctl status victoria-metrics node_exporter mongodb_exporter process_exporter
 
 # Check target health
 curl -s http://127.0.0.1:8428/targets
@@ -211,6 +275,9 @@ curl -s "http://127.0.0.1:8428/api/v1/query?query=node_memory_MemAvailable_bytes
 
 # MongoDB connection count
 curl -s "http://127.0.0.1:8428/api/v1/query?query=mongodb_connections"
+
+# Mongod process RSS (via process_exporter)
+curl -s "http://127.0.0.1:8428/api/v1/query?query=namedprocess_namegroup_memory_bytes{groupname=\"mongod\",memtype=\"resident\"}"
 
 # Storage usage
 du -sh /var/lib/victoria-metrics
@@ -236,7 +303,8 @@ prometheus_client also auto-registers: `process_cpu_seconds_total`,
 | VictoriaMetrics | ~43 MB |
 | node_exporter | ~20 MB |
 | mongodb_exporter | ~33 MB |
-| **Total** | **~96 MB** |
+| process_exporter | ~8 MB |
+| **Total** | **~104 MB** |
 
 ## Upgrade
 
@@ -257,13 +325,13 @@ VERSION=1.11.1
 ## Uninstall
 
 ```bash
-for svc in victoria-metrics node_exporter mongodb_exporter; do
+for svc in victoria-metrics node_exporter mongodb_exporter process_exporter; do
     sudo systemctl stop $svc
     sudo systemctl disable $svc
     sudo rm -f /etc/systemd/system/$svc.service
 done
-sudo rm -f /usr/local/bin/victoria-metrics /usr/local/bin/node_exporter /usr/local/bin/mongodb_exporter
-sudo rm -rf /var/lib/victoria-metrics /etc/victoria-metrics
+sudo rm -f /usr/local/bin/victoria-metrics /usr/local/bin/node_exporter /usr/local/bin/mongodb_exporter /usr/local/bin/process-exporter
+sudo rm -rf /var/lib/victoria-metrics /etc/victoria-metrics /etc/process_exporter
 sudo userdel victoria-metrics
 sudo systemctl daemon-reload
 ```
