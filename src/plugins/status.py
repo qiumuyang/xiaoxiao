@@ -139,7 +139,7 @@ class StatusMonitor:
         da = status["disk_avail"]
         dt = status["disk_total"]
         if da != _NA and dt != _NA:
-            pct = int(float(da) / float(dt) * 100)
+            pct = 100 - int(float(da) / float(dt) * 100)
             disk = f"{da}GB / {dt}GB ({pct}%)"
         else:
             disk = _NA

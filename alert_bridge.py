@@ -1,5 +1,4 @@
 """Alertmanager webhook → OneBot QQ group message."""
-import asyncio
 import logging
 import os
 
@@ -43,21 +42,22 @@ def format_alert(alert: dict) -> str:
 async def handle_alert(request: web.Request) -> web.Response:
     body = await request.json()
     logger.info("Received alert hook: %d alerts", len(body.get("alerts", [])))
-    for alert in body.get("alerts", []):
-        if alert["status"] not in ("firing", "resolved"):
-            continue
-        message = format_alert(alert)
-        try:
-            async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(total=10)
+    ) as session:
+        for alert in body.get("alerts", []):
+            if alert["status"] not in ("firing", "resolved"):
+                continue
+            message = format_alert(alert)
+            try:
                 resp = await session.post(
                     f"{ONEBOT_URL}/send_group_msg",
                     json={"group_id": GROUP_ID, "message": message},
-                    timeout=aiohttp.ClientTimeout(total=10),
                 )
                 result = await resp.text()
                 logger.info("QQ send result: %s", result)
-        except Exception as e:
-            logger.error("Failed to send QQ message: %s", e)
+            except Exception as e:
+                logger.error("Failed to send QQ message: %s", e)
     return web.Response(text='{"status":"ok"}', content_type="application/json")
 
 

@@ -4,7 +4,12 @@ from typing import Any
 import aiohttp
 from nonebot import get_driver
 
+from ..log import logger_wrapper
+
+logger = logger_wrapper(__name__)
+
 _BASE_URL: str | None = os.getenv("VM_BASE_URL")
+_QUERY_TIMEOUT = aiohttp.ClientTimeout(total=5)
 
 
 class VMClient:
@@ -17,7 +22,7 @@ class VMClient:
     @classmethod
     async def _session(cls) -> aiohttp.ClientSession:
         if cls._client is None:
-            cls._client = aiohttp.ClientSession()
+            cls._client = aiohttp.ClientSession(timeout=_QUERY_TIMEOUT)
         return cls._client
 
     @classmethod
@@ -39,8 +44,8 @@ class VMClient:
             results = await cls.query(promql)
             if results:
                 return float(results[0]["value"][1])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("VMClient query failed", exception=e)
         return None
 
     @classmethod
