@@ -1,9 +1,9 @@
 import asyncio
+import time
 from datetime import datetime, timedelta
 from typing import TypedDict
 
-import psutil
-from nonebot import CommandGroup, get_driver
+from nonebot import CommandGroup
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent
 from nonebot.permission import SUPERUSER
 
@@ -11,8 +11,9 @@ from src.ext import get_group_member_name, ratelimit
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.message import ReceivedMessageTracker as RMT
 from src.utils.message import SentMessageTracker as SMT
-from src.utils.observability import metrics
 from src.utils.observability.wrappers import with_metric
+
+_start_time = time.time()
 
 
 class Status(TypedDict):
@@ -26,47 +27,21 @@ class Status(TypedDict):
     running_time: timedelta
 
 
-def find_process(name: str) -> psutil.Process:
-    for proc_info in psutil.process_iter(["pid", "name"]):
-        if proc_info.info["name"] == name:
-            return psutil.Process(proc_info.info["pid"])
-    raise ValueError(f"Process '{name}' not found.")
-
-
 class StatusMonitor:
-    _last_cpu = 0
-    _proc = psutil.Process()
-    _proc_mongo = find_process("mongod")
-
-    @classmethod
-    async def sample_cpu(cls):
-        metrics.PROCESS_START_TIME.set(cls._proc.create_time())
-        while True:
-            cls._last_cpu = round(cls._proc.cpu_percent())
-            metrics.CPU_PERCENT.set(cls._last_cpu)
-            metrics.MEMORY_RSS_BYTES.set(cls._proc.memory_info().rss)
-            metrics.MEMORY_AVAILABLE_BYTES.set(psutil.virtual_memory().available)
-            await asyncio.sleep(1)
-
     @classmethod
     async def status(cls, group_id: int | None = None) -> Status:
-        proc = cls._proc
-        memory = proc.memory_info().rss // 1024 // 1024  # MB
-        memory_mongo = cls._proc_mongo.memory_info().rss // 1024 // 1024
-        memory_free = psutil.virtual_memory().available // 1024 // 1024  # MB
-        create_time = datetime.fromtimestamp(proc.create_time())
-        running_time = datetime.now() - create_time
+        running_time = datetime.now() - datetime.fromtimestamp(_start_time)
 
-        sent_task = SMT.count(group_id=group_id, since=create_time)
-        recv_task = RMT.count(group_id=group_id or [], since=create_time)
-        cmd_task = RMT.count(group_id=group_id or [], since=create_time, handled=True)
+        sent_task = SMT.count(group_id=group_id, since=datetime.fromtimestamp(_start_time))
+        recv_task = RMT.count(group_id=group_id or [], since=datetime.fromtimestamp(_start_time))
+        cmd_task = RMT.count(group_id=group_id or [], since=datetime.fromtimestamp(_start_time), handled=True)
 
         sent, recv, cmd = await asyncio.gather(sent_task, recv_task, cmd_task)
         return {
-            "cpu": cls._last_cpu,
-            "memory": memory,
-            "memory_mongo": memory_mongo,
-            "memory_free": memory_free,
+            "cpu": 0,
+            "memory": 0,
+            "memory_mongo": 0,
+            "memory_free": 0,
             "message_sent": sent,
             "message_received": recv,
             "commands_handled": cmd,
@@ -102,16 +77,6 @@ stat_this = with_metric(
 stat_all = with_metric(
     stat.command("all", force_whitespace=True, permission=SUPERUSER), label="status"
 )
-
-
-_bg_tasks: set[asyncio.Task] = set()
-
-
-@get_driver().on_startup
-async def _():
-    task = asyncio.create_task(StatusMonitor.sample_cpu())
-    _bg_tasks.add(task)
-    task.add_done_callback(_bg_tasks.discard)
 
 
 @stat_overview.handle()

@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
+from prometheus_client import REGISTRY, Counter, Histogram, generate_latest
 
 
 class MatcherOutcome(StrEnum):
@@ -40,18 +40,6 @@ MSG_SENT_TOTAL = Counter(
     "Total sent messages",
     ["group_id"],
 )
-
-CPU_PERCENT = Gauge("xiaoxiao_cpu_percent", "Process CPU usage percent")
-MEMORY_RSS_BYTES = Gauge("xiaoxiao_memory_rss_bytes", "Process RSS memory in bytes")
-MEMORY_AVAILABLE_BYTES = Gauge(
-    "xiaoxiao_memory_available_bytes", "System available memory in bytes"
-)
-PROCESS_START_TIME = Gauge(
-    "xiaoxiao_process_start_time_seconds",
-    "Process start time in seconds since epoch",
-)
-
-MONGODB_UP = Gauge("xiaoxiao_mongodb_up", "MongoDB connection status (1=up, 0=down)")
 
 
 def get_metrics_text() -> bytes:

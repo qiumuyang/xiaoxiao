@@ -23,7 +23,6 @@ dependencies = [
     "paddlepaddle",
     "Pillow==10.4.0",
     "prometheus-client>=0.25.0",
-    "psutil",
     "py-mini-racer",
     "Pygments",
     "pydantic>=2",
