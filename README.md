@@ -24,8 +24,33 @@ uv sync
 cp .env.example .env
 # 编辑 .env，填写 SUPERUSERS、DB 等
 
-# 启动
+# 启动（开发）
 uv run nb run
+```
+
+## 生产部署
+
+生产环境通过 systemd 管理，支持崩溃自恢复、告警通知。
+
+额外依赖：
+
+| 服务 | 用途 | 部署文档 |
+|------|------|----------|
+| VictoriaMetrics | 指标收集与存储 | [victoria-metrics.md](docs/deploy/victoria-metrics.md) |
+| vmalert | 告警规则评估 | 同上 |
+| alertmanager | 告警路由（邮件 + QQ） | 同上 |
+| alert_bridge | 告警转 QQ 群消息 | `alert_bridge.py`（本仓库） |
+| node_exporter | 系统指标导出 | 同上 |
+| mongodb_exporter | MongoDB 指标导出 | 同上 |
+| process_exporter | 进程内存监控 | 同上 |
+
+快速验证：
+
+```bash
+sudo systemctl status xiaoxiao        # bot 状态
+sudo journalctl -u xiaoxiao -f        # bot 日志
+sudo systemctl status vmalert         # 告警规则
+sudo journalctl -u alert-bridge -f    # QQ 通知日志
 ```
 
 ## 开发

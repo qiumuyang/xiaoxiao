@@ -135,7 +135,6 @@ Group=nogroup
 ExecStart=/usr/local/bin/node_exporter \
     --web.listen-address=127.0.0.1:9100 \
     --no-collector.nfs \
-    --no-collector.filesystem \
     --no-collector.netstat
 Restart=always
 RestartSec=10
@@ -304,7 +303,136 @@ prometheus_client also auto-registers: `process_cpu_seconds_total`,
 | node_exporter | ~20 MB |
 | mongodb_exporter | ~33 MB |
 | process_exporter | ~8 MB |
-| **Total** | **~104 MB** |
+| vmalert | ~15 MB |
+| alertmanager | ~15 MB |
+| alert-bridge | ~30 MB |
+| **Total** | **~164 MB** |
+
+## XiaoBot Systemd Service
+
+```ini
+# /etc/systemd/system/xiaoxiao.service
+[Unit]
+Description=XiaoBot
+After=network.target mongod.service victoria-metrics.service
+Wants=network.target
+StartLimitBurst=5
+StartLimitIntervalSec=120
+
+[Service]
+Type=simple
+User=qmy
+Group=qmy
+WorkingDirectory=/home/qmy/XiaoBot
+ExecStart=/home/qmy/.local/bin/uv run nb run
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now xiaoxiao
+sudo journalctl -u xiaoxiao -f   # 查看日志
+```
+
+## Alerting (vmalert + alertmanager + alert_bridge)
+
+告警管道：VM → vmalert（30s 评估）→ alertmanager（去重/分组）→ 邮件 + QQ 群。
+
+### vmalert
+
+从 vmutils 包提取，复用 VictoriaMetrics 版本。
+
+```bash
+VERSION=1.144.0
+curl -LO https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v${VERSION}/vmutils-linux-amd64-v${VERSION}.tar.gz
+tar xzf vmutils-linux-amd64-v${VERSION}.tar.gz
+sudo cp vmalert-prod /usr/local/bin/vmalert
+```
+
+`/etc/systemd/system/vmalert.service`:
+
+```ini
+[Unit]
+Description=vmalert
+After=network.target victoria-metrics.service
+
+[Service]
+Type=simple
+User=nobody
+ExecStart=/usr/local/bin/vmalert \
+    -rule=/etc/vmalert/rules.yml \
+    -datasource.url=http://127.0.0.1:8428 \
+    -notifier.url=http://127.0.0.1:9093 \
+    -remoteWrite.url=http://127.0.0.1:8428 \
+    -remoteRead.url=http://127.0.0.1:8428
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/vmalert/rules.yml` — 告警规则（示例：BotDown / MongodDown / HighCPU / LowMemory / LowDisk 等 7 条）。
+
+### alertmanager
+
+```bash
+VERSION=0.28.1
+curl -LO https://github.com/prometheus/alertmanager/releases/download/v${VERSION}/alertmanager-${VERSION}.linux-amd64.tar.gz
+tar xzf alertmanager-${VERSION}.linux-amd64.tar.gz
+sudo cp alertmanager-${VERSION}.linux-amd64/alertmanager /usr/local/bin/
+```
+
+`/etc/systemd/system/alertmanager.service`:
+
+```ini
+[Unit]
+Description=Alertmanager
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+WorkingDirectory=/tmp
+ExecStart=/usr/local/bin/alertmanager \
+    --config.file=/etc/alertmanager/alertmanager.yml \
+    --web.listen-address=127.0.0.1:9093 \
+    --storage.path=/tmp/alertmanager-data
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/alertmanager/alertmanager.yml` — SMTP + webhook 配置。SMTP 密码权限 600。
+
+### alert_bridge
+
+接收 alertmanager webhook，通过 LLBot OneBot HTTP API（`:3000`）发送 QQ 群消息。
+
+仓库文件：`alert_bridge.py`（根目录）。`/etc/systemd/system/alert-bridge.service`:
+
+```ini
+[Unit]
+Description=Alert Bridge (webhook → QQ)
+After=network.target
+
+[Service]
+Type=simple
+User=qmy
+WorkingDirectory=/home/qmy/XiaoBot
+ExecStart=/home/qmy/XiaoBot/.venv/bin/python /home/qmy/XiaoBot/alert_bridge.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
 
 ## Upgrade
 
@@ -325,13 +453,13 @@ VERSION=1.11.1
 ## Uninstall
 
 ```bash
-for svc in victoria-metrics node_exporter mongodb_exporter process_exporter; do
+for svc in victoria-metrics node_exporter mongodb_exporter process_exporter vmalert alertmanager alert-bridge; do
     sudo systemctl stop $svc
     sudo systemctl disable $svc
     sudo rm -f /etc/systemd/system/$svc.service
 done
-sudo rm -f /usr/local/bin/victoria-metrics /usr/local/bin/node_exporter /usr/local/bin/mongodb_exporter /usr/local/bin/process-exporter
-sudo rm -rf /var/lib/victoria-metrics /etc/victoria-metrics /etc/process_exporter
+sudo rm -f /usr/local/bin/victoria-metrics /usr/local/bin/node_exporter /usr/local/bin/mongodb_exporter /usr/local/bin/process-exporter /usr/local/bin/vmalert /usr/local/bin/alertmanager
+sudo rm -rf /var/lib/victoria-metrics /etc/victoria-metrics /etc/vmalert /etc/alertmanager /etc/process_exporter /tmp/alertmanager-data
 sudo userdel victoria-metrics
 sudo systemctl daemon-reload
 ```
