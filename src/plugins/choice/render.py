@@ -1,6 +1,8 @@
 import asyncio
 from collections.abc import Sequence
-from typing import cast
+from typing import Literal, NamedTuple, cast
+
+from nonebot.adapters.onebot.v11 import Message
 
 from src.utils.image.avatar import Avatar
 from src.utils.persistence import FileStorage
@@ -14,12 +16,14 @@ from src.utils.render import (
     Decorations,
     Direction,
     FixedContainer,
+    FontFamily,
     Image,
     Palette,
     Paragraph,
     RectCrop,
     RenderObject,
     Space,
+    TextDecoration,
     TextShading,
     TextStyle,
     WaterfallContainer,
@@ -33,6 +37,24 @@ from src.utils.userlist import (
     UserListMetadata,
     UserListPagination,
 )
+
+DiffStatus = Literal["added", "skipped", "forced", "removed", "remove_failed"]
+
+
+class DiffEntry(NamedTuple):
+    status: DiffStatus
+    item_index: int | None
+    item: MessageItem | ReferenceItem | None
+    fail_text: str | None
+
+
+_STATUS_COLORS: dict[DiffStatus, Color] = {
+    "added": Color.from_hex("#22a45d"),
+    "forced": Color.from_hex("#22a45d"),
+    "skipped": Color.from_hex("#0077cc"),
+    "removed": Color.from_hex("#d14b4b"),
+    "remove_failed": Color.from_hex("#666666"),
+}
 
 
 class ChoiceRender:
@@ -77,24 +99,52 @@ class ChoiceRender:
         max_width: int | None = None,
         shadow: bool = True,
         rescale: float = 1.0,
+        label: str | None = None,
+        label_color: Color | None = None,
+        index_color: Color | None = None,
     ):
         """
         Adds a heading and a decoration to the content.
 
         The heading is a horizontal line consisting of the following parts:
-            - index (left)
+            - index or label (left)
             - title (left)
             - extra (left)
             - avatar (right)
             - horizontal line (between above components and content)
 
         The decoration is shadow effect if `shadow` is True.
+        If `label` is set, it overrides the `index` display with custom text.
+        If both `label` and `index` are set, both are displayed side-by-side.
         """
         rescale = max(1, rescale)
         update_style = TextStyle(size=round(cls.BASE_SIZE * rescale))
-        if index is not None:
+        if label is not None:
+            color = label_color or cast(Color, cls.INDEX_STYLE.get("color"))
+            label_obj = Paragraph.of(
+                label,
+                style=cls.INDEX_STYLE
+                | update_style
+                | TextStyle(color=color, bold=True),
+            )
+            if index is not None:
+                idx_obj = Paragraph.of(
+                    f"# {index + 1}", style=cls.INDEX_STYLE | update_style
+                )
+                index_obj = Container.from_children(
+                    [label_obj, idx_obj],
+                    direction=Direction.HORIZONTAL,
+                    alignment=Alignment.CENTER,
+                    spacing=3,
+                )
+            else:
+                index_obj = label_obj
+        elif index is not None:
+            style = cls.INDEX_STYLE | update_style
+            if index_color is not None:
+                style = style | TextStyle(color=index_color)
             index_obj = Paragraph.of(
-                f"# {index + 1}", style=cls.INDEX_STYLE | update_style
+                f"# {index + 1}", style=style
             )
         else:
             index_obj = None
@@ -191,10 +241,11 @@ class ChoiceRender:
         cls,
         *,
         group_id: int,
-        index: int,
+        index: int | None,
         item: MessageItem | ReferenceItem,
         valid: bool = True,
         cached: bool = True,
+        status: DiffStatus | None = None,
     ):
         cache_name = f"choice-cache-{item.uuid}-{index}"
         storage = await FileStorage.get_instance(db_name="cache", ttl="1d")
@@ -208,6 +259,14 @@ class ChoiceRender:
             except Exception:
                 pass
         # cache miss
+        rm_style = (
+            TextStyle(
+                color=_STATUS_COLORS["removed"],
+                decoration=TextDecoration.line_through(),
+            )
+            if status == "removed"
+            else None
+        )
         if isinstance(item, MessageItem):
             content = await MessageRender.render_content(
                 item.content,
@@ -215,13 +274,17 @@ class ChoiceRender:
                 group_id=group_id,
                 background=cls.MSG_BG,
                 text_truncate=40,
+                text_style=rm_style,
             )
             background = Palette.TRANSPARENT
             decoration = Decorations.of()
         else:
+            style = cls.REF_STYLE if valid else cls.REF_STYLE_INVALID
+            if rm_style is not None:
+                style = style | rm_style
             content = Paragraph.of(
                 f"🔗 [{item.name}]",
-                style=cls.REF_STYLE if valid else cls.REF_STYLE_INVALID,
+                style=style,
                 max_width=cls.CARD_WIDTH,
             )
             background = cls.REF_BG if valid else cls.REF_BG_INVALID
@@ -234,12 +297,22 @@ class ChoiceRender:
             background=background,
             decorations=decoration,
         )
-        obj = await cls.add_heading_and_decoration(
-            content=content,
-            index=index,
-            user_id=item.creator_id,
-            max_width=cls.CARD_WIDTH_MAX,
-        )
+
+        if status is not None:
+            obj = await cls.add_heading_and_decoration(
+                content=content,
+                index=index,
+                index_color=_STATUS_COLORS[status],
+                user_id=item.creator_id,
+                max_width=cls.CARD_WIDTH_MAX,
+            )
+        else:
+            obj = await cls.add_heading_and_decoration(
+                content=content,
+                index=index,
+                user_id=item.creator_id,
+                max_width=cls.CARD_WIDTH_MAX,
+            )
         image = obj.render().to_pil()
         if cached and isinstance(item, MessageItem):
             await storage.store_as_temp(storage.encode_image(image), cache_name)
@@ -340,6 +413,88 @@ class ChoiceRender:
             alignment=Alignment.CENTER,
             spacing=5,
             background=Palette.WHITE,
+        )
+
+    @classmethod
+    async def _render_diff_item(
+        cls,
+        *,
+        group_id: int,
+        entry: DiffEntry,
+    ) -> RenderObject:
+        if entry.item is not None:
+            return await cls.render_item_card(
+                group_id=group_id,
+                index=entry.item_index,
+                item=entry.item,
+                valid=True,
+                cached=False,
+                status=entry.status,
+            )
+
+        fail_text = str(entry.fail_text or "")
+        if len(fail_text) > 37:
+            fail_text = fail_text[:37] + "..."
+        fail_text += "（未匹配）"
+        content = await MessageRender.render_content(
+            Message(fail_text),
+            max_width=cls.CARD_WIDTH,
+            group_id=group_id,
+            background=cls.MSG_BG,
+            text_style=TextStyle(
+                color=_STATUS_COLORS["remove_failed"]
+            ),
+        )
+        content = FixedContainer.from_children(
+            width=cls.CARD_WIDTH_MAX,
+            height=content.height,
+            children=[content],
+            direction=Direction.VERTICAL,
+        )
+        return await cls.add_heading_and_decoration(
+            content=content,
+            label="# ?",
+            label_color=_STATUS_COLORS["remove_failed"],
+            max_width=cls.CARD_WIDTH_MAX,
+        )
+
+    @classmethod
+    async def render_diff(
+        cls,
+        *,
+        group_id: int,
+        userlist: UserList,
+        diff_items: list[DiffEntry],
+    ):
+        rescale = max(min(len(diff_items) / 2, 2.0), 1.0)
+        num_columns = 1
+
+        if diff_items:
+            cards = await asyncio.gather(
+                *(
+                    cls._render_diff_item(
+                        group_id=group_id, entry=e
+                    )
+                    for e in diff_items
+                )
+            )
+            content: RenderObject = WaterfallContainer.from_children(
+                children=cards,
+                columns=max(1, len(diff_items) // 3),
+                alignment=Alignment.CENTER,
+                ordered=False,
+            )
+            num_columns = min(max(1, len(diff_items) // 3), len(diff_items))
+        else:
+            content = Paragraph.of("无变更", style=cls.TITLE_STYLE)
+
+        return await cls.add_heading_and_decoration(
+            content=content,
+            title=userlist.name,
+            user_id=userlist.creator_id,
+            shadow=False,
+            rescale=rescale,
+            max_width=max(cls.CARD_WIDTH_MAX * num_columns, content.width),
         )
 
     @classmethod

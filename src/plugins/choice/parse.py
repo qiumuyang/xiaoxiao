@@ -20,6 +20,7 @@ def unescape(s: str) -> str:
 
 
 class Op(Enum):
+    FORCE_ADD = "++"
     ADD = "+"
     REMOVE = "-"
     SHOW = "?"

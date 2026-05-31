@@ -80,9 +80,11 @@ class MessageRender:
         group_id: int | None = None,
         background: Color = Palette.WHITE,
         text_truncate: int | None = None,
+        text_style: TextStyle | None = None,
     ) -> RenderObject:
         storage = await FileStorage.get_instance()
-        builder = Builder(default=cls.STYLE_CONTENT, max_width=max_width)
+        default = cls.STYLE_CONTENT | text_style if text_style else cls.STYLE_CONTENT
+        builder = Builder(default=default, max_width=max_width)
         shortcut = None
         max_image_dim = round((max_width or cls.MAX_WIDTH) * cls.MAX_IMAGE_DIM_R)
         min_image_dim = round((max_width or cls.MAX_WIDTH) * cls.MIN_IMAGE_DIM_R)

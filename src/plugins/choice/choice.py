@@ -17,6 +17,7 @@ from src.utils.userlist import (
     ReferenceItem,
     TooManyItemsError,
     TooManyListsError,
+    UserList,
     UserListError,
     UserListService,
 )
@@ -32,7 +33,7 @@ from .exception import (
     NonPlainTextError,
 )
 from .parse import Action, Op
-from .render import ChoiceRender
+from .render import ChoiceRender, DiffEntry
 
 logger = logger_wrapper(__name__)
 
@@ -290,6 +291,34 @@ class ChoiceHandler:
             case _:
                 raise AssertionError("unreachable")
 
+    async def _item_exists(
+        self,
+        lst: "UserList",
+        content: Message,
+        pending_msgs: list[Message],
+    ) -> tuple[bool, "MessageItem | None", int | None]:
+        for i, existing_item in enumerate(lst.items):
+            if isinstance(existing_item, MessageItem):
+                if await self.comparator(content, existing_item.content):
+                    return True, existing_item, i
+        for pending in pending_msgs:
+            if await self.comparator(content, pending):
+                return True, None, None
+        return False, None, None
+
+    async def _ref_exists(
+        self,
+        lst: "UserList",
+        ref_name: str,
+        pending_refs: list[str],
+    ) -> tuple[bool, "ReferenceItem | None", int | None]:
+        for i, item in enumerate(lst.items):
+            if isinstance(item, ReferenceItem) and item.name == ref_name:
+                return True, item, i
+        if ref_name in pending_refs:
+            return True, None, None
+        return False, None, None
+
     async def random_list_items(self, list_name: str) -> Message | None:
         lst = await UserListService.find_list(self.group_id, list_name)
         if lst is None:
@@ -324,50 +353,133 @@ class ChoiceHandler:
             choice = await MessageExtension.replace_with_local_image(choice)
             await self.matcher.finish(choice)
 
-        # Case 2: add/remove items
+        # Case 2: add/remove items — must be all same type
+        ops = set(item.op for item in action.items)
+        has_add = bool(ops & {Op.ADD, Op.FORCE_ADD})
+        has_remove = Op.REMOVE in ops
+        if has_add and has_remove:
+            raise InvalidItemOpError("不能同时增删条目，请分两次操作")
+
         add_msg: list[Message] = []
         add_ref: list[str] = []
         remove_index: list[int] = []
-        remove_fail: list[str] = []
-        updated = False
+        diff_items: list[DiffEntry] = []
         for item in action.items:
             content = MessageExtension.decode(item.content, symtab)
             if not content:
                 continue
             plain_text = content.extract_plain_text()
             match item.op:
-                case Op.ADD:
-                    updated = True
+                case Op.FORCE_ADD:
                     if item.type == "reference":
                         if not all(seg.is_text() for seg in content):
                             raise NonPlainTextError("引用条目")
                         add_ref.append(plain_text)
+                        ref_item = ReferenceItem(
+                            name=plain_text, creator_id=operator_id
+                        )
+                        diff_items.append(
+                            DiffEntry("forced", None, ref_item, None)
+                        )
                     else:
                         add_msg.append(content)
+                        msg_item = MessageItem(
+                            content=content, creator_id=operator_id
+                        )
+                        diff_items.append(
+                            DiffEntry("forced", None, msg_item, None)
+                        )
+                case Op.ADD:
+                    if item.type == "reference":
+                        if not all(seg.is_text() for seg in content):
+                            raise NonPlainTextError("引用条目")
+                        exists, ref_item, ref_index = await self._ref_exists(
+                            lst, plain_text, add_ref
+                        )
+                        if exists:
+                            if ref_item is not None:
+                                diff_items.append(
+                                    DiffEntry("skipped", ref_index, ref_item, None)
+                                )
+                            else:
+                                diff_items.append(
+                                    DiffEntry(
+                                        "skipped", None,
+                                        ReferenceItem(name=plain_text, creator_id=operator_id),
+                                        None,
+                                    )
+                                )
+                        else:
+                            add_ref.append(plain_text)
+                            diff_items.append(
+                                DiffEntry(
+                                    "added", None,
+                                    ReferenceItem(name=plain_text, creator_id=operator_id),
+                                    None,
+                                )
+                            )
+                    else:
+                        exists, msg_item, msg_index = await self._item_exists(
+                            lst, content, add_msg
+                        )
+                        if exists:
+                            if msg_item is not None:
+                                diff_items.append(
+                                    DiffEntry("skipped", msg_index, msg_item, None)
+                                )
+                            else:
+                                diff_items.append(
+                                    DiffEntry(
+                                        "skipped", None,
+                                        MessageItem(content=content, creator_id=operator_id),
+                                        None,
+                                    )
+                                )
+                        else:
+                            add_msg.append(content)
+                            diff_items.append(
+                                DiffEntry(
+                                    "added", None,
+                                    MessageItem(content=content, creator_id=operator_id),
+                                    None,
+                                )
+                            )
                 case Op.REMOVE:
                     if plain_text.isdecimal():
                         index = int(plain_text) - 1
                         if not 0 <= index < len(lst.items):
                             raise InvalidIndexError(plain_text)
                         remove_index.append(index)
-                        updated = True
+                        diff_items.append(
+                            DiffEntry(
+                                "removed", index, lst.items[index], None
+                            )
+                        )
                     else:
                         for i, lst_item in enumerate(lst.items):
                             if isinstance(lst_item, MessageItem):
-                                content = lst_item.content
+                                item_content = lst_item.content
                                 if (
-                                    all(seg.is_text() for seg in content)
-                                    and content.extract_plain_text() == plain_text
+                                    all(seg.is_text() for seg in item_content)
+                                    and item_content.extract_plain_text()
+                                    == plain_text
                                 ):
                                     remove_index.append(i)
-                                    updated = True
-                                    break  # only remove the first match
+                                    diff_items.append(
+                                        DiffEntry(
+                                            "removed", i, lst_item, None
+                                        )
+                                    )
+                                    break
                         else:
-                            remove_fail.append(plain_text)
+                            diff_items.append(
+                                DiffEntry(
+                                    "remove_failed", None, None, plain_text
+                                )
+                            )
                 case _:
                     raise InvalidItemOpError
         if remove_index:
-            # perform remove before add
             await UserListService.remove_by_index(
                 self.group_id, list_name, *set(remove_index)
             )
@@ -380,22 +492,37 @@ class ChoiceHandler:
                 self.group_id, list_name, operator_id, *add_ref
             )
 
+        num_removed = len(set(remove_index))
+        post_remove_len = len(lst.items) - num_removed
+
+        msg_counter = 0
+        ref_counter = 0
+        indexed_diff: list[DiffEntry] = []
+        for entry in diff_items:
+            if entry.status in ("added", "forced"):
+                if isinstance(entry.item, MessageItem):
+                    entry = entry._replace(item_index=post_remove_len + msg_counter)
+                    msg_counter += 1
+                elif isinstance(entry.item, ReferenceItem):
+                    entry = entry._replace(item_index=post_remove_len + len(add_msg) + ref_counter)
+                    ref_counter += 1
+            indexed_diff.append(entry)
+        diff_items = indexed_diff
+
+        if not diff_items:
+            await self.matcher.finish(f"列表 [{list_name}] 未更新")
+
         lst = await UserListService.find_list(self.group_id, list_name)
         if lst is None:
             raise RuntimeError("List missing")
 
-        # TODO: render diff instead of whole list
-        # obj = await ChoiceRender.render_list(group_id=self.group_id,
-        #                                      userlist=lst)
-        # await self.matcher.finish(
-        #     ExtMessageSegment.image(obj.render().to_pil()))
-
-        if updated:
-            if not remove_fail:
-                await self.matcher.finish(f"列表 [{list_name}] 已更新")
-            else:
-                await self.matcher.finish(
-                    f"列表 [{list_name}] 已更新\n未匹配的条目: {', '.join(remove_fail)}"
-                )
-        else:
-            await self.matcher.finish(f"列表 [{list_name}] 未更新")
+        obj = await ChoiceRender.render_diff(
+            group_id=self.group_id, userlist=lst, diff_items=diff_items
+        )
+        await self.matcher.finish(
+            ExtMessageSegment.image(
+                obj.render()
+                .thumbnail(max_height=2000, interpolation=Interpolation.LANCZOS)
+                .to_pil()
+            )
+        )

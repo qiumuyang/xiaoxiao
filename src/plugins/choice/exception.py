@@ -29,5 +29,5 @@ class InvalidListNameError(ChoiceError):
 
 
 class InvalidItemOpError(ChoiceError):
-    def __init__(self):
-        super().__init__("列表项目仅可使用增删操作")
+    def __init__(self, msg: str | None = None):
+        super().__init__(msg or "列表项目仅可使用增删操作")
