@@ -50,8 +50,8 @@ async def demote(*messages: Message):
 
 
 class UserListService:
-    MAX_ITEMS = 100
-    MAX_LISTS = 100
+    MAX_ITEMS = 400
+    MAX_LISTS = 111
 
     collection = UserListCollection()
 

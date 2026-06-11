@@ -246,7 +246,13 @@ class UserListCollection:
         return await self._collection.count({"group_id": group_id})
 
     async def count_items(self, group_id: int, name: str):
-        return await self._collection.count({"group_id": group_id, "name": name})
+        pipeline = [
+            {"$match": {"group_id": group_id, "name": name}},
+            {"$project": {"itemCount": {"$size": "$items"}}},
+        ]
+        cursor = await self._collection.aggregate(pipeline)
+        docs = await cursor.to_list(length=1)
+        return docs[0]["itemCount"] if docs else 0
 
 
 @UserListCollection._collection.filter()
