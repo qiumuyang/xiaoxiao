@@ -67,6 +67,11 @@ def generate_sentence():
 
 @pytest.mark.asyncio
 async def test_render_item_card():
+    from PIL import Image as PILImage
+    from unittest.mock import AsyncMock
+
+    placeholder = PILImage.new("RGBA", (80, 80), color=(150, 150, 150, 255))
+
     complex_msg = Message(
         [
             MessageSegment.text("Leading text"),
@@ -82,36 +87,52 @@ async def test_render_item_card():
     msg = MessageItem(content=complex_msg, creator_id=111)
     ref = ReferenceItem(name="test", creator_id=111)
 
-    msg1 = await ChoiceRender.render_item_card(
-        group_id=999,
-        index=100,
-        item=MessageItem(content=Message("普通文本"), creator_id=222),
-    )
-    msg1.render().save(out / "message-item.png")
-
-    msg2 = await ChoiceRender.render_item_card(group_id=999, index=100, item=msg)
-    msg2.render().save(out / "message-item-complex.png")
-
-    msg3 = await ChoiceRender.render_item_card(
-        group_id=999,
-        index=100,
-        item=MessageItem(
-            content=Message(
-                MessageSegment.image_url(
-                    filename="test_512x256.png", url="https://placehold.co/512x256.png"
-                )
-            ),
-            creator_id=333,
+    with (
+        patch(
+            "src.utils.persistence.FileStorage.get_instance",
+            new_callable=AsyncMock,
         ),
-    )
-    msg3.render().save(out / "message-item-image.png")
+        patch(
+            "src.utils.image.avatar.Avatar.user",
+            new_callable=AsyncMock,
+            return_value=placeholder,
+        ),
+    ):
+        msg1 = await ChoiceRender.render_item_card(
+            group_id=999,
+            index=100,
+            item=MessageItem(content=Message("普通文本"), creator_id=222),
+        )
+        msg1.render().save(out / "message-item.png")
 
-    ref = await ChoiceRender.render_item_card(group_id=999, index=79, item=ref)
-    ref.render().save(out / "reference-item.png")
+        msg2 = await ChoiceRender.render_item_card(group_id=999, index=100, item=msg)
+        msg2.render().save(out / "message-item-complex.png")
+
+        msg3 = await ChoiceRender.render_item_card(
+            group_id=999,
+            index=100,
+            item=MessageItem(
+                content=Message(
+                    MessageSegment.image_url(
+                        filename="test_512x256.png", url="https://placehold.co/512x256.png"
+                    )
+                ),
+                creator_id=333,
+            ),
+        )
+        msg3.render().save(out / "message-item-image.png")
+
+        ref = await ChoiceRender.render_item_card(group_id=999, index=79, item=ref)
+        ref.render().save(out / "reference-item.png")
 
 
 @pytest.mark.asyncio
 async def test_render_list():
+    from PIL import Image as PILImage
+    from unittest.mock import AsyncMock
+
+    placeholder = PILImage.new("RGBA", (80, 80), color=(150, 150, 150, 255))
+
     items = functools.reduce(
         operator.iadd,
         [
@@ -147,7 +168,18 @@ async def test_render_list():
         ],
         [],
     )
-    with patch.object(UserList, "valid_references", new_callable=PropertyMock) as mock:
+    with (
+        patch.object(UserList, "valid_references", new_callable=PropertyMock) as mock,
+        patch(
+            "src.utils.persistence.FileStorage.get_instance",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.utils.image.avatar.Avatar.user",
+            new_callable=AsyncMock,
+            return_value=placeholder,
+        ),
+    ):
 
         async def valid_references():
             return ["test"]
@@ -196,3 +228,57 @@ async def test_render_list():
         )
         result = await ChoiceRender.render_list(group_id=999, userlist=lst)
         result.render().save(out / "list-long-name.png")
+
+
+@pytest.mark.asyncio
+async def test_render_list_overview():
+    from PIL import Image as PILImage
+    from unittest.mock import AsyncMock
+
+    from src.utils.userlist import UserListMetadata
+
+    placeholder = PILImage.new("RGBA", (80, 80), color=(150, 150, 150, 255))
+
+    def make_meta(name: str, num_msg: int, num_ref: int, creator_id: int):
+        return UserListMetadata(
+            name=name,
+            group_id=999,
+            creator_id=creator_id,
+            num_messages=num_msg,
+            num_references=num_ref,
+        )
+
+    creators = [111, 222, 333]
+
+    with patch(
+        "src.utils.image.avatar.Avatar.user",
+        new_callable=AsyncMock,
+        return_value=placeholder,
+    ):
+        # 1-column: 5 lists
+        metas_1col = [
+            make_meta(f"列表{i}", (i + 1) * 3, i % 2, creators[i % 3])
+            for i in range(5)
+        ]
+        result = await ChoiceRender.render_list_overview(*metas_1col)
+        result.render().save(out / "overview-1col.png")
+
+        # 2-column: 35 lists
+        metas_2col = [
+            make_meta(f"菜单{i}", i + 1, i % 3, creators[i % 3])
+            for i in range(35)
+        ]
+        result = await ChoiceRender.render_list_overview(*metas_2col)
+        result.render().thumbnail(
+            max_height=3000, interpolation=Interpolation.LANCZOS
+        ).save(out / "overview-2col.png")
+
+        # 3-column: 50 lists
+        metas_3col = [
+            make_meta(f"清单{i}", i + 2, i % 4, creators[i % 3])
+            for i in range(50)
+        ]
+        result = await ChoiceRender.render_list_overview(*metas_3col)
+        result.render().thumbnail(
+            max_height=3000, interpolation=Interpolation.LANCZOS
+        ).save(out / "overview-3col.png")

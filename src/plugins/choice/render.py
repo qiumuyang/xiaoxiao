@@ -498,8 +498,8 @@ class ChoiceRender:
         )
 
     @classmethod
-    async def render_list_overview(cls, *lists: UserListMetadata):
-        columns = [[] for _ in range(3)]
+    async def _render_column_rows(cls, *lists: UserListMetadata) -> Container:
+        columns = [[], [], []]
         creator_ids = list(set(userlist.creator_id for userlist in lists))
         avatars = await asyncio.gather(*(Avatar.user(uid) for uid in creator_ids))
         avatar_dict = dict(zip(creator_ids, avatars, strict=False))
@@ -530,15 +530,53 @@ class ChoiceRender:
                     spacing=40,
                 )
             )
-        summary = Container.from_children(
+        return Container.from_children(
             children=rows,
             direction=Direction.VERTICAL,
             alignment=Alignment.CENTER,
             spacing=10,
             padding=Space.all(10),
         )
+
+    @classmethod
+    async def render_list_overview(cls, *lists: UserListMetadata):
+        # single-column mode: use original path directly
+        if len(lists) <= 30:
+            content = await cls._render_column_rows(*lists)
+            return await cls.add_heading_and_decoration(
+                content=content,
+                title="选择困难",
+                rescale=1.5,
+            )
+
+        # multi-column mode: split into columns, render each, join with vertical lines
+        num_cols = 3 if len(lists) > 45 else 2
+        sorted_lists = sorted(lists, key=lambda x: -x.num_items)
+        # round-robin distribute so each column gets a mix of popular and less-popular
+        col_lists: list[list[UserListMetadata]] = [[] for _ in range(num_cols)]
+        for i, lst in enumerate(sorted_lists):
+            col_lists[i % num_cols].append(lst)
+
+        columns = [await cls._render_column_rows(*col) for col in col_lists]
+
+        col_height = max(c.height for c in columns)
+        separator = Image.vertical_line(
+            col_height,
+            width=1,
+            color=Color.from_hex("#e0e0e0"),
+        )
+        assembled: list[RenderObject] = [columns[0]]
+        for col in columns[1:]:
+            assembled.append(separator)
+            assembled.append(col)
+        content = Container.from_children(
+            assembled,
+            direction=Direction.HORIZONTAL,
+            alignment=Alignment.START,
+            spacing=30,
+        )
         return await cls.add_heading_and_decoration(
-            content=summary,
+            content=content,
             title="选择困难",
             rescale=1.5,
         )
