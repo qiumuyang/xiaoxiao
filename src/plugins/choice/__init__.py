@@ -10,6 +10,8 @@ from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import not_reply
 from src.utils.doc import CommandCategory, command_doc
 from src.utils.observability.wrappers import on_command, on_message, on_reply
+from src.utils.web_fetch import scrape_from_text
+from src.utils.web_fetch.errors import ScrapeError
 
 from .choice import ChoiceConfig, ChoiceHandler
 from .parse import Action, ItemAction, Op, parse_action
@@ -122,6 +124,8 @@ async def _(
 
     handler = ChoiceHandler(bot, event, make_choice_reply)
     if action.op == Op.NONE and len(action.items) == 1 and action.items[0].op in (Op.ADD, Op.FORCE_ADD):
+        sudo = await (SUPERUSER | ADMIN)(bot, event)
+
         if forward_id:
             result = await bot.get_forward_msg(message_id=forward_id)
             images = []
@@ -131,33 +135,56 @@ async def _(
                         images.append(_MsgSeg(seg["type"], seg["data"]))
             if not images:
                 return
-            item_op = action.items[0].op
-            new_items = []
-            for img_seg in images:
-                img_msg = Message([img_seg])
-                s, symtab_img = MessageExtension.encode(img_msg, start=len(symtab))
-                new_items.append(ItemAction(item_op, s, "message"))
-                symtab.update(symtab_img)
-            action = Action(action.op, action.name, new_items)
-            await handler.execute(
-                event.user_id,
-                action,
-                symtab,
-                sudo=await (SUPERUSER | ADMIN)(bot, event),
-            )
+            await _add_images(handler, action, images, symtab, event.user_id, sudo)
         else:
-            s, symtab_content = MessageExtension.encode(content, start=len(symtab))
-            action.items[0] = action.items[0].with_content(s)
-            await handler.execute(
-                event.user_id,
-                action,
-                symtab | symtab_content,
-                sudo=await (SUPERUSER | ADMIN)(bot, event),
-            )
+            try:
+                infos = await scrape_from_text(reply.message.extract_plain_text())
+            except ScrapeError as e:
+                await make_choice_reply.finish(str(e))
+            if infos is not None:
+                if not infos:
+                    return
+                images = [
+                    _MsgSeg("image", {"url": i.url, "filename": i.filename})
+                    for i in infos
+                ]
+                await _add_images(handler, action, images, symtab, event.user_id, sudo)
+            else:
+                s, symtab_content = MessageExtension.encode(content, start=len(symtab))
+                action.items[0] = action.items[0].with_content(s)
+                await handler.execute(
+                    event.user_id,
+                    action,
+                    symtab | symtab_content,
+                    sudo=sudo,
+                )
     elif action.op == Op.SHOW and not action.items:
         await handler.execute_search(content, action, symtab)
     else:
         await make_choice_reply.finish("不支持的操作，请参考帮助文档")
+
+
+async def _add_images(
+    handler: ChoiceHandler,
+    action: Action,
+    images: list["_MsgSeg"],
+    symtab: dict[str, "_MsgSeg"],
+    user_id: int,
+    sudo: bool,
+) -> None:
+    item_op = action.items[0].op
+    new_items: list[ItemAction] = []
+    for seg in images:
+        msg = Message([seg])
+        s, tab = MessageExtension.encode(msg, start=len(symtab))
+        new_items.append(ItemAction(item_op, s, "message"))
+        symtab.update(tab)
+    await handler.execute(
+        user_id,
+        Action(action.op, action.name, new_items),
+        symtab,
+        sudo=sudo,
+    )
 
 
 @choice_shortcut.handle()

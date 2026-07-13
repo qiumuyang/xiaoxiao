@@ -67,8 +67,9 @@ def generate_sentence():
 
 @pytest.mark.asyncio
 async def test_render_item_card():
-    from PIL import Image as PILImage
     from unittest.mock import AsyncMock
+
+    from PIL import Image as PILImage
 
     placeholder = PILImage.new("RGBA", (80, 80), color=(150, 150, 150, 255))
 
@@ -128,8 +129,9 @@ async def test_render_item_card():
 
 @pytest.mark.asyncio
 async def test_render_list():
-    from PIL import Image as PILImage
     from unittest.mock import AsyncMock
+
+    from PIL import Image as PILImage
 
     placeholder = PILImage.new("RGBA", (80, 80), color=(150, 150, 150, 255))
 
@@ -232,8 +234,9 @@ async def test_render_list():
 
 @pytest.mark.asyncio
 async def test_render_list_overview():
-    from PIL import Image as PILImage
     from unittest.mock import AsyncMock
+
+    from PIL import Image as PILImage
 
     from src.utils.userlist import UserListMetadata
 
