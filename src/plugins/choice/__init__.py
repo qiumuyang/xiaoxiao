@@ -1,5 +1,6 @@
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
+from nonebot.adapters.onebot.v11.message import MessageSegment as _MsgSeg
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
@@ -11,7 +12,7 @@ from src.utils.doc import CommandCategory, command_doc
 from src.utils.observability.wrappers import on_command, on_message, on_reply
 
 from .choice import ChoiceConfig, ChoiceHandler
-from .parse import Action, Op, parse_action
+from .parse import Action, ItemAction, Op, parse_action
 
 make_choice_reply = on_reply(("选择困难", "xzkn"), block=True)
 make_choice = on_command(
@@ -102,6 +103,13 @@ async def _(
 
     # rewrite action with reply content
     reply: Reply = state["reply"]
+
+    forward_id = None
+    for seg in reply.message:
+        if seg.type == "forward":
+            forward_id = seg.data["id"]
+            break
+
     content = MessageExtension.filter(
         reply.message,
         MessageType.TEXT,
@@ -114,14 +122,38 @@ async def _(
 
     handler = ChoiceHandler(bot, event, make_choice_reply)
     if action.op == Op.NONE and len(action.items) == 1 and action.items[0].op in (Op.ADD, Op.FORCE_ADD):
-        s, symtab_content = MessageExtension.encode(content, start=len(symtab))
-        action.items[0] = action.items[0].with_content(s)
-        await handler.execute(
-            event.user_id,
-            action,
-            symtab | symtab_content,
-            sudo=await (SUPERUSER | ADMIN)(bot, event),
-        )
+        if forward_id:
+            result = await bot.get_forward_msg(message_id=forward_id)
+            images = []
+            for msg in result.get("messages", []):
+                for seg in msg.get("content", []):
+                    if seg.get("type") == "image":
+                        images.append(_MsgSeg(seg["type"], seg["data"]))
+            if not images:
+                return
+            item_op = action.items[0].op
+            new_items = []
+            for img_seg in images:
+                img_msg = Message([img_seg])
+                s, symtab_img = MessageExtension.encode(img_msg, start=len(symtab))
+                new_items.append(ItemAction(item_op, s, "message"))
+                symtab.update(symtab_img)
+            action = Action(action.op, action.name, new_items)
+            await handler.execute(
+                event.user_id,
+                action,
+                symtab,
+                sudo=await (SUPERUSER | ADMIN)(bot, event),
+            )
+        else:
+            s, symtab_content = MessageExtension.encode(content, start=len(symtab))
+            action.items[0] = action.items[0].with_content(s)
+            await handler.execute(
+                event.user_id,
+                action,
+                symtab | symtab_content,
+                sudo=await (SUPERUSER | ADMIN)(bot, event),
+            )
     elif action.op == Op.SHOW and not action.items:
         await handler.execute_search(content, action, symtab)
     else:
