@@ -113,7 +113,7 @@ async def _(
     content = MessageExtension.fix_mface(content)
 
     handler = ChoiceHandler(bot, event, make_choice_reply)
-    if action.op == Op.NONE and len(action.items) == 1 and action.items[0].op == Op.ADD:
+    if action.op == Op.NONE and len(action.items) == 1 and action.items[0].op in (Op.ADD, Op.FORCE_ADD):
         s, symtab_content = MessageExtension.encode(content, start=len(symtab))
         action.items[0] = action.items[0].with_content(s)
         await handler.execute(
