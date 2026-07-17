@@ -1,3 +1,6 @@
+import asyncio
+
+from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import Bot, GroupMessageEvent, Message
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.adapters.onebot.v11.message import MessageSegment as _MsgSeg
@@ -9,12 +12,16 @@ from src.ext import MessageExtension, MessageType
 from src.ext.permission import ADMIN, SUPERUSER
 from src.ext.rule import not_reply
 from src.utils.doc import CommandCategory, command_doc
+from src.utils.log import logger_wrapper
 from src.utils.observability.wrappers import on_command, on_message, on_reply
+from src.utils.userlist import UserListService
 from src.utils.web_fetch import scrape_from_text
 from src.utils.web_fetch.errors import ScrapeError
 
 from .choice import ChoiceConfig, ChoiceHandler
 from .parse import Action, ItemAction, Op, parse_action
+
+logger = logger_wrapper(__name__)
 
 make_choice_reply = on_reply(("选择困难", "xzkn"), block=True)
 make_choice = on_command(
@@ -197,3 +204,21 @@ async def _(bot: Bot, event: GroupMessageEvent):
         handler = ChoiceHandler(bot, event, make_choice_reply)
         if msg := await handler.random_list_items(name):
             await choice_shortcut.finish(msg)
+
+
+_purge_task: asyncio.Task[None] | None = None
+
+
+@get_driver().on_startup
+async def _start_choice_purge_task():
+    global _purge_task
+
+    async def _purge_loop():
+        while True:
+            await asyncio.sleep(3600)
+            try:
+                await UserListService.purge_expired()
+            except Exception:
+                logger.exception("Failed to purge expired lists")
+
+    _purge_task = asyncio.create_task(_purge_loop())

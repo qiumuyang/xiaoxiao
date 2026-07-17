@@ -253,6 +253,8 @@ class ChoiceHandler:
             case Op.REMOVE:
                 if lst is None:
                     raise ListNotExistsError(list_name)
+                if action.items:
+                    raise InvalidItemOpError("删除列表时不可包含其他参数")
                 await UserListService.remove_list(
                     self.group_id, list_name, operator_id, sudo
                 )

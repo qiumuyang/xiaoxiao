@@ -124,7 +124,10 @@ class Collection[D: Mapping[str, Any], T]:
         self,
         object: T,
     ) -> InsertOneResult | None:
-        if await self.find_one(object):
+        filter_dict = self._to_filter(object)
+        if isinstance(filter_dict, dict):
+            filter_dict["deleted_at"] = None
+        if await self.collection.find_one(filter_dict):
             return None
         return await self.insert_one(object)
 

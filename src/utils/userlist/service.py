@@ -77,13 +77,20 @@ class UserListService:
         if lst is not None:
             if not sudo and lst.creator_id != operator_id:
                 raise ListPermissionError
-            res = await cls.collection.delete(group_id, name)
-            if res.deleted_count == 1:
-                # decrease image reference
-                for item in lst.items:
-                    if isinstance(item, MessageItem):
-                        await demote(item.content)
+            await cls.collection.delete(group_id, name)
         return lst
+
+    @classmethod
+    async def purge_expired(cls):
+        from datetime import datetime, timedelta
+
+        before = datetime.now() - timedelta(hours=24)
+        expired_lists = await cls.collection.find_expired(before)
+        for lst in expired_lists:
+            for item in lst.items:
+                if isinstance(item, MessageItem):
+                    await demote(item.content)
+            await cls.collection.hard_delete(lst.group_id, lst.name)
 
     @classmethod
     async def random_choice(cls, group_id: int, name: str):

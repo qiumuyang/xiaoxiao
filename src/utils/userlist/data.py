@@ -60,6 +60,7 @@ class UserList(BaseModel):
     creator_id: int
     created_at: datetime = Field(default_factory=datetime.now)
     items: list[MessageItem | ReferenceItem] = Field(default_factory=list)
+    deleted_at: datetime | None = None
 
     async def db_append(self, *items: MessageItem | ReferenceItem):
         result = await UserListCollection().append(self.group_id, self.name, *items)
@@ -176,12 +177,16 @@ class UserListCollection:
 
     async def find(self, group_id: int, name: str):
         return await self._collection.find_one(
-            filter={"group_id": group_id, "name": name}
+            filter={
+                "group_id": group_id,
+                "name": name,
+                "deleted_at": None,
+            }
         )
 
     async def find_all(self, group_id: int) -> list[UserListMetadata]:
         pipeline = [
-            {"$match": {"group_id": group_id}},
+            {"$match": {"group_id": group_id, "deleted_at": None}},
             {
                 "$project": {
                     "name": 1,
@@ -212,6 +217,20 @@ class UserListCollection:
         return [UserListMetadata(**doc) async for doc in cursor]
 
     async def delete(self, group_id: int, name: str):
+        return await self._collection.update_one(
+            filter={"group_id": group_id, "name": name},
+            update={"$set": {"deleted_at": datetime.now()}},
+        )
+
+    async def find_expired(self, before: datetime) -> list[UserList]:
+        return [
+            doc
+            async for doc in self._collection.find_all(
+                {"deleted_at": {"$lt": before}}
+            )
+        ]
+
+    async def hard_delete(self, group_id: int, name: str):
         return await self._collection.delete_one(
             filter={"group_id": group_id, "name": name}
         )
@@ -223,7 +242,11 @@ class UserListCollection:
         *items: MessageItem | ReferenceItem,
     ):
         return await self._collection.update_one(
-            filter={"group_id": group_id, "name": name},
+            filter={
+                "group_id": group_id,
+                "name": name,
+                "deleted_at": None,
+            },
             update={
                 "$push": {
                     "items": {"$each": [i.model_dump(mode="json") for i in items]}
@@ -233,7 +256,11 @@ class UserListCollection:
 
     async def pop(self, group_id: int, name: str, *uuid: str):
         return await self._collection.update_one(
-            filter={"group_id": group_id, "name": name},
+            filter={
+                "group_id": group_id,
+                "name": name,
+                "deleted_at": None,
+            },
             update={"$pull": {"items": {"uuid": {"$in": list(uuid)}}}},
         )
 
@@ -243,11 +270,13 @@ class UserListCollection:
         )
 
     async def count_lists(self, group_id: int):
-        return await self._collection.count({"group_id": group_id})
+        return await self._collection.count(
+            {"group_id": group_id, "deleted_at": None}
+        )
 
     async def count_items(self, group_id: int, name: str):
         pipeline = [
-            {"$match": {"group_id": group_id, "name": name}},
+            {"$match": {"group_id": group_id, "name": name, "deleted_at": None}},
             {"$project": {"itemCount": {"$size": "$items"}}},
         ]
         cursor = await self._collection.aggregate(pipeline)
