@@ -36,9 +36,7 @@ from .config import (
 from .history import History
 from .interact import RandomResponse
 
-record_message = on_message(
-    priority=0, block=False, metric_label="record_message"
-)
+record_message = on_message(priority=0, block=False, metric_label="record_message")
 random_response = on_message(
     priority=10,
     block=False,

@@ -47,51 +47,81 @@ class StatusMonitor:
         running_time = datetime.now() - datetime.fromtimestamp(_start_time)
 
         cpu_task = VMClient.query_value(
-            "100 - avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node\"}[2m])) * 100"
+            '100 - avg(rate(node_cpu_seconds_total{mode="idle", job="node"}[2m])) * 100'
         )
         mem_task = VMClient.query_value(
-            "process_resident_memory_bytes{job=\"xiaoxiao\"} / 1024 / 1024"
+            'process_resident_memory_bytes{job="xiaoxiao"} / 1024 / 1024'
         )
         mem_free_task = VMClient.query_value(
-            "node_memory_MemAvailable_bytes{job=\"node\"} / 1024 / 1024"
+            'node_memory_MemAvailable_bytes{job="node"} / 1024 / 1024'
         )
         mem_mongo_task = VMClient.query_value(
-            "namedprocess_namegroup_memory_bytes{groupname=\"mongod\", memtype=\"resident\"} / 1024 / 1024"
+            'namedprocess_namegroup_memory_bytes{groupname="mongod", memtype="resident"} / 1024 / 1024'
         )
-        load1_task = VMClient.query_value("node_load1{job=\"node\"}")
-        load5_task = VMClient.query_value("node_load5{job=\"node\"}")
-        load15_task = VMClient.query_value("node_load15{job=\"node\"}")
+        load1_task = VMClient.query_value('node_load1{job="node"}')
+        load5_task = VMClient.query_value('node_load5{job="node"}')
+        load15_task = VMClient.query_value('node_load15{job="node"}')
         sys_uptime_task = VMClient.query_value(
-            "(time() - node_boot_time_seconds{job=\"node\"}) / 86400"
+            '(time() - node_boot_time_seconds{job="node"}) / 86400'
         )
         disk_avail_task = VMClient.query_value(
-            "node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"\"} / 1073741824"
+            'node_filesystem_avail_bytes{mountpoint="/",fstype!=""} / 1073741824'
         )
         disk_total_task = VMClient.query_value(
-            "node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"\"} / 1073741824"
+            'node_filesystem_size_bytes{mountpoint="/",fstype!=""} / 1073741824'
         )
         mongo_up_task = VMClient.query_value("mongodb_up")
         mongo_conn_task = VMClient.query_value(
-            "mongodb_ss_connections{conn_type=\"current\"}"
+            'mongodb_ss_connections{conn_type="current"}'
         )
-        mongo_ops_task = VMClient.query_value(
-            "rate(mongodb_top_commands_count[5m])"
+        mongo_ops_task = VMClient.query_value("rate(mongodb_top_commands_count[5m])")
+
+        sent_task = SMT.count(
+            group_id=group_id, since=datetime.fromtimestamp(_start_time)
+        )
+        recv_task = RMT.count(
+            group_id=group_id or [], since=datetime.fromtimestamp(_start_time)
+        )
+        cmd_task = RMT.count(
+            group_id=group_id or [],
+            since=datetime.fromtimestamp(_start_time),
+            handled=True,
         )
 
-        sent_task = SMT.count(group_id=group_id, since=datetime.fromtimestamp(_start_time))
-        recv_task = RMT.count(group_id=group_id or [], since=datetime.fromtimestamp(_start_time))
-        cmd_task = RMT.count(group_id=group_id or [], since=datetime.fromtimestamp(_start_time), handled=True)
-
-        (cpu, memory, memory_free, memory_mongo,
-         load1, load5, load15, sys_uptime,
-         disk_avail, disk_total,
-         mongo_up, mongo_conn, mongo_ops,
-         sent, recv, cmd) = await asyncio.gather(
-            cpu_task, mem_task, mem_free_task, mem_mongo_task,
-            load1_task, load5_task, load15_task, sys_uptime_task,
-            disk_avail_task, disk_total_task,
-            mongo_up_task, mongo_conn_task, mongo_ops_task,
-            sent_task, recv_task, cmd_task,
+        (
+            cpu,
+            memory,
+            memory_free,
+            memory_mongo,
+            load1,
+            load5,
+            load15,
+            sys_uptime,
+            disk_avail,
+            disk_total,
+            mongo_up,
+            mongo_conn,
+            mongo_ops,
+            sent,
+            recv,
+            cmd,
+        ) = await asyncio.gather(
+            cpu_task,
+            mem_task,
+            mem_free_task,
+            mem_mongo_task,
+            load1_task,
+            load5_task,
+            load15_task,
+            sys_uptime_task,
+            disk_avail_task,
+            disk_total_task,
+            mongo_up_task,
+            mongo_conn_task,
+            mongo_ops_task,
+            sent_task,
+            recv_task,
+            cmd_task,
         )
 
         def _fmt(val: float | None) -> str:
@@ -178,9 +208,7 @@ class StatusMonitor:
             f"| 指令处理 | {status['commands_handled']} |",
         ]
 
-        return "\n\n".join(
-            "\n".join(t) for t in [system, mongo, messages]
-        )
+        return "\n\n".join("\n".join(t) for t in [system, mongo, messages])
 
 
 ratelimit = ratelimit("status", "group", seconds=10)

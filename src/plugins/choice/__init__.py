@@ -130,7 +130,11 @@ async def _(
     content = MessageExtension.fix_mface(content)
 
     handler = ChoiceHandler(bot, event, make_choice_reply)
-    if action.op == Op.NONE and len(action.items) == 1 and action.items[0].op in (Op.ADD, Op.FORCE_ADD):
+    if (
+        action.op == Op.NONE
+        and len(action.items) == 1
+        and action.items[0].op in (Op.ADD, Op.FORCE_ADD)
+    ):
         sudo = await (SUPERUSER | ADMIN)(bot, event)
 
         if forward_id:

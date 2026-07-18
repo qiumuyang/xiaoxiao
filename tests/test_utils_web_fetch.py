@@ -30,7 +30,9 @@ OPUS_HTML_NO_IMAGES = """<html><body>
 </body></html>"""
 
 
-def make_mock_response(status: int, text: str, url: str = "https://www.bilibili.com/opus/123456"):
+def make_mock_response(
+    status: int, text: str, url: str = "https://www.bilibili.com/opus/123456"
+):
     mock = MagicMock()
     mock.status = status
     mock.text = AsyncMock(return_value=text)
@@ -52,14 +54,18 @@ class TestBilibiliOpusScraperMatch:
     def test_match_opus_url(self):
         assert BilibiliOpusScraper.match("https://www.bilibili.com/opus/123456")
         assert BilibiliOpusScraper.match("https://bilibili.com/opus/123456")
-        assert BilibiliOpusScraper.match("http://www.bilibili.com/opus/123456?share_from=article")
+        assert BilibiliOpusScraper.match(
+            "http://www.bilibili.com/opus/123456?share_from=article"
+        )
 
     def test_match_b23_url(self):
         assert BilibiliOpusScraper.match("https://b23.tv/QuohVOX")
         assert BilibiliOpusScraper.match("http://b23.tv/abc123")
 
     def test_no_match_video(self):
-        assert not BilibiliOpusScraper.match("https://www.bilibili.com/video/BV1xx411c7mD")
+        assert not BilibiliOpusScraper.match(
+            "https://www.bilibili.com/video/BV1xx411c7mD"
+        )
         assert not BilibiliOpusScraper.match("https://bilibili.com/bangumi/play/ep123")
 
     def test_no_match_article(self):
@@ -77,7 +83,9 @@ class TestBilibiliOpusScraperScrape:
         session = MagicMock(spec=ClientSession)
         session.get.return_value = make_mock_response(200, OPUS_HTML_SINGLE)
 
-        result = await scraper.scrape_images("https://www.bilibili.com/opus/123456", session)
+        result = await scraper.scrape_images(
+            "https://www.bilibili.com/opus/123456", session
+        )
 
         assert len(result) == 1
         assert isinstance(result[0], ImageInfo)
@@ -90,7 +98,9 @@ class TestBilibiliOpusScraperScrape:
         session = MagicMock(spec=ClientSession)
         session.get.return_value = make_mock_response(200, OPUS_HTML_MULTIPLE)
 
-        result = await scraper.scrape_images("https://www.bilibili.com/opus/123456", session)
+        result = await scraper.scrape_images(
+            "https://www.bilibili.com/opus/123456", session
+        )
 
         assert len(result) == 3
         assert result[0].url == "https://i0.hdslb.com/bfs/new_dyn/img1.png"
@@ -106,7 +116,9 @@ class TestBilibiliOpusScraperScrape:
         session = MagicMock(spec=ClientSession)
         session.get.return_value = make_mock_response(200, OPUS_HTML_NO_IMAGES)
 
-        result = await scraper.scrape_images("https://www.bilibili.com/opus/123456", session)
+        result = await scraper.scrape_images(
+            "https://www.bilibili.com/opus/123456", session
+        )
 
         assert result == []
 
@@ -133,7 +145,9 @@ class TestBilibiliOpusScraperScrape:
         scraper = BilibiliOpusScraper()
         session = MagicMock(spec=ClientSession)
 
-        mock_head_resp = make_mock_response(200, "", url="https://www.bilibili.com/opus/123456")
+        mock_head_resp = make_mock_response(
+            200, "", url="https://www.bilibili.com/opus/123456"
+        )
         mock_get_resp = make_mock_response(200, OPUS_HTML_SINGLE)
         session.head.return_value = mock_head_resp
         session.get.return_value = mock_get_resp
@@ -174,7 +188,9 @@ class TestScrapeImagesDispatch:
                 new_callable=AsyncMock,
             ) as mock_scrape,
         ):
-            mock_scrape.return_value = [ImageInfo(url="https://img.test/1.jpg", filename="1.jpg")]
+            mock_scrape.return_value = [
+                ImageInfo(url="https://img.test/1.jpg", filename="1.jpg")
+            ]
             mock_session = MagicMock()
             mock_cls.return_value.__aenter__.return_value = mock_session
 
@@ -210,11 +226,15 @@ class TestScrapeFromText:
                 new_callable=AsyncMock,
             ) as mock_scrape,
         ):
-            mock_scrape.return_value = [ImageInfo(url="https://img.test/1.jpg", filename="1.jpg")]
+            mock_scrape.return_value = [
+                ImageInfo(url="https://img.test/1.jpg", filename="1.jpg")
+            ]
             mock_session = MagicMock()
             mock_cls.return_value.__aenter__.return_value = mock_session
 
-            result = await scrape_from_text("看看这个 https://www.bilibili.com/opus/123456")
+            result = await scrape_from_text(
+                "看看这个 https://www.bilibili.com/opus/123456"
+            )
 
             assert result is not None
             assert len(result) == 1
@@ -227,7 +247,9 @@ class TestScrapeFromText:
             mock_session = MagicMock()
             mock_cls.return_value.__aenter__.return_value = mock_session
 
-            result = await scrape_from_text("看看 https://www.bilibili.com/video/BV1xx411c7mD")
+            result = await scrape_from_text(
+                "看看 https://www.bilibili.com/video/BV1xx411c7mD"
+            )
             assert result is None
 
 

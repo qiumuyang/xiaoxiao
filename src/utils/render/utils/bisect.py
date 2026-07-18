@@ -19,7 +19,10 @@ T = TypeVar("T", Comparable, int, float, str)
 V = TypeVar("V", Comparable, int, float, str)
 
 
-class BisectKeyWrapper[T: (Comparable, int, float, str), V: (Comparable, int, float, str)]:
+class BisectKeyWrapper[
+    T: (Comparable, int, float, str),
+    V: (Comparable, int, float, str),
+]:
     """A wrapper class that allows to use a key function with bisect.
 
     Python 3.10 introduced the `key` parameter."""

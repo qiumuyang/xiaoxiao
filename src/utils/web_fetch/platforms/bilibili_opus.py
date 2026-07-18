@@ -8,7 +8,9 @@ from ..errors import ScrapeError
 
 OPUS_PATTERN = re.compile(r"bilibili\.com/opus/(\d+)")
 B23_PATTERN = re.compile(r"b23\.tv/")
-IMG_PATTERN = re.compile(r'<img[^>]+src="(//i\d\.hdslb\.com/bfs/(?:new_dyn|article)/[^"@]+)')
+IMG_PATTERN = re.compile(
+    r'<img[^>]+src="(//i\d\.hdslb\.com/bfs/(?:new_dyn|article)/[^"@]+)'
+)
 FILENAME_PATTERN = re.compile(r"/([^/]+\.(?:jpg|png|webp|jpeg|gif))(?:\?|\s|$)")
 
 

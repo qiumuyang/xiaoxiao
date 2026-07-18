@@ -8,9 +8,7 @@ from .platforms.bilibili_opus import BilibiliOpusScraper
 
 SCRAPERS: list[type[Scraper]] = [BilibiliOpusScraper]
 
-URL_PATTERN = re.compile(
-    "|".join(p.pattern for s in SCRAPERS for p in s.URL_PATTERNS)
-)
+URL_PATTERN = re.compile("|".join(p.pattern for s in SCRAPERS for p in s.URL_PATTERNS))
 
 
 async def scrape_images(url: str) -> list[ImageInfo]:

@@ -115,7 +115,8 @@ async def test_render_item_card():
             item=MessageItem(
                 content=Message(
                     MessageSegment.image_url(
-                        filename="test_512x256.png", url="https://placehold.co/512x256.png"
+                        filename="test_512x256.png",
+                        url="https://placehold.co/512x256.png",
                     )
                 ),
                 creator_id=333,
@@ -260,16 +261,14 @@ async def test_render_list_overview():
     ):
         # 1-column: 5 lists
         metas_1col = [
-            make_meta(f"列表{i}", (i + 1) * 3, i % 2, creators[i % 3])
-            for i in range(5)
+            make_meta(f"列表{i}", (i + 1) * 3, i % 2, creators[i % 3]) for i in range(5)
         ]
         result = await ChoiceRender.render_list_overview(*metas_1col)
         result.render().save(out / "overview-1col.png")
 
         # 2-column: 35 lists
         metas_2col = [
-            make_meta(f"菜单{i}", i + 1, i % 3, creators[i % 3])
-            for i in range(35)
+            make_meta(f"菜单{i}", i + 1, i % 3, creators[i % 3]) for i in range(35)
         ]
         result = await ChoiceRender.render_list_overview(*metas_2col)
         result.render().thumbnail(
@@ -278,8 +277,7 @@ async def test_render_list_overview():
 
         # 3-column: 50 lists
         metas_3col = [
-            make_meta(f"清单{i}", i + 2, i % 4, creators[i % 3])
-            for i in range(50)
+            make_meta(f"清单{i}", i + 2, i % 4, creators[i % 3]) for i in range(50)
         ]
         result = await ChoiceRender.render_list_overview(*metas_3col)
         result.render().thumbnail(

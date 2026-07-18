@@ -10,7 +10,6 @@ from .metrics import MATCHER_DURATION, MatcherOutcome
 
 
 class MatcherIdentifier:
-
     @classmethod
     def get_label(cls, inst: Matcher) -> str:
         matcher = type(inst)

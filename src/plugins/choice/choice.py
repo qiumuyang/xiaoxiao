@@ -380,17 +380,11 @@ class ChoiceHandler:
                         ref_item = ReferenceItem(
                             name=plain_text, creator_id=operator_id
                         )
-                        diff_items.append(
-                            DiffEntry("forced", None, ref_item, None)
-                        )
+                        diff_items.append(DiffEntry("forced", None, ref_item, None))
                     else:
                         add_msg.append(content)
-                        msg_item = MessageItem(
-                            content=content, creator_id=operator_id
-                        )
-                        diff_items.append(
-                            DiffEntry("forced", None, msg_item, None)
-                        )
+                        msg_item = MessageItem(content=content, creator_id=operator_id)
+                        diff_items.append(DiffEntry("forced", None, msg_item, None))
                 case Op.ADD:
                     if item.type == "reference":
                         if not all(seg.is_text() for seg in content):
@@ -406,8 +400,11 @@ class ChoiceHandler:
                             else:
                                 diff_items.append(
                                     DiffEntry(
-                                        "skipped", None,
-                                        ReferenceItem(name=plain_text, creator_id=operator_id),
+                                        "skipped",
+                                        None,
+                                        ReferenceItem(
+                                            name=plain_text, creator_id=operator_id
+                                        ),
                                         None,
                                     )
                                 )
@@ -415,8 +412,11 @@ class ChoiceHandler:
                             add_ref.append(plain_text)
                             diff_items.append(
                                 DiffEntry(
-                                    "added", None,
-                                    ReferenceItem(name=plain_text, creator_id=operator_id),
+                                    "added",
+                                    None,
+                                    ReferenceItem(
+                                        name=plain_text, creator_id=operator_id
+                                    ),
                                     None,
                                 )
                             )
@@ -432,8 +432,11 @@ class ChoiceHandler:
                             else:
                                 diff_items.append(
                                     DiffEntry(
-                                        "skipped", None,
-                                        MessageItem(content=content, creator_id=operator_id),
+                                        "skipped",
+                                        None,
+                                        MessageItem(
+                                            content=content, creator_id=operator_id
+                                        ),
                                         None,
                                     )
                                 )
@@ -441,8 +444,11 @@ class ChoiceHandler:
                             add_msg.append(content)
                             diff_items.append(
                                 DiffEntry(
-                                    "added", None,
-                                    MessageItem(content=content, creator_id=operator_id),
+                                    "added",
+                                    None,
+                                    MessageItem(
+                                        content=content, creator_id=operator_id
+                                    ),
                                     None,
                                 )
                             )
@@ -453,9 +459,7 @@ class ChoiceHandler:
                             raise InvalidIndexError(plain_text)
                         remove_index.append(index)
                         diff_items.append(
-                            DiffEntry(
-                                "removed", index, lst.items[index], None
-                            )
+                            DiffEntry("removed", index, lst.items[index], None)
                         )
                     else:
                         for i, lst_item in enumerate(lst.items):
@@ -463,21 +467,16 @@ class ChoiceHandler:
                                 item_content = lst_item.content
                                 if (
                                     all(seg.is_text() for seg in item_content)
-                                    and item_content.extract_plain_text()
-                                    == plain_text
+                                    and item_content.extract_plain_text() == plain_text
                                 ):
                                     remove_index.append(i)
                                     diff_items.append(
-                                        DiffEntry(
-                                            "removed", i, lst_item, None
-                                        )
+                                        DiffEntry("removed", i, lst_item, None)
                                     )
                                     break
                         else:
                             diff_items.append(
-                                DiffEntry(
-                                    "remove_failed", None, None, plain_text
-                                )
+                                DiffEntry("remove_failed", None, None, plain_text)
                             )
                 case _:
                     raise InvalidItemOpError
@@ -506,7 +505,9 @@ class ChoiceHandler:
                     entry = entry._replace(item_index=post_remove_len + msg_counter)
                     msg_counter += 1
                 elif isinstance(entry.item, ReferenceItem):
-                    entry = entry._replace(item_index=post_remove_len + len(add_msg) + ref_counter)
+                    entry = entry._replace(
+                        item_index=post_remove_len + len(add_msg) + ref_counter
+                    )
                     ref_counter += 1
             indexed_diff.append(entry)
         diff_items = indexed_diff

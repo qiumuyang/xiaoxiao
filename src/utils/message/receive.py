@@ -41,12 +41,8 @@ class ReceivedMessageTracker:
 
     @classmethod
     async def init(cls) -> None:
-        await cls.received.collection.create_index(
-            [("group_id", 1), ("message_id", 1)]
-        )
-        await cls.received.collection.create_index(
-            [("group_id", 1), ("time", -1)]
-        )
+        await cls.received.collection.create_index([("group_id", 1), ("message_id", 1)])
+        await cls.received.collection.create_index([("group_id", 1), ("time", -1)])
 
     @classmethod
     def on_receive(cls, sink: Sink) -> None:

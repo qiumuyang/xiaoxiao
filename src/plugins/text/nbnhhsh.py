@@ -105,10 +105,16 @@ def merge_abbr_config(*configs: dict[str, list[str]]) -> dict[str, list[str]]:
 rate_depend = RateLimit("abbr_trans", type="group", seconds=2)
 
 # lower priority than commands
-nbnhhsh_msg = on_regex(AbbreviationTranslate.PATTERN, priority=2, metric_label="翻译缩写", block=True)
+nbnhhsh_msg = on_regex(
+    AbbreviationTranslate.PATTERN, priority=2, metric_label="翻译缩写", block=True
+)
 nbnhhsh_cmd = on_command("翻译缩写", block=True, force_whitespace=True)
 nbnhhsh_cfg_cmd = on_command(
-    "翻译缩写配置", metric_label="翻译缩写", block=True, force_whitespace=True, permission=admin
+    "翻译缩写配置",
+    metric_label="翻译缩写",
+    block=True,
+    force_whitespace=True,
+    permission=admin,
 )
 
 

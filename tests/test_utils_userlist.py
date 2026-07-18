@@ -192,9 +192,7 @@ class TestSoftDeleteDataLayer:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_find_expired(
-        self, test_collection, test_group_id, test_list
-    ):
+    async def test_find_expired(self, test_collection, test_group_id, test_list):
         col = UserListCollection()
         await col.create(test_group_id, 111, "list1")
         await col.create(test_group_id, 111, "list2")
@@ -212,9 +210,7 @@ class TestSoftDeleteDataLayer:
         assert len(expired_old) == 0
 
     @pytest.mark.asyncio
-    async def test_hard_delete_removes(
-        self, test_collection, test_group_id, test_list
-    ):
+    async def test_hard_delete_removes(self, test_collection, test_group_id, test_list):
         col = UserListCollection()
         await col.create(test_group_id, 111, test_list.name)
         await col.delete(test_group_id, test_list.name)

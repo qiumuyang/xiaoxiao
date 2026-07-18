@@ -111,9 +111,7 @@ class TestHandlerNonDuplicateAdd:
         mock_comp_cls = comp_patch.start()
 
         # mock ChoiceRender.render_diff → returns a mock with render() chain
-        render_patch = patch(
-            "src.plugins.choice.choice.ChoiceRender", autospec=True
-        )
+        render_patch = patch("src.plugins.choice.choice.ChoiceRender", autospec=True)
         mock_render_cls = render_patch.start()
 
         mock_img = MagicMock()
@@ -145,13 +143,16 @@ class TestHandlerNonDuplicateAdd:
         handler.comparator = comparator
 
         lst = UserList(
-            name="testlist", group_id=999, creator_id=111,
+            name="testlist",
+            group_id=999,
+            creator_id=111,
             items=[MessageItem(content=Message("饺子"), creator_id=111)],
         )
         mock_svc.find_list = AsyncMock(return_value=lst)
 
         action = Action(
-            op=Op.NONE, name="testlist",
+            op=Op.NONE,
+            name="testlist",
             items=[ItemAction(op=Op.ADD, content="饺子", type="message")],
         )
 
@@ -185,14 +186,17 @@ class TestHandlerNonDuplicateAdd:
         handler.comparator = comparator
 
         lst = UserList(
-            name="testlist", group_id=999, creator_id=111,
+            name="testlist",
+            group_id=999,
+            creator_id=111,
             items=[MessageItem(content=Message("米饭"), creator_id=111)],
         )
         mock_svc.find_list = AsyncMock(return_value=lst)
         mock_svc.append_message = AsyncMock()
 
         action = Action(
-            op=Op.NONE, name="testlist",
+            op=Op.NONE,
+            name="testlist",
             items=[ItemAction(op=Op.ADD, content="饺子", type="message")],
         )
 
@@ -223,14 +227,17 @@ class TestHandlerNonDuplicateAdd:
         handler.comparator = comparator
 
         lst = UserList(
-            name="testlist", group_id=999, creator_id=111,
+            name="testlist",
+            group_id=999,
+            creator_id=111,
             items=[MessageItem(content=Message("饺子"), creator_id=111)],
         )
         mock_svc.find_list = AsyncMock(return_value=lst)
         mock_svc.append_message = AsyncMock()
 
         action = Action(
-            op=Op.NONE, name="testlist",
+            op=Op.NONE,
+            name="testlist",
             items=[ItemAction(op=Op.FORCE_ADD, content="饺子", type="message")],
         )
 
@@ -260,14 +267,20 @@ class TestHandlerNonDuplicateAdd:
 
         item_to_remove = MessageItem(content=Message("饺子"), creator_id=111)
         lst = UserList(
-            name="testlist", group_id=999, creator_id=111,
-            items=[item_to_remove, MessageItem(content=Message("米饭"), creator_id=111)],
+            name="testlist",
+            group_id=999,
+            creator_id=111,
+            items=[
+                item_to_remove,
+                MessageItem(content=Message("米饭"), creator_id=111),
+            ],
         )
         mock_svc.find_list = AsyncMock(return_value=lst)
         mock_svc.remove_by_index = AsyncMock()
 
         action = Action(
-            op=Op.NONE, name="testlist",
+            op=Op.NONE,
+            name="testlist",
             items=[ItemAction(op=Op.REMOVE, content="1", type="message")],
         )
 
@@ -297,14 +310,17 @@ class TestHandlerNonDuplicateAdd:
         handler.comparator = AsyncMock()
 
         lst = UserList(
-            name="testlist", group_id=999, creator_id=111,
+            name="testlist",
+            group_id=999,
+            creator_id=111,
             items=[MessageItem(content=Message("米饭"), creator_id=111)],
         )
         mock_svc.find_list = AsyncMock(return_value=lst)
         mock_svc.remove_by_index = AsyncMock()
 
         action = Action(
-            op=Op.NONE, name="testlist",
+            op=Op.NONE,
+            name="testlist",
             items=[ItemAction(op=Op.REMOVE, content="饺子", type="message")],
         )
 
@@ -336,9 +352,7 @@ class TestRenderDiff:
         out = Path("render-test/choice/diff")
         out.mkdir(parents=True, exist_ok=True)
 
-        lst = UserList(
-            name="午餐", group_id=999, creator_id=3481996679, items=[]
-        )
+        lst = UserList(name="午餐", group_id=999, creator_id=3481996679, items=[])
 
         msg_jiaozi = MessageItem(content=Message("饺子"), creator_id=111)
         msg_mifan = MessageItem(content=Message("米饭"), creator_id=111)
@@ -347,13 +361,13 @@ class TestRenderDiff:
         msg_hanbao = MessageItem(content=Message("汉堡"), creator_id=111)
 
         diff = [
-            DiffEntry("added",     4, msg_jiaozi,  None),
-            DiffEntry("forced",    5, msg_jiandan, None),
-            DiffEntry("skipped",   2, msg_mifan,   None),
-            DiffEntry("removed",   0, msg_hanbao,  None),
+            DiffEntry("added", 4, msg_jiaozi, None),
+            DiffEntry("forced", 5, msg_jiandan, None),
+            DiffEntry("skipped", 2, msg_mifan, None),
+            DiffEntry("removed", 0, msg_hanbao, None),
             DiffEntry("remove_failed", None, None, "面条"),
-            DiffEntry("added",     6, ref_kuaican, None),
-            DiffEntry("skipped",   3, ReferenceItem(name="小吃", creator_id=111), None),
+            DiffEntry("added", 6, ref_kuaican, None),
+            DiffEntry("skipped", 3, ReferenceItem(name="小吃", creator_id=111), None),
         ]
 
         with (
@@ -375,45 +389,54 @@ class TestRenderDiff:
 
             # Scenario 2: only added
             obj = await ChoiceRender.render_diff(
-                group_id=999, userlist=lst,
+                group_id=999,
+                userlist=lst,
                 diff_items=[DiffEntry("added", 0, msg_jiaozi, None)],
             )
             obj.render().save(out / "only-added.png")
 
             # Scenario 3: only skipped
             obj = await ChoiceRender.render_diff(
-                group_id=999, userlist=lst,
+                group_id=999,
+                userlist=lst,
                 diff_items=[DiffEntry("skipped", 5, msg_jiaozi, None)],
             )
             obj.render().save(out / "only-skipped.png")
 
             # Scenario 4: only removed
             obj = await ChoiceRender.render_diff(
-                group_id=999, userlist=lst,
+                group_id=999,
+                userlist=lst,
                 diff_items=[DiffEntry("removed", 0, msg_jiaozi, None)],
             )
             obj.render().save(out / "only-removed.png")
 
             # Scenario 5: only remove_failed
             obj = await ChoiceRender.render_diff(
-                group_id=999, userlist=lst,
+                group_id=999,
+                userlist=lst,
                 diff_items=[DiffEntry("remove_failed", None, None, "不存在的东西")],
             )
             obj.render().save(out / "only-remove-failed.png")
 
             # Scenario 6: empty
             obj = await ChoiceRender.render_diff(
-                group_id=999, userlist=lst, diff_items=[],
+                group_id=999,
+                userlist=lst,
+                diff_items=[],
             )
             obj.render().save(out / "empty.png")
 
             # Scenario 7: long list name
             lst_long = UserList(
                 name="一二三四五六七八九十一二三四五六七八九十",
-                group_id=999, creator_id=3481996679, items=[]
+                group_id=999,
+                creator_id=3481996679,
+                items=[],
             )
             obj = await ChoiceRender.render_diff(
-                group_id=999, userlist=lst_long,
+                group_id=999,
+                userlist=lst_long,
                 diff_items=[DiffEntry("added", 0, msg_jiaozi, None)],
             )
             obj.render().save(out / "long-name.png")

@@ -225,9 +225,7 @@ class UserListCollection:
     async def find_expired(self, before: datetime) -> list[UserList]:
         return [
             doc
-            async for doc in self._collection.find_all(
-                {"deleted_at": {"$lt": before}}
-            )
+            async for doc in self._collection.find_all({"deleted_at": {"$lt": before}})
         ]
 
     async def hard_delete(self, group_id: int, name: str):
@@ -270,9 +268,7 @@ class UserListCollection:
         )
 
     async def count_lists(self, group_id: int):
-        return await self._collection.count(
-            {"group_id": group_id, "deleted_at": None}
-        )
+        return await self._collection.count({"group_id": group_id, "deleted_at": None})
 
     async def count_items(self, group_id: int, name: str):
         pipeline = [

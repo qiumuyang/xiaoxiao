@@ -29,9 +29,7 @@ class VMClient:
     async def query(cls, promql: str) -> list[dict[str, Any]]:
         session = await cls._session()
         params = {"query": promql}
-        async with session.get(
-            f"{_BASE_URL}/api/v1/query", params=params
-        ) as resp:
+        async with session.get(f"{_BASE_URL}/api/v1/query", params=params) as resp:
             resp.raise_for_status()
             body = await resp.json()
             return body["data"]["result"]

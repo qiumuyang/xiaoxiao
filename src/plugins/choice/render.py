@@ -142,9 +142,7 @@ class ChoiceRender:
             style = cls.INDEX_STYLE | update_style
             if index_color is not None:
                 style = style | TextStyle(color=index_color)
-            index_obj = Paragraph.of(
-                f"# {index + 1}", style=style
-            )
+            index_obj = Paragraph.of(f"# {index + 1}", style=style)
         else:
             index_obj = None
         if user_id is not None:
@@ -440,9 +438,7 @@ class ChoiceRender:
             max_width=cls.CARD_WIDTH,
             group_id=group_id,
             background=cls.MSG_BG,
-            text_style=TextStyle(
-                color=_STATUS_COLORS["remove_failed"]
-            ),
+            text_style=TextStyle(color=_STATUS_COLORS["remove_failed"]),
         )
         content = FixedContainer.from_children(
             width=cls.CARD_WIDTH_MAX,
@@ -470,12 +466,7 @@ class ChoiceRender:
 
         if diff_items:
             cards = await asyncio.gather(
-                *(
-                    cls._render_diff_item(
-                        group_id=group_id, entry=e
-                    )
-                    for e in diff_items
-                )
+                *(cls._render_diff_item(group_id=group_id, entry=e) for e in diff_items)
             )
             content: RenderObject = WaterfallContainer.from_children(
                 children=cards,
