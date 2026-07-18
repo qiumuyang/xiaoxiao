@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from prometheus_client import REGISTRY, Counter, Histogram, generate_latest
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
 
 
 class MatcherOutcome(StrEnum):
@@ -18,7 +18,17 @@ MATCHER_DURATION = Histogram(
     "Time spent processing a matcher",
     ["matcher", "matcher_type", "sub_command", "status"],
     buckets=(
-        0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+        0.005,
+        0.01,
+        0.025,
+        0.05,
+        0.1,
+        0.25,
+        0.5,
+        1.0,
+        2.5,
+        5.0,
+        10.0,
         float("inf"),
     ),
 )
@@ -39,6 +49,11 @@ MSG_SENT_TOTAL = Counter(
     "xiaoxiao_msg_sent_total",
     "Total sent messages",
     ["group_id"],
+)
+
+GATEWAY_HEALTHY = Gauge(
+    "xiaoxiao_gateway_healthy",
+    "OneBot gateway connectivity (1=ok, 0=down)",
 )
 
 

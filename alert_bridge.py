@@ -1,4 +1,5 @@
 """Alertmanager webhook → OneBot QQ group message with SMTP fallback."""
+
 import asyncio
 import json
 import logging
@@ -111,9 +112,7 @@ async def handle_alert(request: web.Request) -> web.Response:
                     logger.info("Email fallback sent for alert: %s", summary)
                 else:
                     overall_ok = False
-                    logger.error(
-                        "Both QQ and email failed for alert: %s", summary
-                    )
+                    logger.error("Both QQ and email failed for alert: %s", summary)
     if not overall_ok:
         return web.Response(
             text=json.dumps({"status": "partial_failure"}),
