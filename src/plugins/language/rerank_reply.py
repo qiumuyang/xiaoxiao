@@ -246,6 +246,7 @@ async def retrieve_rerank_candidates(
         length=length,
         keywords=words,
         sample=RERANK_CORPUS_SAMPLES,
+        include_stale=True,
     )
     entries = await cursor.to_list(length=RERANK_CORPUS_SAMPLES)
     corpus = [e["text"] for e in entries]

@@ -36,7 +36,7 @@ from .config import (
 )
 from .history import History
 from .interact import RandomResponse
-from .rerank_reply import _CST, RerankReply, list_logs, parse_log_page
+from .rerank_reply import _CST, RerankReply, _safe_group_name, list_logs, parse_log_page
 
 record_message = on_message(priority=0, block=False, metric_label="record_message")
 random_response = on_message(
@@ -478,7 +478,7 @@ async def _(event: GroupMessageEvent):
 
 @smart_reply_cmd.handle()
 @command_doc("智能回复", category=CommandCategory.UTILITY)
-async def _(event: GroupMessageEvent, arg: Message = CommandArg()):
+async def _(bot: OnebotBot, event: GroupMessageEvent, arg: Message = CommandArg()):
     """
     rerank 智能回复：灰度开关与路由概率
 
@@ -523,7 +523,9 @@ async def _(event: GroupMessageEvent, arg: Message = CommandArg()):
     if action == "状态":
         lines = [f"智能回复状态：全局路由概率 {RerankReplyConfig.route_prob}"]
         for group_id, is_enabled in await RerankReplyConfig.list_enabled():
-            lines.append(f"群 {group_id}: {'开' if is_enabled else '关'}")
+            name = await _safe_group_name(bot, group_id)
+            label = f"{name} ({group_id})" if name else f"({group_id})"
+            lines.append(f"{label}: {'开' if is_enabled else '关'}")
         lines.append(f"当日预算用量: {await RerankReply.budget_status()}")
         await smart_reply_cmd.finish("\n".join(lines))
     if action == "日志":

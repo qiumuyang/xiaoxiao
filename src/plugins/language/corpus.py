@@ -126,6 +126,7 @@ class Corpus:
         sample: int | None = None,
         *,
         include_shared: bool = True,
+        include_stale: bool = False,
     ):
         cls.maintain()
         now = datetime.now()
@@ -167,7 +168,7 @@ class Corpus:
         combined_match = {
             "$and": [
                 match_group_id,
-                not_stale,
+                *([not_stale] if not include_stale else []),
                 not_recent_sent,
                 not_recent_added,
             ]
