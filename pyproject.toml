@@ -34,6 +34,8 @@ dependencies = [
     "requests",
     "typing-extensions>=4.10.0",
     "watchdog",
+    "langchain-core>=0.3,<1",
+    "langchain-openai>=0.3,<1",
 ]
 
 [dependency-groups]

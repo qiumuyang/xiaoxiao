@@ -59,3 +59,35 @@ GATEWAY_HEALTHY = Gauge(
 
 def get_metrics_text() -> bytes:
     return generate_latest(REGISTRY)
+
+
+LLM_CALL_DURATION = Histogram(
+    "xiaoxiao_llm_call_duration_seconds",
+    "LLM API call duration",
+    ["model", "provider", "status"],
+    buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, float("inf")),
+)
+
+LLM_TOKEN_USAGE = Counter(
+    "xiaoxiao_llm_token_usage_total",
+    "LLM token consumption",
+    ["model", "provider", "type"],
+)
+
+LLM_CALL_ERRORS = Counter(
+    "xiaoxiao_llm_call_errors_total",
+    "LLM call errors",
+    ["model", "provider", "error_type"],
+)
+
+LLM_COST_FEN = Counter(
+    "xiaoxiao_llm_cost_fen_total",
+    "LLM API cost in fen (分)",
+    ["model", "provider"],
+)
+
+LLM_BUDGET_REJECTED = Counter(
+    "xiaoxiao_llm_budget_rejected_total",
+    "LLM calls rejected by daily cost budget",
+    ["model"],
+)

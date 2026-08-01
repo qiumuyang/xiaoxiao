@@ -157,3 +157,5 @@ dmypy.json
 .pytype/
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+# test output
+image_proc_test_output/
