@@ -1,0 +1,398 @@
+"""rerank 智能回复：sample corpus 后 LLM rerank 选一条最贴合上下文的回复。
+
+触发链位置：keyword_respond 检索到候选后，per-group 灰度 + 概率路由进入本模块。
+任何 LLM 路径异常一律降级回随机选，不阻塞群聊、不抛到 handler 外。
+prompt 模板放本地文件（data/prompts/rerank_reply.txt），不进 git。
+"""
+
+import asyncio
+import os
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from nonebot import get_bot
+from nonebot.adapters.onebot.v11 import Message
+from pydantic import BaseModel
+
+from src.ext.llm import (
+    BudgetCallback,
+    DailyCostBudget,
+    PricingRegistry,
+    get_chat_model,
+)
+from src.ext.utils import get_group_member_name
+from src.utils.log import logger_wrapper
+from src.utils.message.receive import ReceivedMessageTracker as RMT
+from src.utils.message.send import SentMessageTracker as SMT
+from src.utils.observability.metrics import LLM_BUDGET_REJECTED
+from src.utils.persistence.mongo import Collection, Mongo
+
+from .corpus import Corpus
+from .keywords import Keyword
+
+logger = logger_wrapper(__name__)
+_CST = ZoneInfo("Asia/Shanghai")
+
+PROMPT_PATH = Path("data/prompts/rerank_reply.txt")
+PROMPT_VERSION = "v1"
+
+MODEL = "deepseek-v4-flash"
+BASE_URL = "https://api.deepseek.com"
+DAILY_BUDGET_YUAN = 3.0
+ESTIMATED_FEN = PricingRegistry.get(MODEL).cost(1500, 100)
+# deepseek-v4-flash 默认思考模式不支持 tool_choice，必须关闭
+EXTRA_BODY = {"thinking": {"type": "disabled"}}
+
+K = 10
+CONTEXT_N = 20
+# rerank 专用宽松召回：低相似度阈值 + 更大样本，由 LLM 精排（随机选仍用 KW_SIM_THRESHOLD）
+RERANK_CORPUS_SAMPLES = 256
+RERANK_SIM_THRESHOLD = 0.2
+CONTEXT_WINDOW = timedelta(hours=24)
+TIMEOUT = 5.0
+TEMPERATURE = 0.3
+
+_budget = DailyCostBudget(DAILY_BUDGET_YUAN)
+_last_notify_date: date | None = None
+_prompt_cache: tuple[float, str] | None = None
+
+
+class RerankOutput(BaseModel):
+    ranks: list[int]
+
+
+class RerankLog(BaseModel):
+    group_id: int
+    context: list[str]
+    candidates: list[str]
+    ranks: list[int]
+    selected: str
+    prompt_version: str
+    logged_at: datetime
+
+
+rerank_logs: Collection[dict, RerankLog] = Mongo.collection(
+    "rerank_log"
+).auto_serialize(RerankLog)
+
+
+def _load_prompt() -> str | None:
+    """读取 prompt 模板；mtime 变化时重载（调优即时生效）。"""
+    global _prompt_cache
+    try:
+        mtime = PROMPT_PATH.stat().st_mtime
+    except FileNotFoundError:
+        return None
+    if _prompt_cache is not None and _prompt_cache[0] == mtime:
+        return _prompt_cache[1]
+    text = PROMPT_PATH.read_text(encoding="utf-8")
+    _prompt_cache = (mtime, text)
+    return text
+
+
+def _fill_template(template: str, *, self_id: int, context_n: int, k: int) -> str:
+    """replace 占位符（不用 str.format，模板含 {ranks:...} 会误解析）。"""
+    return (
+        template.replace("{self_id}", str(self_id))
+        .replace("{CONTEXT_N}", str(context_n))
+        .replace("{K}", str(k))
+    )
+
+
+def build_user_prompt(
+    context: list[str],
+    candidates: list[str],
+    *,
+    context_n: int,
+    k: int,
+    group_name: str = "",
+) -> str:
+    """构造 user 提示：群名（可选）+ 最近群聊（行式）+ 候选语料（编号列表）。"""
+    head = f"# 群聊：{group_name}\n" if group_name else ""
+    ctx_lines = "\n".join(context[-max(context_n, 1) :])
+    cand_lines = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates[:k], 1))
+    return (
+        f"{head}# 最近群聊（最多 {context_n} 条）\n{ctx_lines}\n"
+        f"\n# 候选语料（编号 1..{min(k, len(candidates))}）\n{cand_lines}"
+    )
+
+
+def build_prompt(
+    system_template: str,
+    context: list[str],
+    candidates: list[str],
+    *,
+    self_id: int,
+    context_n: int,
+    k: int,
+    group_name: str = "",
+) -> tuple[str, str]:
+    """构造 system/user 双提示：填充占位符后返回 (system, user)。"""
+    system = _fill_template(system_template, self_id=self_id, context_n=context_n, k=k)
+    user = build_user_prompt(
+        context, candidates, context_n=context_n, k=k, group_name=group_name
+    )
+    return system, user
+
+
+def parse_ranks(ranks: list[int], *, k: int) -> int | None:
+    """校验 ranks 为 1..k 的排列，返回选中序号（ranks[0]）；非法返回 None。"""
+    if len(ranks) != k:
+        return None
+    if sorted(ranks) != list(range(1, k + 1)):
+        return None
+    return ranks[0]
+
+
+async def _safe_member_name(bot, group_id: int, user_id: int) -> str:
+    try:
+        return await get_group_member_name(group_id=group_id, user_id=user_id, bot=bot)
+    except Exception:
+        logger.debug(
+            f"Failed to resolve member name for group {group_id} user {user_id}"
+        )
+        return str(user_id)
+
+
+async def build_context(group_id: int) -> list[str]:
+    """最近 CONTEXT_N 条收/发消息，行格式 [YYYY-MM-DD HH:MM] 昵称(user_id)[: [self]]: 内容。
+
+    bot 自己的发言带 [self] 标记，供 LLM 识别（复读/随机语料/指令应答）。
+    """
+    since = datetime.now() - CONTEXT_WINDOW
+    filter = {"group_id": group_id, "time": {"$gte": since}}
+    recv = [
+        m
+        async for m in RMT.received.find_all(
+            filter, sort=[("time", -1)], limit=CONTEXT_N * 2
+        )
+    ]
+    sent = [
+        m
+        async for m in SMT.sent.find_all(
+            {
+                "session_id": {"$regex": f"^group_{group_id}_"},
+                "time": {"$gte": since},
+                "recalled": False,
+            },
+            sort=[("time", -1)],
+            limit=CONTEXT_N * 2,
+        )
+    ]
+    bot = get_bot()
+    self_id = int(bot.self_id)
+    entries: list[tuple[datetime, int, str, bool]] = []
+    for m in recv:
+        if text := m.content.extract_plain_text().strip():
+            entries.append((m.time, m.user_id, text, False))
+    for m in sent:
+        if text := m.content.extract_plain_text().strip():
+            entries.append((m.time, self_id, text, True))
+    entries.sort(key=lambda x: x[0])
+    entries = entries[-CONTEXT_N:]
+    if not entries:
+        return []
+    user_ids = {uid for _, uid, _, _ in entries}
+    names = await asyncio.gather(
+        *(_safe_member_name(bot, group_id, uid) for uid in user_ids)
+    )
+    name_map = dict(zip(user_ids, names, strict=False))
+    return [
+        (
+            f"[{t.strftime('%Y-%m-%d %H:%M')}] {name_map[uid]}({uid}) [self]: {text}"
+            if is_self
+            else f"[{t.strftime('%Y-%m-%d %H:%M')}] {name_map[uid]}({uid}): {text}"
+        )
+        for t, uid, text, is_self in entries
+    ]
+
+
+async def _notify_budget_exceeded() -> None:
+    """预算超限向通知群发消息，每天仅一次。"""
+    global _last_notify_date
+    today = datetime.now(_CST).date()
+    if _last_notify_date == today:
+        return
+    _last_notify_date = today
+    group_id = os.getenv("ALERT_GROUP_ID")
+    if not group_id:
+        return
+    try:
+        bot = get_bot()
+        await bot.send_group_msg(
+            group_id=int(group_id),
+            message="[鸮鸮] 智能回复今日预算已用尽，已降级为关键词回放",
+        )
+    except Exception as e:
+        logger.warning("Failed to notify budget exceeded", exception=e)
+
+
+async def retrieve_rerank_candidates(
+    group_id: int,
+    query: str,
+    words: list[str],
+    *,
+    exclude: set[str],
+    length: tuple[int, int],
+) -> list[str]:
+    """宽松召回候选供 LLM 精排：低阈值 + 更大样本，排除近期复读，上限 K。
+
+    随机选路径（keyword_respond）仍用 KW_SIM_THRESHOLD 高阈值检索；本函数是
+    rerank 专用，候选更丰富，由 LLM 排序挑选最贴合的一条。
+    """
+    cursor = await Corpus.find(
+        group_id,
+        length=length,
+        keywords=words,
+        sample=RERANK_CORPUS_SAMPLES,
+    )
+    entries = await cursor.to_list(length=RERANK_CORPUS_SAMPLES)
+    corpus = [e["text"] for e in entries]
+    corpus_kw = [e["keywords"] for e in entries]
+    candidates = Keyword.search(
+        [query],
+        corpus,
+        corpus_kw,
+        threshold=RERANK_SIM_THRESHOLD,
+        top_k=K,
+    )
+    return [c for c in candidates if c.strip() not in exclude][:K]
+
+
+async def _safe_group_name(bot, group_id: int) -> str:
+    try:
+        info = await bot.get_group_info(group_id=group_id, no_cache=True)
+        return info.get("group_name", "")
+    except Exception:
+        return ""
+
+
+async def _log_rerank(
+    group_id: int,
+    context: list[str],
+    candidates: list[str],
+    ranks: list[int],
+    selected: str,
+) -> None:
+    try:
+        await rerank_logs.insert_one(
+            RerankLog(
+                group_id=group_id,
+                context=context,
+                candidates=candidates,
+                ranks=ranks,
+                selected=selected,
+                prompt_version=PROMPT_VERSION,
+                logged_at=datetime.now(UTC),
+            )
+        )
+    except Exception as e:
+        logger.warning("Failed to write rerank log", exception=e)
+
+
+class RerankReply:
+    @classmethod
+    async def rank_and_select(
+        cls, group_id: int, candidates: list[str]
+    ) -> Message | None:
+        """rerank 候选，返回选中 Message；任何异常返回 None（调用方降级随机选）。"""
+        if not candidates:
+            return None
+        system_template = _load_prompt()
+        if system_template is None:
+            logger.warning(f"Rerank prompt 模板缺失: {PROMPT_PATH}")
+            return None
+        try:
+            context = await build_context(group_id)
+        except Exception as e:
+            logger.warning("Failed to build rerank context", exception=e)
+            return None
+        if not await _budget.consume(ESTIMATED_FEN):
+            LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
+            await _notify_budget_exceeded()
+            return None
+        try:
+            k = min(K, len(candidates))
+            bot = get_bot()
+            group_name = await _safe_group_name(bot, group_id)
+            system, user = build_prompt(
+                system_template,
+                context,
+                candidates,
+                self_id=int(bot.self_id),
+                context_n=CONTEXT_N,
+                k=k,
+                group_name=group_name,
+            )
+            result = await cls._invoke_llm(system, user)
+        except Exception as e:
+            logger.warning("Failed to run rerank", exception=e)
+            await _budget.refund(ESTIMATED_FEN)
+            return None
+        if result is None:
+            return None
+        selected_idx = parse_ranks(result.ranks, k=k)
+        if selected_idx is None:
+            return None
+        selected = candidates[selected_idx - 1]
+        await _log_rerank(group_id, context, candidates, result.ranks, selected)
+        return Message(selected)
+
+    @classmethod
+    async def _invoke_llm(cls, system: str, user: str) -> RerankOutput | None:
+        """调用 LLM 排序；超时/异常时退款并返回 None（降级）。"""
+        model = get_chat_model(
+            model=MODEL,
+            base_url=BASE_URL,
+            temperature=TEMPERATURE,
+            callbacks=[BudgetCallback(_budget, MODEL, ESTIMATED_FEN)],
+            extra_body=EXTRA_BODY,
+        )
+        structured = model.with_structured_output(
+            RerankOutput, method="function_calling"
+        )
+        try:
+            result = await asyncio.wait_for(
+                structured.ainvoke([("system", system), ("human", user)]),
+                timeout=TIMEOUT,
+            )
+        except (TimeoutError, asyncio.CancelledError):
+            await _budget.refund(ESTIMATED_FEN)
+            return None
+        except Exception:
+            # BudgetCallback.on_llm_error 可能已对 LLM 层错误退过一次款，
+            # 此处显式 refund 兜底非 LLM 异常；refund 底部钳到 0，
+            # 双退最多让当天预算低估 ESTIMATED_FEN，与 review 模块一致。
+            await _budget.refund(ESTIMATED_FEN)
+            return None
+        return result if isinstance(result, RerankOutput) else None
+
+    @classmethod
+    async def budget_status(cls) -> str:
+        return f"{_budget.consumed_fen / 100:.2f} 元 / {DAILY_BUDGET_YUAN:.2f} 元"
+
+
+def parse_log_page(arg: str) -> int:
+    """解析日志页码：空/非法/<=0 → 1。"""
+    try:
+        page = int(arg.strip())
+    except ValueError:
+        return 1
+    return max(page, 1)
+
+
+async def list_logs(
+    group_id: int | None, page: int, page_size: int = 10
+) -> list[RerankLog]:
+    """按时间倒序分页查 rerank 决策日志。"""
+    filter = {"group_id": group_id} if group_id else {}
+    return [
+        log
+        async for log in rerank_logs.find_all(
+            filter,
+            sort=[("logged_at", -1)],
+            skip=(page - 1) * page_size,
+            limit=page_size,
+        )
+    ]

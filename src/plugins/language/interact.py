@@ -9,8 +9,10 @@ from src.utils.env import inject_env
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import SentMessageTracker as SMT
 
+from .config import RerankReplyConfig
 from .corpus import Corpus
 from .keywords import Keyword
+from .rerank_reply import RerankReply, retrieve_rerank_candidates
 
 
 @dataclass
@@ -182,4 +184,27 @@ class RandomResponse:
                 [query], corpus, corpus_kw, threshold=cls.KW_SIM_THRESHOLD
             )
             if results:
+                # 排除与最近消息重复的候选，避免复读群友刚说过的话
+                recent_texts = {
+                    m.message.extract_plain_text().strip()
+                    for m in messages
+                    if m.message.extract_plain_text().strip()
+                }
+                results = [r for r in results if r.strip() not in recent_texts]
+                if not results:
+                    return
+                cfg = await RerankReplyConfig.get(group_id=group_id)
+                if cfg.enabled and random.random() < RerankReplyConfig.route_prob:
+                    # rerank 用宽松召回（低阈值+更多候选），由 LLM 精排
+                    candidates = await retrieve_rerank_candidates(
+                        group_id,
+                        query,
+                        words,
+                        exclude=recent_texts,
+                        length=(cls.KW_MIN_CORPUS_LEN, cls.KW_MAX_CORPUS_LEN),
+                    )
+                    if candidates:
+                        resp = await RerankReply.rank_and_select(group_id, candidates)
+                        if resp is not None:
+                            return resp
                 return Message(random.choice(results))

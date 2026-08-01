@@ -120,3 +120,7 @@ pythonpath = [
     ".",
     "src",
 ]
+# AsyncMongoClient 单例绑定首个 event loop（src/utils/persistence/mongo.py），
+# 必须整个会话共享一个 loop，否则后续测试报 "different event loop"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

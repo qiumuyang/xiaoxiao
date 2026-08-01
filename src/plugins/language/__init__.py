@@ -30,11 +30,13 @@ from src.utils.observability.wrappers import (
 from .ask import Ask
 from .config import (
     RandomResponseConfig,
+    RerankReplyConfig,
     toggle_group_response_request,
     toggle_user_response,
 )
 from .history import History
 from .interact import RandomResponse
+from .rerank_reply import _CST, RerankReply, list_logs, parse_log_page
 
 record_message = on_message(priority=0, block=False, metric_label="record_message")
 random_response = on_message(
@@ -87,6 +89,9 @@ trace_search = with_metric(
     ),
     label="trace",
 )
+
+smart_reply = CommandGroup("智能回复", block=True, permission=SUPERUSER)
+smart_reply_cmd = smart_reply.command(tuple(), force_whitespace=True)
 
 check_reply = reply()
 
@@ -469,6 +474,74 @@ async def _(event: GroupMessageEvent):
         await enable_response.finish(prompt)
     if result is True:
         await enable_response.finish("鸮鸮的随机回复已开启")
+
+
+@smart_reply_cmd.handle()
+@command_doc("智能回复", category=CommandCategory.UTILITY)
+async def _(event: GroupMessageEvent, arg: Message = CommandArg()):
+    """
+    rerank 智能回复：灰度开关与路由概率
+
+    Usage:
+        {cmd} 开 [群号]        - 按群开启（缺省=当前群）
+        {cmd} 关 [群号]        - 按群关闭
+        {cmd} 概率 <0~1>       - 设置全局路由概率（0=关闭路由，1=全部走 rerank）
+        {cmd} 状态             - 各群启用情况 + 当日预算用量
+        {cmd} 日志 [页码]      - 分页查看 rerank 决策日志
+
+    Notes:
+        - 概率为「命中关键词回放后路由到 LLM rerank」的比例
+        - 关闭随机回复（闭嘴）时本功能也停用
+    """
+    parts = arg.extract_plain_text().strip().split()
+    action = parts[0] if parts else ""
+    if action == "概率":
+        if len(parts) < 2:
+            await smart_reply_cmd.finish("用法：智能回复 概率 <0~1>")
+        try:
+            prob = float(parts[1])
+        except ValueError:
+            await smart_reply_cmd.finish("概率必须是 0~1 的小数")
+        if not 0 <= prob <= 1:
+            await smart_reply_cmd.finish("概率必须在 0~1 之间")
+        RerankReplyConfig.route_prob = prob
+        await smart_reply_cmd.finish(f"智能回复路由概率已设为 {prob}")
+    if action in ("开", "关"):
+        if len(parts) > 1:
+            try:
+                group_id = int(parts[1])
+            except ValueError:
+                await smart_reply_cmd.finish("群号必须是数字")
+        else:
+            group_id = event.group_id
+        cfg = await RerankReplyConfig.get(group_id=group_id)
+        cfg.enabled = action == "开"
+        await RerankReplyConfig.set(cfg, group_id=group_id)
+        await smart_reply_cmd.finish(
+            f"群 {group_id} 智能回复已{'开启' if action == '开' else '关闭'}"
+        )
+    if action == "状态":
+        lines = [f"智能回复状态：全局路由概率 {RerankReplyConfig.route_prob}"]
+        for group_id, is_enabled in await RerankReplyConfig.list_enabled():
+            lines.append(f"群 {group_id}: {'开' if is_enabled else '关'}")
+        lines.append(f"当日预算用量: {await RerankReply.budget_status()}")
+        await smart_reply_cmd.finish("\n".join(lines))
+    if action == "日志":
+        page = parse_log_page(" ".join(parts[1:]))
+        logs = await list_logs(group_id=None, page=page)
+        if not logs:
+            await smart_reply_cmd.finish(f"没有更多日志（第 {page} 页）")
+        lines = [f"rerank 决策日志 第 {page} 页："]
+        for i, log in enumerate(logs, 1):
+            cand = " | ".join(f"{j}.{c}" for j, c in enumerate(log.candidates, 1))
+            lines.append(
+                f"{i}. 群{log.group_id} {log.logged_at.astimezone(_CST):%m-%d %H:%M} "
+                f"ranks={log.ranks} → 选[{log.selected}] | 候选: {cand}"
+            )
+        await smart_reply_cmd.finish("\n".join(lines))
+    await smart_reply_cmd.finish(
+        "用法：智能回复 开/关 [群号] | 概率 <0~1> | 状态 | 日志 [页码]"
+    )
 
 
 @poke_source.handle()
