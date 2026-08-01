@@ -203,7 +203,7 @@ class TestSoftDeleteDataLayer:
         await col.delete(test_group_id, "list2")
 
         expired = await col.find_expired(datetime.now() + timedelta(hours=1))
-        names = [l.name for l in expired]
+        names = [lst.name for lst in expired]
         assert "list1" in names
         assert "list2" in names
         assert "list3" not in names
@@ -248,19 +248,19 @@ class TestSoftDeleteServiceLayer:
             patch(
                 "src.utils.userlist.service.FileStorage.get_instance",
                 new_callable=AsyncMock,
-            ) as mock_get,
+            ),
             patch(
                 "src.utils.userlist.service.demote",
                 new_callable=AsyncMock,
             ) as mock_demote,
         ):
-            yield mock_get, mock_demote
+            yield mock_demote
 
     @pytest.mark.asyncio
     async def test_remove_list_no_demote(
         self, test_collection, test_group_id, test_list, mock_storage
     ):
-        mock_get, mock_demote = mock_storage
+        mock_demote = mock_storage
         col = UserListCollection()
         svc = UserListService()
         svc.collection = col
@@ -279,7 +279,7 @@ class TestSoftDeleteServiceLayer:
     async def test_purge_expired_demotes_and_deletes(
         self, test_collection, test_group_id, test_list, mock_storage
     ):
-        mock_get, mock_demote = mock_storage
+        mock_demote = mock_storage
         col = UserListCollection()
         svc = UserListService()
         svc.collection = col
