@@ -371,6 +371,7 @@ class RerankReply:
 
     @classmethod
     async def budget_status(cls) -> str:
+        await _budget.ensure_loaded()
         return f"{_budget.consumed_fen / 100:.2f} 元 / {DAILY_BUDGET_YUAN:.2f} 元"
 
 

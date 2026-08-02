@@ -305,6 +305,9 @@ async def test_build_context_interleaves_recv_sent_by_time(monkeypatch):
 
 
 async def _set_budget(monkeypatch, yuan: float):
+    from src.ext.llm.budget import _budget_collection
+
+    await _budget_collection.drop()
     monkeypatch.setattr(
         "src.plugins.language.rerank_reply._budget", DailyCostBudget(yuan)
     )
@@ -433,6 +436,62 @@ def _fake_llm_ainvoke(side_effect):
             ainvoke=AsyncMock(side_effect=side_effect)
         )
     )
+
+
+@pytest.mark.asyncio
+async def test_budget_persists_across_instances(monkeypatch):
+    """当日已消费量持久化：新实例能从 Mongo 读回，重启不归零。"""
+    from src.ext.llm.budget import _budget_collection
+
+    await _budget_collection.drop()
+    first = DailyCostBudget(3.0)
+    assert await first.consume(100)
+    second = DailyCostBudget(3.0)
+    assert second.consumed_fen == 0  # 未加载
+    await second.ensure_loaded()
+    assert second.consumed_fen == 100
+    await _budget_collection.drop()
+
+
+@pytest.mark.asyncio
+async def test_budget_resets_on_new_day(monkeypatch):
+    """跨天归零：新的一天从 0 开始，且不读前一天残留，Mongo 各自成档。"""
+    import src.ext.llm.budget as budget_mod
+
+    await budget_mod._budget_collection.drop()
+
+    class FakeDateTime(datetime):
+        _now = datetime(2026, 8, 2, 23, 59, tzinfo=budget_mod._CST)
+
+        @classmethod
+        def now(cls, tz=None):
+            return cls._now
+
+    monkeypatch.setattr(budget_mod, "datetime", FakeDateTime)
+    b = DailyCostBudget(3.0)
+    assert await b.consume(100)
+    FakeDateTime._now = datetime(2026, 8, 3, 0, 1, tzinfo=budget_mod._CST)
+    assert await b.consume(50)
+    assert b.consumed_fen == 50  # 归零后只计今天
+    docs = [d async for d in budget_mod._budget_collection.find_all({})]
+    assert sorted(d["_id"] for d in docs) == ["2026-08-02", "2026-08-03"]
+    await budget_mod._budget_collection.drop()
+
+
+@pytest.mark.asyncio
+async def test_budget_status_loads_persisted(monkeypatch):
+    """状态命令从 Mongo 读当日已消费量：新实例未预加载也能读到。"""
+    from src.ext.llm.budget import _budget_collection
+
+    await _budget_collection.drop()
+    seed = DailyCostBudget(3.0)
+    assert await seed.consume(rr.ESTIMATED_FEN)
+    monkeypatch.setattr(
+        "src.plugins.language.rerank_reply._budget", DailyCostBudget(3.0)
+    )
+    text = await RerankReply.budget_status()
+    assert text.startswith("0.01 元")
+    await _budget_collection.drop()
 
 
 @pytest.mark.asyncio
