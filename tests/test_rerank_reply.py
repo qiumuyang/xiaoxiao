@@ -11,7 +11,7 @@ from nonebot.adapters.onebot.v11 import Message
 from src.ext.config import ConfigManager
 from src.ext.llm import DailyCostBudget
 from src.plugins.language import rerank_reply as rr
-from src.plugins.language.config import RerankReplyConfig
+from src.plugins.language.config import RerankReplyConfig, get_route_prob
 from src.plugins.language.interact import RandomResponse, _InteractMessage
 from src.plugins.language.rerank_reply import (
     CONTEXT_N,
@@ -49,7 +49,8 @@ async def test_rerank_config_defaults():
     await ConfigManager.config.delete_one(_group_filter(100))
     cfg = await RerankReplyConfig.get(group_id=100)
     assert cfg.enabled is False
-    assert RerankReplyConfig.route_prob == 0.3
+    assert cfg.route_prob == 0.3
+    assert get_route_prob() == 0.3
 
 
 @pytest.mark.asyncio
@@ -63,8 +64,8 @@ async def test_rerank_config_per_group_set():
         # 不污染其他群
         other = await RerankReplyConfig.get(group_id=200)
         assert other.enabled is False
-        # route_prob 是全局 ClassVar，不应被序列化/持久化
-        assert "route_prob" not in RerankReplyConfig(enabled=False).model_dump()
+        # route_prob 为普通字段，随配置持久化
+        assert "route_prob" in RerankReplyConfig(enabled=False).model_dump()
     finally:
         await ConfigManager.config.delete_one(filter)
 

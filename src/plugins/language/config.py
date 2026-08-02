@@ -1,6 +1,11 @@
 from typing import ClassVar
 
+from nonebot import get_driver
+
 from src.ext.config import Config
+from src.utils.log import logger_wrapper
+
+logger = logger_wrapper(__name__)
 
 
 class RandomResponseConfig(Config):
@@ -16,11 +21,11 @@ class RerankReplyConfig(Config):
 
     user_friendly: ClassVar[str] = "智能回复"
 
-    # 默认关闭（opt-in）：未配置的群不参与，superadmin 用「智能回复 开」逐个开启
+    # 默认关闭，superadmin 用「智能回复 开」逐个开启
     enabled: bool = False
 
-    # 全局：命中关键词回放后路由到 LLM rerank 的概率（类属性，命令「概率」修改）
-    route_prob: ClassVar[float] = 0.3
+    # 全局路由概率（存于全局配置，命令「概率」修改）
+    route_prob: float = 0.3
 
     @classmethod
     async def list_enabled(cls) -> list[tuple[int, bool]]:
@@ -34,6 +39,32 @@ class RerankReplyConfig(Config):
             if doc.group_id is not None:
                 result.append((doc.group_id, doc.config.enabled))
         return sorted(result)
+
+
+# 进程内缓存的路由概率，启动时从全局配置加载
+_route_prob: float = 0.3
+
+
+def get_route_prob() -> float:
+    """读全局路由概率（缓存）。"""
+    return _route_prob
+
+
+async def set_route_prob(prob: float) -> None:
+    """设全局路由概率：持久化并更新缓存。"""
+    global _route_prob
+    _route_prob = prob
+    cfg = await RerankReplyConfig.get_global()
+    cfg.route_prob = prob
+    await RerankReplyConfig.set_global(cfg)
+
+
+@get_driver().on_startup
+async def _load_route_prob():
+    global _route_prob
+    cfg = await RerankReplyConfig.get_global()
+    _route_prob = cfg.route_prob
+    logger.info(f"Loaded rerank global route_prob={_route_prob}")
 
 
 async def toggle_user_response(*, user_id: int, enabled: bool) -> bool:

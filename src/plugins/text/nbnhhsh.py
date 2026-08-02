@@ -159,7 +159,7 @@ async def _(
     if is_cmd and abbr in ("开", "关"):
         await toggle_abbr(matcher, event, abbr == "开")
 
-    global_cfg = await AbbrTranslateConfig.get(group_id=None)
+    global_cfg = await AbbrTranslateConfig.get_global()
     if not is_cmd and (not cfg.enabled or not global_cfg.enabled):
         # only disable implicit call by msg
         await matcher.finish()
@@ -207,8 +207,10 @@ async def config_abbr(
     message: str,
     global_scope: bool = False,
 ):
-    cfg = await AbbrTranslateConfig.get(
-        group_id=None if global_scope else event.group_id
+    cfg = (
+        await AbbrTranslateConfig.get_global()
+        if global_scope
+        else await AbbrTranslateConfig.get(group_id=event.group_id)
     )
     cfg_user = await AbbrTranslateConfig.get(
         group_id=event.group_id, user_id=event.user_id
@@ -254,9 +256,10 @@ async def config_abbr(
             else:
                 raise AssertionError("unreachable")
             abbrs_user.add(abbr)
-    await AbbrTranslateConfig.set(
-        cfg, group_id=None if global_scope else event.group_id
-    )
+    if global_scope:
+        await AbbrTranslateConfig.set_global(cfg)
+    else:
+        await AbbrTranslateConfig.set(cfg, group_id=event.group_id)
     await AbbrTranslateConfig.set(
         cfg_user, group_id=event.group_id, user_id=event.user_id
     )
@@ -289,14 +292,17 @@ async def toggle_abbr(
     enabled: bool,
     global_scope: bool = False,
 ):
-    cfg = await AbbrTranslateConfig.get(
-        group_id=None if global_scope else event.group_id
+    cfg = (
+        await AbbrTranslateConfig.get_global()
+        if global_scope
+        else await AbbrTranslateConfig.get(group_id=event.group_id)
     )
     inform = cfg.enabled != enabled
     cfg.enabled = enabled
-    await AbbrTranslateConfig.set(
-        cfg, group_id=None if global_scope else event.group_id
-    )
+    if global_scope:
+        await AbbrTranslateConfig.set_global(cfg)
+    else:
+        await AbbrTranslateConfig.set(cfg, group_id=event.group_id)
     if inform:
         scope_text = "全局" if global_scope else "快捷"
         await matcher.finish(f"{scope_text}翻译缩写已{'开启' if enabled else '关闭'}")

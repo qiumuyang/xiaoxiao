@@ -9,7 +9,7 @@ from src.utils.env import inject_env
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import SentMessageTracker as SMT
 
-from .config import RerankReplyConfig
+from .config import RerankReplyConfig, get_route_prob
 from .corpus import Corpus
 from .keywords import Keyword
 from .rerank_reply import RerankReply, retrieve_rerank_candidates
@@ -194,7 +194,7 @@ class RandomResponse:
                 if not results:
                     return
                 cfg = await RerankReplyConfig.get(group_id=group_id)
-                if cfg.enabled and random.random() < RerankReplyConfig.route_prob:
+                if cfg.enabled and random.random() < get_route_prob():
                     # rerank 用宽松召回（低阈值+更多候选），由 LLM 精排
                     candidates = await retrieve_rerank_candidates(
                         group_id,

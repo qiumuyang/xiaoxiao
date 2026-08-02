@@ -32,6 +32,8 @@ class Config(BaseModel):
         user_id: int | None = None,
         group_id: int | None = None,
     ) -> Self:
+        """按 scope 读取配置，需指定 user_id/group_id；全局用 get_global()。"""
+        cls._require_scope("get", user_id, group_id)
         return await ConfigManager.get(cls, user_id=user_id, group_id=group_id)
 
     @classmethod
@@ -42,7 +44,18 @@ class Config(BaseModel):
         user_id: int | None = None,
         group_id: int | None = None,
     ):
+        cls._require_scope("set", user_id, group_id)
         await ConfigManager.set(value, user_id=user_id, group_id=group_id)
+
+    @classmethod
+    async def get_global(cls) -> Self:
+        """读取全局配置。"""
+        return await ConfigManager.get(cls, user_id=None, group_id=None)
+
+    @classmethod
+    async def set_global(cls, value: Self) -> None:
+        """写入全局配置。"""
+        await ConfigManager.set(value, user_id=None, group_id=None)
 
     @classmethod
     @asynccontextmanager
@@ -52,9 +65,17 @@ class Config(BaseModel):
         user_id: int | None = None,
         group_id: int | None = None,
     ):
+        cls._require_scope("edit", user_id, group_id)
         cfg = await ConfigManager.get(cls, user_id=user_id, group_id=group_id)
         yield cfg
         await ConfigManager.set(cfg, user_id=user_id, group_id=group_id)
+
+    @classmethod
+    def _require_scope(cls, op: str, user_id: int | None, group_id: int | None):
+        if user_id is None and group_id is None:
+            raise ValueError(
+                f"Config.{op}() needs user_id/group_id; use *_global() for global"
+            )
 
 
 class StoreConfig(BaseModel):

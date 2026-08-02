@@ -31,6 +31,8 @@ from .ask import Ask
 from .config import (
     RandomResponseConfig,
     RerankReplyConfig,
+    get_route_prob,
+    set_route_prob,
     toggle_group_response_request,
     toggle_user_response,
 )
@@ -504,7 +506,7 @@ async def _(bot: OnebotBot, event: GroupMessageEvent, arg: Message = CommandArg(
             await smart_reply_cmd.finish("概率必须是 0~1 的小数")
         if not 0 <= prob <= 1:
             await smart_reply_cmd.finish("概率必须在 0~1 之间")
-        RerankReplyConfig.route_prob = prob
+        await set_route_prob(prob)
         await smart_reply_cmd.finish(f"智能回复路由概率已设为 {prob}")
     if action in ("开", "关"):
         if len(parts) > 1:
@@ -521,7 +523,7 @@ async def _(bot: OnebotBot, event: GroupMessageEvent, arg: Message = CommandArg(
             f"群 {group_id} 智能回复已{'开启' if action == '开' else '关闭'}"
         )
     if action == "状态":
-        lines = [f"智能回复状态：全局路由概率 {RerankReplyConfig.route_prob}"]
+        lines = [f"智能回复状态：全局路由概率 {get_route_prob()}"]
         for group_id, is_enabled in await RerankReplyConfig.list_enabled():
             name = await _safe_group_name(bot, group_id)
             label = f"{name} ({group_id})" if name else f"({group_id})"
