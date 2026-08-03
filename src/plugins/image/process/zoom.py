@@ -36,7 +36,9 @@ class Zoom(ImageProcessor):
             frames, durations = [], []
             while len(frames) < min_frames:
                 for frame in self.gif_iter(image):
-                    durations.append(frame.info["duration"] or default_frame_duration)
+                    durations.append(
+                        frame.info.get("duration") or default_frame_duration
+                    )
                     frames.append(frame.convert("RGBA"))
             # rescale the duration to match the total duration
             # total_duration = sum(durations)

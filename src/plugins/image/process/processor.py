@@ -122,7 +122,7 @@ class ImageProcessor(ABC, AutoArgumentParserMixin):
             return self.process_frame(image, *args, **kwargs)
         durations, frames = [], []
         for frame in self.gif_iter(image):
-            duration = frame.info["duration"]
+            duration = frame.info.get("duration") or 100
             durations.append(duration)
             if frame.mode == "P":
                 frame = frame.convert("RGBA")

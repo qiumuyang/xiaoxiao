@@ -64,6 +64,61 @@ def test_reflect():
         assert np.array_equal(img_non_cover, res_non_cover)
 
 
+def test_gif_frame_without_duration(monkeypatch):
+    """GIF 帧缺失 duration key 时不应抛 KeyError，落到默认 100ms。"""
+    from src.plugins.image.process import Reflect
+
+    frames = [random_image(30, 30)[1], random_image(30, 30)[1]]
+    for f in frames:
+        f.info.pop("duration", None)
+    io = BytesIO()
+    frames[0].save(
+        io,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        loop=0,
+    )
+    io.seek(0)
+    im = Image.open(io)
+    result = Reflect("L2R").process(im)
+    assert result is not None
+    reopened = Image.open(result)
+    assert reopened.is_animated
+    assert reopened.n_frames == 2
+    # 缺省 duration 兜底到 100ms：写回的 GIF 每帧都应带 duration
+    for i in range(reopened.n_frames):
+        reopened.seek(i)
+        assert reopened.info.get("duration") == 100
+
+
+def test_gif_frame_with_zero_duration():
+    """duration 为 0 时同样落到默认 100ms，不抛异常。"""
+    from src.plugins.image.process import Reflect
+
+    frames = [random_image(30, 30)[1], random_image(30, 30)[1]]
+    for f in frames:
+        f.info["duration"] = 0
+    io = BytesIO()
+    frames[0].save(
+        io,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        loop=0,
+    )
+    io.seek(0)
+    im = Image.open(io)
+    result = Reflect("L2R").process(im)
+    assert result is not None
+    reopened = Image.open(result)
+    assert reopened.is_animated
+    assert reopened.n_frames == 2
+    for i in range(reopened.n_frames):
+        reopened.seek(i)
+        assert reopened.info.get("duration") == 100
+
+
 def test_imops():
     from src.plugins.image.process.imops import TileScript
 

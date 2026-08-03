@@ -82,7 +82,7 @@ class Reverse(ImageProcessor):
     def process(self, image: Image.Image, *args, **kwargs) -> BytesIO:
         frames = list(self.gif_iter(image))
         frames.reverse()
-        durations = [f.info["duration"] for f in frames]
+        durations = [f.info.get("duration") or 100 for f in frames]
         io = BytesIO()
         frames[0].save(
             io,

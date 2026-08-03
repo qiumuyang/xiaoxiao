@@ -1,3 +1,5 @@
+import traceback
+
 from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.adapters.onebot.v11.event import Reply
 from nonebot.matcher import Matcher
@@ -107,8 +109,13 @@ async def process_image_message(
                     result = processor(image, avatar, *args)
                 else:
                     result = processor(image, *args)
-            except Exception as e:
-                image = Markdown(f"```python\n{e}\n```").render().to_pil()
+            except Exception:
+                logger.exception("Image processing failed")
+                image = (
+                    Markdown(f"```python\n{traceback.format_exc()}\n```")
+                    .render()
+                    .to_pil()
+                )
                 await matcher.finish(MessageSegment.image(image))
             if result is not None:
                 await matcher.finish(MessageSegment.image(result, summary=name))
