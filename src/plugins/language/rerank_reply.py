@@ -6,10 +6,8 @@ prompt 模板放本地文件（data/prompts/rerank_reply.txt），不进 git。
 """
 
 import asyncio
-import os
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from nonebot import get_bot
 from nonebot.adapters.onebot.v11 import Message
@@ -17,7 +15,6 @@ from pydantic import BaseModel
 
 from src.ext.llm import (
     BudgetCallback,
-    DailyCostBudget,
     PricingRegistry,
 )
 from src.ext.utils import get_group_member_name
@@ -30,21 +27,24 @@ from src.utils.persistence.mongo import Collection, Mongo
 from .corpus import Corpus
 from .keywords import Keyword
 from .llm_util import (
+    DAILY_BUDGET_YUAN,
     MODEL,
     TIMEOUT,
     make_prompt_loader,
     make_structured_model,
+    notify_budget_exceeded,
     wrap_tag,
     xml_escape,
 )
+from .llm_util import (
+    budget as _budget,
+)
 
 logger = logger_wrapper(__name__)
-_CST = ZoneInfo("Asia/Shanghai")
 
 PROMPT_PATH = Path("data/prompts/rerank_reply.txt")
 PROMPT_VERSION = "v2"
 
-DAILY_BUDGET_YUAN = 3.0
 ESTIMATED_FEN = PricingRegistry.get(MODEL).cost(1500, 100)
 
 K = 10
@@ -53,9 +53,6 @@ CONTEXT_N = 20
 RERANK_CORPUS_SAMPLES = 256
 RERANK_SIM_THRESHOLD = 0.2
 CONTEXT_WINDOW = timedelta(hours=24)
-
-_budget = DailyCostBudget(DAILY_BUDGET_YUAN)
-_last_notify_date: date | None = None
 
 _load_prompt = make_prompt_loader(PROMPT_PATH)
 
@@ -201,26 +198,6 @@ async def build_context(group_id: int) -> list[str]:
     ]
 
 
-async def _notify_budget_exceeded() -> None:
-    """预算超限向通知群发消息，每天仅一次。"""
-    global _last_notify_date
-    today = datetime.now(_CST).date()
-    if _last_notify_date == today:
-        return
-    _last_notify_date = today
-    group_id = os.getenv("ALERT_GROUP_ID")
-    if not group_id:
-        return
-    try:
-        bot = get_bot()
-        await bot.send_group_msg(
-            group_id=int(group_id),
-            message="[鸮鸮] 智能回复今日预算已用尽，已降级为关键词回放",
-        )
-    except Exception as e:
-        logger.warning("Failed to notify budget exceeded", exception=e)
-
-
 async def retrieve_rerank_candidates(
     group_id: int,
     query: str,
@@ -304,7 +281,7 @@ class RerankReply:
             return None
         if not await _budget.consume(ESTIMATED_FEN):
             LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
-            await _notify_budget_exceeded()
+            await notify_budget_exceeded()
             return None
         try:
             k = min(K, len(candidates))

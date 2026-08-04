@@ -38,7 +38,8 @@ from .config import (
 )
 from .history import History
 from .interact import RandomResponse
-from .rerank_reply import _CST, RerankReply, _safe_group_name, list_logs, parse_log_page
+from .llm_util import _CST
+from .rerank_reply import RerankReply, _safe_group_name, list_logs, parse_log_page
 
 record_message = on_message(priority=0, block=False, metric_label="record_message")
 random_response = on_message(

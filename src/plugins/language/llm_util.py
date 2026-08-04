@@ -1,14 +1,22 @@
-"""语言插件共享的 LLM 工具：XML 转义、prompt 加载、结构化模型工厂。
+"""语言插件共享的 LLM 工具：XML 转义、prompt 加载、结构化模型工厂、每日预算。
 
-ask_llm / rerank_reply 共用；本模块只依赖 src.ext.llm，不反向依赖任何业务模块。
+ask_llm / rerank_reply 共用；本模块只依赖 src.ext.llm，不反向依赖任何业务模块
+（nonebot 仅在 notify_budget_exceeded 内 lazy import）。
 """
 
+import os
 from collections.abc import Callable, Sequence
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from langchain_core.callbacks import BaseCallbackHandler
 
-from src.ext.llm import get_chat_model
+from src.ext.llm import DailyCostBudget, get_chat_model
+from src.utils.log import logger_wrapper
+
+logger = logger_wrapper(__name__)
+_CST = ZoneInfo("Asia/Shanghai")
 
 # 共享 LLM 配置（两模块一致；注意 TIMEOUT 是 asyncio.wait_for 超时，非 request_timeout）
 MODEL = "deepseek-v4-flash"
@@ -17,6 +25,36 @@ TIMEOUT = 5.0
 TEMPERATURE = 0.3
 # deepseek-v4-flash 默认思考模式不支持 tool_choice，必须关闭
 EXTRA_BODY = {"thinking": {"type": "disabled"}}
+
+# 每日 LLM 预算：rerank 与 ask_llm 必须共用同一实例。若各自 new 一个
+# DailyCostBudget，两个实例都向同一 Mongo 文档 {_id: 日期} 做 $set，
+# 会互相覆盖 consumed_fen（丢账），且每日额度翻倍。
+DAILY_BUDGET_YUAN = 3.0
+budget = DailyCostBudget(DAILY_BUDGET_YUAN)
+_last_notify_date: date | None = None
+
+
+async def notify_budget_exceeded() -> None:
+    """预算超限向通知群发消息，每天仅一次（两模块共享状态，不会重复通知）。"""
+    global _last_notify_date
+    today = datetime.now(_CST).date()
+    if _last_notify_date == today:
+        return
+    _last_notify_date = today
+    group_id = os.getenv("ALERT_GROUP_ID")
+    if not group_id:
+        return
+    try:
+        from nonebot import get_bot
+
+        bot = get_bot()
+        await bot.send_group_msg(
+            group_id=int(group_id),
+            message="[鸮鸮] 今日 LLM 预算已用尽，智能回复与「问」已降级为随机回复",
+        )
+    except Exception as e:
+        logger.warning("Failed to notify budget exceeded", exception=e)
+
 
 _ESCAPE_TABLE = str.maketrans({"<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;"})
 

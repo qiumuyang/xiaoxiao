@@ -14,6 +14,7 @@ from src.plugins.language.ask_llm import (
     _fill_slots,
     _has_pua,
     _pick_mode,
+    ask_llm_logs,
     ask_llm_rank,
     ask_llm_replace,
     build_rendered_string,
@@ -417,6 +418,118 @@ async def test_preprocessor_generation_flow(monkeypatch):
     result = await pre.try_preprocess("为什么天会黑", {}, ["A", "B"], group_id=100)
     assert result is not None
     assert "因为光散射，所以天会黑" in result
+
+
+def test_shared_budget_single_instance():
+    """rerank 与 ask_llm 必须共用同一预算实例（防额度翻倍、Mongo 互相覆盖）。"""
+    from src.plugins.language.ask_llm import _budget as ask_budget
+    from src.plugins.language.llm_util import budget
+    from src.plugins.language.rerank_reply import _budget as rerank_budget
+
+    assert ask_budget is budget
+    assert rerank_budget is budget
+
+
+@pytest.mark.asyncio
+async def test_preprocessor_budget_exhausted_falls_back(monkeypatch):
+    """预算已耗尽 → consume gate 拒绝：不调 LLM，直接降级（None）。"""
+    from src.ext.llm import DailyCostBudget
+    from src.ext.llm.budget import _budget_collection
+
+    await _budget_collection.drop()
+    exhausted = DailyCostBudget(3.0)
+    exhausted._consumed_fen = exhausted._limit_fen
+    monkeypatch.setattr("src.plugins.language.ask_llm._budget", exhausted)
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt",
+        lambda: "你是鸮鸮，{__points__}",
+    )
+    llm = AsyncMock(return_value=["光散射"])
+    monkeypatch.setattr("src.plugins.language.ask_llm.ask_llm_replace", llm)
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
+    )
+    result = await pre.try_preprocess("为什么天会黑", {}, ["A", "B"], group_id=100)
+    assert result is None
+    llm.assert_not_awaited()  # gate 在调 LLM 前拦截
+
+
+@pytest.mark.asyncio
+async def test_ask_llm_rank_timeout_refunds(monkeypatch):
+    """rank 超时 → 退还预留预算。"""
+    from src.ext.llm import DailyCostBudget
+    from src.ext.llm.budget import _budget_collection
+
+    await _budget_collection.drop()
+    fake = DailyCostBudget(3.0)
+    await fake.ensure_loaded()
+    before = fake.consumed_fen
+    assert await fake.consume(1)
+    monkeypatch.setattr("src.plugins.language.ask_llm._budget", fake)
+    monkeypatch.setattr(
+        "src.plugins.language.llm_util.get_chat_model",
+        lambda **kw: _fake_llm(asyncio.TimeoutError),
+    )
+    assert await ask_llm_rank("s", "u", k=3) is None
+    assert fake.consumed_fen == before  # 预留已全额退回
+
+
+@pytest.mark.asyncio
+async def test_preprocessor_generation_logs_to_mongo(monkeypatch):
+    """成功路径落 ask_llm_log：记录模式、替换值、结果。"""
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt",
+        lambda: "你是鸮鸮，{__points__}",
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.ask_llm_replace",
+        AsyncMock(return_value=["光散射"]),
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
+    )
+    await ask_llm_logs.drop()
+    try:
+        result = await pre.try_preprocess("为什么天会黑", {}, ["A", "B"], group_id=100)
+        assert result is not None
+        logs = [log async for log in ask_llm_logs.find_all({})]
+        assert len(logs) == 1
+        log = logs[0]
+        assert log.group_id == 100
+        assert log.question == "为什么天会黑"
+        assert log.mode == "generate"
+        assert log.replacements == ["光散射"]
+        assert "因为光散射" in log.result
+    finally:
+        await ask_llm_logs.drop()
+
+
+@pytest.mark.asyncio
+async def test_preprocessor_fallback_logs_to_mongo(monkeypatch):
+    """降级路径落 ask_llm_log：mode=fallback。"""
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt",
+        lambda: "你是鸮鸮，{__points__}",
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.ask_llm_replace",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
+    )
+    await ask_llm_logs.drop()
+    try:
+        result = await pre.try_preprocess("吃什么", {}, ["A"], group_id=100)
+        assert result is None
+        logs = [log async for log in ask_llm_logs.find_all({})]
+        assert len(logs) == 1
+        assert logs[0].mode == "fallback"
+    finally:
+        await ask_llm_logs.drop()
 
 
 @pytest.mark.asyncio

@@ -438,6 +438,9 @@ async def test_rank_and_select_budget_reject_notifies(monkeypatch):
     bot = SimpleNamespace(self_id="999", send_group_msg=AsyncMock())
     monkeypatch.setattr("src.plugins.language.rerank_reply.get_bot", lambda: bot)
     monkeypatch.setattr(
+        "nonebot.get_bot", lambda: bot
+    )  # notify_budget_exceeded 在 llm_util 内 lazy import
+    monkeypatch.setattr(
         "src.plugins.language.rerank_reply.build_context",
         AsyncMock(return_value=["ctx"]),
     )
@@ -445,7 +448,7 @@ async def test_rank_and_select_budget_reject_notifies(monkeypatch):
         "src.plugins.language.rerank_reply._load_prompt",
         lambda: "你是鸮鸮（self_id={self_id}）",
     )
-    monkeypatch.setattr("src.plugins.language.rerank_reply._last_notify_date", None)
+    monkeypatch.setattr("src.plugins.language.llm_util._last_notify_date", None)
     monkeypatch.setenv("ALERT_GROUP_ID", "777")
     assert await RerankReply.rank_and_select(100, ["a"]) is None
     bot.send_group_msg.assert_awaited_once()

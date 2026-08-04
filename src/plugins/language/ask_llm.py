@@ -7,26 +7,51 @@ prompt 模板放本地文件 data/prompts/ask_llm.txt，不进 git。
 import asyncio
 import random
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel
 
+from src.ext.llm import BudgetCallback, PricingRegistry
 from src.plugins.language.ask import ReplacementPoint
 from src.plugins.language.corpus import Corpus
 from src.plugins.language.llm_util import (
+    MODEL,
     TIMEOUT,
     make_prompt_loader,
     make_structured_model,
+    notify_budget_exceeded,
     wrap_tag,
     xml_escape,
 )
+from src.plugins.language.llm_util import (
+    budget as _budget,
+)
 from src.utils.log import logger_wrapper
+from src.utils.observability.metrics import LLM_BUDGET_REJECTED
+from src.utils.persistence.mongo import Collection, Mongo
 
 logger = logger_wrapper(__name__)
 
 PROMPT_PATH = Path("data/prompts/ask_llm.txt")
 PROMPT_VERSION = "v1"
 K = 10  # 候选数上限（加权采样模式用）
+
+ESTIMATED_FEN = PricingRegistry.get(MODEL).cost(1500, 100)
+
+
+class AskLlmLog(BaseModel):
+    group_id: int
+    question: str
+    mode: str  # generate | weighted | fallback
+    replacements: list[str]
+    result: str
+    logged_at: datetime
+
+
+ask_llm_logs: Collection[dict, AskLlmLog] = Mongo.collection(
+    "ask_llm_log"
+).auto_serialize(AskLlmLog)
 
 _load_prompt = make_prompt_loader(PROMPT_PATH)
 
@@ -118,7 +143,10 @@ async def ask_llm_replace(
     但模板已由 _encode_template 提供「因为」前缀，这里先 strip 再校验长度，
     避免 因为因为 重复。
     """
-    structured = make_structured_model(AskLlmOutput)
+    structured = make_structured_model(
+        AskLlmOutput,
+        callbacks=[BudgetCallback(_budget, MODEL, ESTIMATED_FEN)],
+    )
     try:
         result = await asyncio.wait_for(
             structured.ainvoke([("system", system), ("human", user)]),
@@ -127,9 +155,14 @@ async def ask_llm_replace(
     except asyncio.CancelledError:
         raise  # 不吞取消，保持取消传播
     except TimeoutError:
+        await _budget.refund(ESTIMATED_FEN)
         logger.warning("Ask llm timed out, fallback")
         return None
     except Exception as e:
+        # BudgetCallback.on_llm_error 可能已对 LLM 层错误退过一次款，
+        # 此处显式 refund 兜底非 LLM 异常；refund 底部钳到 0，
+        # 双退最多让当天预算低估 ESTIMATED_FEN，与 rerank 模块一致。
+        await _budget.refund(ESTIMATED_FEN)
         logger.warning("Ask llm error, fallback", exception=e)
         return None
     if not isinstance(result, AskLlmOutput) or not result.replacements:
@@ -168,8 +201,14 @@ def weighted_pick(items: list[str], weights: list[float]) -> str:
 
 
 async def ask_llm_rank(system: str, user: str, *, k: int) -> list[int] | None:
-    """LLM 给候选排序；返回 1..k 排列，非法 → None。"""
-    structured = make_structured_model(AskRankOutput)
+    """LLM 给候选排序；返回 1..k 排列，非法 → None。
+
+    预算已由调用方 consume 预留；超时/异常时退款并返回 None（降级）。
+    """
+    structured = make_structured_model(
+        AskRankOutput,
+        callbacks=[BudgetCallback(_budget, MODEL, ESTIMATED_FEN)],
+    )
     try:
         result = await asyncio.wait_for(
             structured.ainvoke([("system", system), ("human", user)]),
@@ -178,8 +217,14 @@ async def ask_llm_rank(system: str, user: str, *, k: int) -> list[int] | None:
     except asyncio.CancelledError:
         raise  # 不吞取消
     except TimeoutError:
+        await _budget.refund(ESTIMATED_FEN)
+        logger.warning("Ask rank timed out, fallback")
         return None
     except Exception as e:
+        # BudgetCallback.on_llm_error 可能已对 LLM 层错误退过一次款，
+        # 此处显式 refund 兜底非 LLM 异常；refund 底部钳到 0，
+        # 双退最多让当天预算低估 ESTIMATED_FEN，与 rerank 模块一致。
+        await _budget.refund(ESTIMATED_FEN)
         logger.warning("Ask rank error, fallback", exception=e)
         return None
     if not isinstance(result, AskRankOutput):
@@ -225,6 +270,28 @@ def _fill_system(template: str, n_points: int) -> str:
     return template.replace("{__points__}", str(n_points))
 
 
+async def _log_ask_llm(
+    group_id: int,
+    question: str,
+    mode: str,
+    replacements: list[str],
+    result: str,
+) -> None:
+    try:
+        await ask_llm_logs.insert_one(
+            AskLlmLog(
+                group_id=group_id,
+                question=question,
+                mode=mode,
+                replacements=replacements,
+                result=result,
+                logged_at=datetime.now(UTC),
+            )
+        )
+    except Exception as e:
+        logger.warning("Failed to write ask llm log", exception=e)
+
+
 class AskLlmPreprocessor:
     """三阶段预处理编排。try_preprocess 返回完整回答或 None（降级走原路径）。"""
 
@@ -246,11 +313,19 @@ class AskLlmPreprocessor:
             logger.warning("Ask llm prompt 模板缺失")
             return None
         try:
-            return await self._run(
+            result = await self._run(
                 question, symtab0, members, points, system_template, group_id
             )
+            if result is None:
+                await _log_ask_llm(
+                    group_id, question, "fallback", [], "LLM 介入失败，降级随机路径"
+                )
+            return result
         except Exception as e:
             logger.warning("Ask llm preprocess failed, fallback", exception=e)
+            await _log_ask_llm(
+                group_id, question, "fallback", [], f"异常降级: {type(e).__name__}"
+            )
             return None
 
     async def _run(
@@ -294,6 +369,11 @@ class AskLlmPreprocessor:
             )
             if not candidates:
                 return None
+            # 候选已就绪再 consume：gate 失败不浪费预算，降级随机
+            if not await _budget.consume(ESTIMATED_FEN):
+                LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
+                await notify_budget_exceeded()
+                return None
             cand_user = (
                 user
                 + "\n候选语料：\n"
@@ -310,6 +390,10 @@ class AskLlmPreprocessor:
             else:
                 return None  # 加权失败直接降级随机，不再二次 LLM 调用
         else:
+            if not await _budget.consume(ESTIMATED_FEN):
+                LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
+                await notify_budget_exceeded()
+                return None
             replacements = await ask_llm_replace(
                 system,
                 user,
@@ -322,6 +406,7 @@ class AskLlmPreprocessor:
         result = _fill_slots(encoded_filled, replacements)
         result = _restore_collected(result, collect)
         result = _replace_symtab0_images(result, symtab0)
+        await _log_ask_llm(group_id, question, mode, replacements, result)
         return result
 
 
