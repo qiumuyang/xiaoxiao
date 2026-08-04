@@ -7,14 +7,12 @@ import pytest
 from nonebot.adapters.onebot.v11 import Message
 
 from src.plugins.language.ask import _encode_template, _scan_template
-from src.plugins.language.ask_llm import (  # noqa: F401
-    PROMPT_PATH,
+from src.plugins.language.ask_llm import (
     AskLlmOutput,
     AskLlmPreprocessor,
     AskRankOutput,
     _fill_slots,
     _has_pua,
-    _load_prompt,
     _pick_mode,
     ask_llm_rank,
     ask_llm_replace,
@@ -27,6 +25,7 @@ from src.plugins.language.ask_llm import (  # noqa: F401
     wrap_tag,
     xml_escape,
 )
+from src.plugins.language.llm_util import make_prompt_loader
 
 
 def test_xml_escape_special_chars():
@@ -79,6 +78,21 @@ def test_scan_template_escaped_not_scanned():
     assert _scan_template(r"\什么") == []
 
 
+def test_scan_template_double_backslash_unescaped():
+    """双反斜杠：第一个转义第二个，什么 仍是替换点（对齐 process()）。"""
+    points = _scan_template(r"\\什么")
+    assert len(points) == 1
+    assert points[0].kw == "什么" and points[0].start == 2
+
+
+def test_scan_template_什么样_not_point():
+    """什么样/为什么样/干什么样 是单个 jieba 词，不误拆成 什么 点。"""
+    assert _scan_template("什么样") == []
+    assert _scan_template("为什么样") == []
+    assert _scan_template("干什么样") == []
+    assert _scan_template("问什么样") == []
+
+
 def test_scan_template_over_three():
     points = _scan_template("什么什么什么什么")
     assert len(points) == 4
@@ -116,34 +130,43 @@ def test_encode_template_why_with_prefix():
     assert encoded == "因为\x000\x00，所以天会黑"
 
 
-def test_ask_load_prompt_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr("src.plugins.language.ask_llm._prompt_cache", None)
-    monkeypatch.setattr(
-        "src.plugins.language.ask_llm.PROMPT_PATH", tmp_path / "nope.txt"
-    )
-    assert _load_prompt() is None
+def test_encode_template_reason_what():
+    """因为什么 被当作 reason 处理，带 所以 后缀。"""
+    points = _scan_template("因为什么天会黑")
+    encoded = _encode_template("因为什么天会黑", points)
+    assert encoded == "因为\x000\x00，所以天会黑"
 
 
-def test_ask_load_prompt_caches(tmp_path, monkeypatch):
-    monkeypatch.setattr("src.plugins.language.ask_llm._prompt_cache", None)
+def test_encode_template_reason_what_no_trailing():
+    """因为什么 无尾文本 → 只保留 因为 前缀，不补 所以。"""
+    points = _scan_template("因为什么")
+    encoded = _encode_template("因为什么", points)
+    assert encoded == "因为\x000\x00"
+
+
+def test_ask_make_prompt_loader_missing(tmp_path):
+    load = make_prompt_loader(tmp_path / "nope.txt")
+    assert load() is None
+
+
+def test_ask_make_prompt_loader_caches(tmp_path):
     p = tmp_path / "ask_llm.txt"
     p.write_text("v1")
-    monkeypatch.setattr("src.plugins.language.ask_llm.PROMPT_PATH", p)
-    assert _load_prompt() == "v1"
-    assert _load_prompt() == "v1"  # 命中缓存
+    load = make_prompt_loader(p)
+    assert load() == "v1"
+    assert load() == "v1"  # 命中缓存
 
 
-def test_ask_load_prompt_reloads_on_mtime_change(tmp_path, monkeypatch):
-    monkeypatch.setattr("src.plugins.language.ask_llm._prompt_cache", None)
+def test_ask_make_prompt_loader_reloads_on_mtime_change(tmp_path):
     p = tmp_path / "ask_llm.txt"
     p.write_text("v1")
-    monkeypatch.setattr("src.plugins.language.ask_llm.PROMPT_PATH", p)
-    assert _load_prompt() == "v1"
+    load = make_prompt_loader(p)
+    assert load() == "v1"
     import time
 
     time.sleep(0.02)
     p.write_text("v2")
-    assert _load_prompt() == "v2"  # mtime 变化 → 重载
+    assert load() == "v2"  # mtime 变化 → 重载
 
 
 def test_build_rendered_string_resolves_and_escapes():
@@ -234,7 +257,7 @@ def _fake_llm(side_effect):
 @pytest.mark.asyncio
 async def test_ask_llm_replace_generation(monkeypatch):
     monkeypatch.setattr(
-        "src.plugins.language.ask_llm.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["光散射"])),
     )
     result = await ask_llm_replace("system", "user", length=3)
@@ -244,7 +267,7 @@ async def test_ask_llm_replace_generation(monkeypatch):
 @pytest.mark.asyncio
 async def test_ask_llm_replace_timeout_falls_back(monkeypatch):
     monkeypatch.setattr(
-        "src.plugins.language.ask_llm.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(asyncio.TimeoutError),
     )
     assert await ask_llm_replace("s", "u", length=3) is None
@@ -253,7 +276,7 @@ async def test_ask_llm_replace_timeout_falls_back(monkeypatch):
 @pytest.mark.asyncio
 async def test_ask_llm_replace_length_mismatch_none(monkeypatch):
     monkeypatch.setattr(
-        "src.plugins.language.ask_llm.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["光散"])),
     )
     assert await ask_llm_replace("s", "u", length=3) is None
@@ -263,7 +286,7 @@ async def test_ask_llm_replace_length_mismatch_none(monkeypatch):
 async def test_ask_llm_replace_pua_rejected(monkeypatch):
     """LLM 输出含 PUA 字符 → None（防 symtab 误还原）。"""
     monkeypatch.setattr(
-        "src.plugins.language.ask_llm.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["\ue000abc"])),
     )
     assert await ask_llm_replace("s", "u", length=None) is None
@@ -273,10 +296,51 @@ async def test_ask_llm_replace_pua_rejected(monkeypatch):
 async def test_ask_llm_replace_generic_error(monkeypatch):
     """非 LLM 层异常 → None。"""
     monkeypatch.setattr(
-        "src.plugins.language.ask_llm.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(RuntimeError),
     )
     assert await ask_llm_replace("s", "u", length=None) is None
+
+
+@pytest.mark.asyncio
+async def test_ask_llm_replace_strips_why_prefix(monkeypatch):
+    """为什么 点的 LLM 输出带前导因为 → strip 后校验。"""
+    monkeypatch.setattr(
+        "src.plugins.language.llm_util.get_chat_model",
+        lambda **kw: _fake_llm(AskLlmOutput(replacements=["因为雨"])),
+    )
+    # length=3: "因为雨" strip 因为 → "雨"(1字) ≠ 3 → None
+    assert await ask_llm_replace("s", "u", length=3, kw="为什么") is None
+
+
+@pytest.mark.asyncio
+async def test_ask_llm_replace_why_valid_reason(monkeypatch):
+    """为什么 点 reason 不带因为，正常通过。"""
+    monkeypatch.setattr(
+        "src.plugins.language.llm_util.get_chat_model",
+        lambda **kw: _fake_llm(AskLlmOutput(replacements=["光散射"])),
+    )
+    assert await ask_llm_replace("s", "u", length=3, kw="为什么") == ["光散射"]
+
+
+@pytest.mark.asyncio
+async def test_ask_llm_replace_multi_lengths(monkeypatch):
+    """多替换点各自校验长度。"""
+    monkeypatch.setattr(
+        "src.plugins.language.llm_util.get_chat_model",
+        lambda **kw: _fake_llm(AskLlmOutput(replacements=["甲", "乙乙"])),
+    )
+    assert await ask_llm_replace("s", "u", lengths=[1, 2]) == ["甲", "乙乙"]
+
+
+@pytest.mark.asyncio
+async def test_ask_llm_replace_multi_length_mismatch(monkeypatch):
+    """多替换点长度不符 → None。"""
+    monkeypatch.setattr(
+        "src.plugins.language.llm_util.get_chat_model",
+        lambda **kw: _fake_llm(AskLlmOutput(replacements=["甲乙", "乙"])),
+    )
+    assert await ask_llm_replace("s", "u", lengths=[1, 2]) is None
 
 
 def test_weighted_pick_prefers_high_weight():
@@ -290,7 +354,7 @@ def test_weighted_pick_prefers_high_weight():
 @pytest.mark.asyncio
 async def test_ask_llm_rank(monkeypatch):
     monkeypatch.setattr(
-        "src.plugins.language.ask_llm.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskRankOutput(ranks=[2, 1, 3])),
     )
     result = await ask_llm_rank("system", "user", k=3)
@@ -300,7 +364,7 @@ async def test_ask_llm_rank(monkeypatch):
 @pytest.mark.asyncio
 async def test_ask_llm_rank_invalid_none(monkeypatch):
     monkeypatch.setattr(
-        "src.plugins.language.ask_llm.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskRankOutput(ranks=[1, 1, 2])),
     )
     assert await ask_llm_rank("system", "user", k=3) is None
@@ -353,6 +417,55 @@ async def test_preprocessor_generation_flow(monkeypatch):
     result = await pre.try_preprocess("为什么天会黑", {}, ["A", "B"], group_id=100)
     assert result is not None
     assert "因为光散射，所以天会黑" in result
+
+
+@pytest.mark.asyncio
+async def test_preprocessor_weighted_success(monkeypatch):
+    """加权模式 rank 成功 → 返回加权选中值，不再调纯生成。"""
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt", lambda: "模板{__points__}"
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "weighted"
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.retrieve_candidates",
+        AsyncMock(return_value=["候选甲"]),
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.weighted_select",
+        AsyncMock(return_value="披萨"),
+    )
+    replace = AsyncMock(return_value=["光散射"])
+    monkeypatch.setattr("src.plugins.language.ask_llm.ask_llm_replace", replace)
+    result = await pre.try_preprocess("吃什么", {}, ["A"], group_id=100)
+    assert result == "吃披萨"
+    replace.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_preprocessor_weighted_fail_degrades_to_random(monkeypatch):
+    """加权模式 rank 失败/超时 → 直接降级随机（返回 None），不再二次 LLM 调用。"""
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt", lambda: "模板{__points__}"
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "weighted"
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.retrieve_candidates",
+        AsyncMock(return_value=["候选甲", "候选乙"]),
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.weighted_select", AsyncMock(return_value=None)
+    )
+    replace = AsyncMock(return_value=["光散射"])
+    monkeypatch.setattr("src.plugins.language.ask_llm.ask_llm_replace", replace)
+    result = await pre.try_preprocess("吃什么", {}, ["A"], group_id=100)
+    assert result is None
+    replace.assert_not_awaited()
 
 
 def test_build_replacement_prompt_with_length():

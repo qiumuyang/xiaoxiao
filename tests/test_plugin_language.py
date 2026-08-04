@@ -1,6 +1,7 @@
 import functools
 import operator
 import random
+import re
 import string
 from collections.abc import Callable
 from datetime import datetime
@@ -275,6 +276,31 @@ async def test_process_no_collect_still_plain():
     async for result in ask.process("谁", members):
         parts.append(result)
     assert "".join(parts) == "小明2"  # 不经 escape
+
+
+@pytest.mark.asyncio
+async def test_process_collect_ji_time_not_pua():
+    """collect 模式下 几 时间值不 PUA 编码：几点 输出真实数字，几分 范围 1-59 保持。
+
+    若几点 被 PUA 编码，total_out 变 PUA+点，endswith_num_and_char 取不到前面的
+    数字，几分 会落到 randint(0,10) 而不是 1-59。
+    """
+    members = ["A", "B", "C"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    ask.replacement = False
+    collect = {}
+    parts = []
+    async for result in ask.process(
+        "几点几分", members, collect_values=collect, pua_start=0
+    ):
+        parts.append(result)
+    joined = "".join(parts)
+    assert collect == {}  # 几 值不入 collect
+    m = re.fullmatch(r"(\d+)点(\d+)分", Ask.unescape(joined))
+    assert m is not None
+    hour, minute = int(m.group(1)), int(m.group(2))
+    assert 1 <= hour <= 12
+    assert 1 <= minute <= 59
 
 
 @pytest.mark.asyncio

@@ -68,37 +68,39 @@ class ReplacementPoint:
 def _scan_template(s: str) -> list[ReplacementPoint]:
     """识别 LLM 类替换点（什么/为什么/干什么）及跟随数字长度约束。
 
-    \\ 转义语义保留：\\什么 不触发（与 process() 一致）。
+    用 jieba 词边界对齐 process()：什么样/为什么样/干什么样 是单个词，不误拆成
+    什么/为什么/干什么 点。\\ 转义语义保留：词前连续反斜杠为奇数个 → 已转义不触发
+    （与 process() 的 \\ 处理一致）。
     """
 
     points: list[ReplacementPoint] = []
-    i = 0
-    n = len(s)
-    while i < n:
-        c = s[i]
-        if c == "\\":
-            i += 2
+    pos = 0
+    for word, _ in pseg.cut(s, use_paddle=True):
+        start = s.find(word, pos)
+        if start < 0:
+            pos += len(word)
             continue
-        if c == "/":
-            i += 1
-            continue
-        for kw in ("为什么", "干什么", "什么"):
-            if s.startswith(kw, i):
-                j = i + len(kw)
-                length = None
-                if j < n and s[j].isdecimal() and int(s[j]) > 0:
-                    length = int(s[j])
-                    j += 1
-                points.append(ReplacementPoint(kw=kw, start=i, length=length))
-                i = j
-                break
-        else:
-            i += 1
+        if word in ("什么", "为什么", "干什么"):
+            bslashes = 0
+            i = start - 1
+            while i >= 0 and s[i] == "\\":
+                bslashes += 1
+                i -= 1
+            if bslashes % 2 == 1:
+                pos = start + len(word)
+                continue
+            end = start + len(word)
+            length = None
+            if end < len(s) and s[end].isdecimal() and int(s[end]) > 0:
+                length = int(s[end])
+                end += 1
+            points.append(ReplacementPoint(kw=word, start=start, length=length))
+        pos = start + len(word)
     return points
 
 
 def _encode_template(s: str, points: list[ReplacementPoint]) -> str:
-    """把 LLM 点替换为定长 slot 标记，为什么 点加「因为…，所以」句式。"""
+    """把 LLM 点替换为定长 slot 标记，为什么/因为什么 点加「因为…，所以」句式。"""
 
     result = s
     for p, i in sorted(
@@ -110,10 +112,12 @@ def _encode_template(s: str, points: list[ReplacementPoint]) -> str:
         if p.length is not None:
             end += 1
         slot = f"\x00{i}\x00"
-        # 为什么 加「因为」前缀（前置已是「因为」时不重复加，对齐 process prev_out 语义）；
+        # 为什么 / 因为什么 作为 reason（对齐 process prev_out 语义）：
+        # 加「因为」前缀（前置已是「因为」时不重复加）；
         # 替换点后仍有文本时补「，所以」（对齐 process next_remain 语义，用原始 s 判尾）
         prefix_before = result[max(0, p.start - len("因为")) : p.start]
-        if p.kw == "为什么":
+        is_reason = p.kw == "为什么" or (p.kw == "什么" and prefix_before == "因为")
+        if is_reason:
             marker = f"因为{slot}" if prefix_before != "因为" else slot
             if end < len(s):
                 marker += "，所以"
@@ -538,11 +542,9 @@ class Ask:
                 else:
                     num = str(random.randint(0, 10))
                 first, rest = word.split("几", 1)
-                yield output(
-                    await self._collect_or_text(
-                        collect_values, pua_start, "number", first + num
-                    )
-                )
+                # 几 值为确定性数字（非采样语料），不入 collect：保持 total_out
+                # 真实文本，供 几分/几秒/几号 的 endswith_num_and_char 范围判断。
+                yield output(first + num)
                 self.replacement = True
                 next_remain = rest + next_remain
             else:

@@ -13,6 +13,7 @@ from src.ext.llm import DailyCostBudget
 from src.plugins.language import rerank_reply as rr
 from src.plugins.language.config import RerankReplyConfig, get_route_prob
 from src.plugins.language.interact import RandomResponse, _InteractMessage
+from src.plugins.language.llm_util import make_prompt_loader
 from src.plugins.language.rerank_reply import (
     CONTEXT_N,
     RERANK_CORPUS_SAMPLES,
@@ -20,7 +21,6 @@ from src.plugins.language.rerank_reply import (
     RerankLog,
     RerankOutput,
     RerankReply,
-    _load_prompt,
     build_context,
     build_prompt,
     build_user_prompt,
@@ -76,32 +76,27 @@ TEMPLATE = """你是鸮鸮（self_id={self_id}）。
 """
 
 
-def test_load_prompt_missing_returns_none(tmp_path, monkeypatch):
-    monkeypatch.setattr("src.plugins.language.rerank_reply._prompt_cache", None)
-    monkeypatch.setattr(
-        "src.plugins.language.rerank_reply.PROMPT_PATH", tmp_path / "nope.txt"
-    )
-    assert _load_prompt() is None
+def test_make_prompt_loader_missing_returns_none(tmp_path):
+    load = make_prompt_loader(tmp_path / "nope.txt")
+    assert load() is None
 
 
-def test_load_prompt_reads_and_caches(tmp_path, monkeypatch):
-    monkeypatch.setattr("src.plugins.language.rerank_reply._prompt_cache", None)
+def test_make_prompt_loader_reads_and_caches(tmp_path):
     p = tmp_path / "prompt.txt"
     p.write_text(TEMPLATE)
-    monkeypatch.setattr("src.plugins.language.rerank_reply.PROMPT_PATH", p)
-    assert _load_prompt() == TEMPLATE
-    assert _load_prompt() == TEMPLATE  # 命中缓存
+    load = make_prompt_loader(p)
+    assert load() == TEMPLATE
+    assert load() == TEMPLATE  # 命中缓存
 
 
-def test_load_prompt_reloads_on_mtime_change(tmp_path, monkeypatch):
-    monkeypatch.setattr("src.plugins.language.rerank_reply._prompt_cache", None)
+def test_make_prompt_loader_reloads_on_mtime_change(tmp_path):
     p = tmp_path / "prompt.txt"
     p.write_text("v1")
-    monkeypatch.setattr("src.plugins.language.rerank_reply.PROMPT_PATH", p)
-    assert _load_prompt() == "v1"
+    load = make_prompt_loader(p)
+    assert load() == "v1"
     time.sleep(0.02)
     p.write_text("v2")
-    assert _load_prompt() == "v2"
+    assert load() == "v2"
 
 
 def test_build_user_prompt():
@@ -535,7 +530,7 @@ async def test_budget_status_loads_persisted(monkeypatch):
 async def test_invoke_llm_error_refunds(monkeypatch):
     await _set_budget(monkeypatch, 3.0)
     monkeypatch.setattr(
-        "src.plugins.language.rerank_reply.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm_ainvoke(RuntimeError("api down")),
     )
     await rr._budget.consume(rr.ESTIMATED_FEN)
@@ -547,7 +542,7 @@ async def test_invoke_llm_error_refunds(monkeypatch):
 async def test_invoke_llm_timeout_refunds(monkeypatch):
     await _set_budget(monkeypatch, 3.0)
     monkeypatch.setattr(
-        "src.plugins.language.rerank_reply.get_chat_model",
+        "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm_ainvoke(asyncio.TimeoutError),
     )
     await rr._budget.consume(rr.ESTIMATED_FEN)

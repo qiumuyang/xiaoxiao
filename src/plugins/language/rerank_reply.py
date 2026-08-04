@@ -19,7 +19,6 @@ from src.ext.llm import (
     BudgetCallback,
     DailyCostBudget,
     PricingRegistry,
-    get_chat_model,
 )
 from src.ext.utils import get_group_member_name
 from src.utils.log import logger_wrapper
@@ -28,9 +27,16 @@ from src.utils.message.send import SentMessageTracker as SMT
 from src.utils.observability.metrics import LLM_BUDGET_REJECTED
 from src.utils.persistence.mongo import Collection, Mongo
 
-from .ask_llm import wrap_tag, xml_escape
 from .corpus import Corpus
 from .keywords import Keyword
+from .llm_util import (
+    MODEL,
+    TIMEOUT,
+    make_prompt_loader,
+    make_structured_model,
+    wrap_tag,
+    xml_escape,
+)
 
 logger = logger_wrapper(__name__)
 _CST = ZoneInfo("Asia/Shanghai")
@@ -38,12 +44,8 @@ _CST = ZoneInfo("Asia/Shanghai")
 PROMPT_PATH = Path("data/prompts/rerank_reply.txt")
 PROMPT_VERSION = "v2"
 
-MODEL = "deepseek-v4-flash"
-BASE_URL = "https://api.deepseek.com"
 DAILY_BUDGET_YUAN = 3.0
 ESTIMATED_FEN = PricingRegistry.get(MODEL).cost(1500, 100)
-# deepseek-v4-flash 默认思考模式不支持 tool_choice，必须关闭
-EXTRA_BODY = {"thinking": {"type": "disabled"}}
 
 K = 10
 CONTEXT_N = 20
@@ -51,12 +53,11 @@ CONTEXT_N = 20
 RERANK_CORPUS_SAMPLES = 256
 RERANK_SIM_THRESHOLD = 0.2
 CONTEXT_WINDOW = timedelta(hours=24)
-TIMEOUT = 5.0
-TEMPERATURE = 0.3
 
 _budget = DailyCostBudget(DAILY_BUDGET_YUAN)
 _last_notify_date: date | None = None
-_prompt_cache: tuple[float, str] | None = None
+
+_load_prompt = make_prompt_loader(PROMPT_PATH)
 
 
 class RerankOutput(BaseModel):
@@ -76,20 +77,6 @@ class RerankLog(BaseModel):
 rerank_logs: Collection[dict, RerankLog] = Mongo.collection(
     "rerank_log"
 ).auto_serialize(RerankLog)
-
-
-def _load_prompt() -> str | None:
-    """读取 prompt 模板；mtime 变化时重载（调优即时生效）。"""
-    global _prompt_cache
-    try:
-        mtime = PROMPT_PATH.stat().st_mtime
-    except FileNotFoundError:
-        return None
-    if _prompt_cache is not None and _prompt_cache[0] == mtime:
-        return _prompt_cache[1]
-    text = PROMPT_PATH.read_text(encoding="utf-8")
-    _prompt_cache = (mtime, text)
-    return text
 
 
 def _fill_template(template: str, *, self_id: int, context_n: int, k: int) -> str:
@@ -349,15 +336,9 @@ class RerankReply:
     @classmethod
     async def _invoke_llm(cls, system: str, user: str) -> RerankOutput | None:
         """调用 LLM 排序；超时/异常时退款并返回 None（降级）。"""
-        model = get_chat_model(
-            model=MODEL,
-            base_url=BASE_URL,
-            temperature=TEMPERATURE,
+        structured = make_structured_model(
+            RerankOutput,
             callbacks=[BudgetCallback(_budget, MODEL, ESTIMATED_FEN)],
-            extra_body=EXTRA_BODY,
-        )
-        structured = model.with_structured_output(
-            RerankOutput, method="function_calling"
         )
         try:
             result = await asyncio.wait_for(

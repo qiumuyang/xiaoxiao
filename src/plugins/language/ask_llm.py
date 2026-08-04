@@ -11,26 +11,24 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from src.ext.llm import get_chat_model
 from src.plugins.language.ask import ReplacementPoint
 from src.plugins.language.corpus import Corpus
+from src.plugins.language.llm_util import (
+    TIMEOUT,
+    make_prompt_loader,
+    make_structured_model,
+    wrap_tag,
+    xml_escape,
+)
 from src.utils.log import logger_wrapper
 
 logger = logger_wrapper(__name__)
 
 PROMPT_PATH = Path("data/prompts/ask_llm.txt")
 PROMPT_VERSION = "v1"
-
-MODEL = "deepseek-v4-flash"
-BASE_URL = "https://api.deepseek.com"
-TIMEOUT = 5.0
-TEMPERATURE = 0.3
-EXTRA_BODY = {"thinking": {"type": "disabled"}}
 K = 10  # 候选数上限（加权采样模式用）
 
-_prompt_cache: tuple[float, str] | None = None
-
-_ESCAPE_TABLE = str.maketrans({"<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;"})
+_load_prompt = make_prompt_loader(PROMPT_PATH)
 
 # slot 标记：\x00{index}\x00，_encode_template 生成，_fill_slots/build_replacement_prompt 消费
 _SLOT_RE = re.compile(r"\x00(\d+)\x00")
@@ -41,30 +39,6 @@ _PUA_RE = re.compile(f"[{chr(0xE000)}-{chr(0xF8FF)}]")
 
 def _has_pua(text: str) -> bool:
     return _PUA_RE.search(text) is not None
-
-
-def xml_escape(s: str) -> str:
-    """转义 XML 特殊字符，防嵌套 tag 注入。"""
-    return s.translate(_ESCAPE_TABLE)
-
-
-def wrap_tag(name: str, content: str, *, index: int | None = None) -> str:
-    """把 content XML 转义后包进 <name>…</name>（可选 index 属性）。"""
-    attrs = f' index="{index}"' if index is not None else ""
-    return f"<{name}{attrs}>{xml_escape(content)}</{name}>"
-
-
-def _load_prompt() -> str | None:
-    global _prompt_cache
-    try:
-        mtime = PROMPT_PATH.stat().st_mtime
-    except FileNotFoundError:
-        return None
-    if _prompt_cache is not None and _prompt_cache[0] == mtime:
-        return _prompt_cache[1]
-    text = PROMPT_PATH.read_text(encoding="utf-8")
-    _prompt_cache = (mtime, text)
-    return text
 
 
 def build_rendered_string(encoded: str, symtab1: dict[str, dict]) -> str:
@@ -130,16 +104,21 @@ def validate_length(text: str, *, length: int | None) -> bool:
 
 
 async def ask_llm_replace(
-    system: str, user: str, *, length: int | None
+    system: str,
+    user: str,
+    *,
+    length: int | None = None,
+    kw: str | None = None,
+    lengths: list[int | None] | None = None,
 ) -> list[str] | None:
-    """调 LLM 生成 replacement(s)；超时/异常/长度不符 → None（调用方降级）。"""
-    model = get_chat_model(
-        model=MODEL,
-        base_url=BASE_URL,
-        temperature=TEMPERATURE,
-        extra_body=EXTRA_BODY,
-    )
-    structured = model.with_structured_output(AskLlmOutput, method="function_calling")
+    """调 LLM 生成 replacement(s)；超时/异常/长度不符 → None（调用方降级）。
+
+    length 与 lengths 二选一：length 对所有 replacement 统一校验；
+    lengths 逐点校验（多替换点场景）。kw == "为什么" 时 LLM 可能带前导「因为」，
+    但模板已由 _encode_template 提供「因为」前缀，这里先 strip 再校验长度，
+    避免 因为因为 重复。
+    """
+    structured = make_structured_model(AskLlmOutput)
     try:
         result = await asyncio.wait_for(
             structured.ainvoke([("system", system), ("human", user)]),
@@ -155,12 +134,23 @@ async def ask_llm_replace(
         return None
     if not isinstance(result, AskLlmOutput) or not result.replacements:
         return None
-    if not all(validate_length(r, length=length) for r in result.replacements):
+    if lengths is not None and len(result.replacements) != len(lengths):
         return None
-    if any(_has_pua(r) for r in result.replacements):
-        logger.warning("Ask llm output contains PUA chars, fallback")
-        return None
-    return result.replacements
+    results = []
+    for i, r in enumerate(result.replacements):
+        if kw == "为什么":
+            r = r.removeprefix("因为")
+        if lengths is not None:
+            ok = validate_length(r, length=lengths[i])
+        else:
+            ok = validate_length(r, length=length)
+        if not ok:
+            return None
+        if _has_pua(r):
+            logger.warning("Ask llm output contains PUA chars, fallback")
+            return None
+        results.append(r)
+    return results
 
 
 class AskRankOutput(BaseModel):
@@ -179,10 +169,7 @@ def weighted_pick(items: list[str], weights: list[float]) -> str:
 
 async def ask_llm_rank(system: str, user: str, *, k: int) -> list[int] | None:
     """LLM 给候选排序；返回 1..k 排列，非法 → None。"""
-    model = get_chat_model(
-        model=MODEL, base_url=BASE_URL, temperature=TEMPERATURE, extra_body=EXTRA_BODY
-    )
-    structured = model.with_structured_output(AskRankOutput, method="function_calling")
+    structured = make_structured_model(AskRankOutput)
     try:
         result = await asyncio.wait_for(
             structured.ainvoke([("system", system), ("human", user)]),
@@ -292,11 +279,11 @@ class AskLlmPreprocessor:
         from src.plugins.language.config import RerankReplyConfig
 
         cfg = await RerankReplyConfig.get(group_id=group_id)
-        length = points[0].length if len(points) == 1 else None
         system = _fill_system(system_template, len(points))
         user = build_replacement_prompt(rendered, points)
 
-        # 加权模式 v1 仅单替换点；多替换点或加权失败 → 退化为纯生成
+        # 加权模式 v1 仅单替换点；多替换点或 generate 模式 → 纯生成。
+        # 加权失败直接降级随机（返回 None 触发原随机路径），不再二次 LLM 调用。
         mode = _pick_mode(cfg.ask_llm_generate_prob)
         replacements: list[str] | None = None
         if mode == "weighted" and len(points) == 1:
@@ -305,20 +292,30 @@ class AskLlmPreprocessor:
             candidates = await retrieve_candidates(
                 group_id, length=cand_length, sample=16
             )
-            if candidates:
-                cand_user = (
-                    user
-                    + "\n候选语料：\n"
-                    + "\n".join(
-                        wrap_tag("candidate", c, index=i)
-                        for i, c in enumerate(candidates, 1)
-                    )
+            if not candidates:
+                return None
+            cand_user = (
+                user
+                + "\n候选语料：\n"
+                + "\n".join(
+                    wrap_tag("candidate", c, index=i)
+                    for i, c in enumerate(candidates, 1)
                 )
-                selected = await weighted_select(system, cand_user, candidates)
-                if selected is not None and (p_len is None or len(selected) == p_len):
-                    replacements = [selected]
-        if replacements is None:
-            replacements = await ask_llm_replace(system, user, length=length)
+            )
+            selected = await weighted_select(system, cand_user, candidates)
+            if selected is not None and points[0].kw == "为什么":
+                selected = selected.removeprefix("因为")
+            if selected is not None and (p_len is None or len(selected) == p_len):
+                replacements = [selected]
+            else:
+                return None  # 加权失败直接降级随机，不再二次 LLM 调用
+        else:
+            replacements = await ask_llm_replace(
+                system,
+                user,
+                lengths=[p.length for p in points],
+                kw=points[0].kw if len(points) == 1 else None,
+            )
         if replacements is None or len(replacements) != len(points):
             return None
 
