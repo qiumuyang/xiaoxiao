@@ -27,6 +27,9 @@ class RerankReplyConfig(Config):
     # 全局路由概率（存于全局配置，命令「概率」修改）
     route_prob: float = 0.3
 
+    # 「问」LLM 介入：加权采样 / 纯生成 混合比例（生成概率）
+    ask_llm_generate_prob: float = 0.5
+
     @classmethod
     async def list_enabled(cls) -> list[tuple[int, bool]]:
         """返回所有已显式配置的群及其启用状态。"""
@@ -48,6 +51,12 @@ _route_prob: float = 0.3
 def get_route_prob() -> float:
     """读全局路由概率（缓存）。"""
     return _route_prob
+
+
+async def _ask_llm_enabled(group_id: int) -> bool:
+    """问 LLM 介入开关：沿用 rerank 的 per-group enabled。"""
+    cfg = await RerankReplyConfig.get(group_id=group_id)
+    return cfg.enabled
 
 
 async def set_route_prob(prob: float) -> None:

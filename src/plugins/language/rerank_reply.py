@@ -28,6 +28,7 @@ from src.utils.message.send import SentMessageTracker as SMT
 from src.utils.observability.metrics import LLM_BUDGET_REJECTED
 from src.utils.persistence.mongo import Collection, Mongo
 
+from .ask_llm import wrap_tag, xml_escape
 from .corpus import Corpus
 from .keywords import Keyword
 
@@ -35,7 +36,7 @@ logger = logger_wrapper(__name__)
 _CST = ZoneInfo("Asia/Shanghai")
 
 PROMPT_PATH = Path("data/prompts/rerank_reply.txt")
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 
 MODEL = "deepseek-v4-flash"
 BASE_URL = "https://api.deepseek.com"
@@ -108,13 +109,18 @@ def build_user_prompt(
     k: int,
     group_name: str = "",
 ) -> str:
-    """构造 user 提示：群名（可选）+ 最近群聊（行式）+ 候选语料（编号列表）。"""
-    head = f"# 群聊：{group_name}\n" if group_name else ""
-    ctx_lines = "\n".join(context[-max(context_n, 1) :])
-    cand_lines = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates[:k], 1))
+    """构造 user 提示：群名（可选）+ 最近群聊（tag 包裹）+ 候选语料（tag 包裹）。"""
+    head = f"<group>{xml_escape(group_name)}</group>\n" if group_name else ""
+    ctx_lines = "\n".join(
+        wrap_tag("msg", line, index=i)
+        for i, line in enumerate(context[-max(context_n, 1) :])
+    )
+    cand_lines = "\n".join(
+        wrap_tag("candidate", c, index=i) for i, c in enumerate(candidates[:k], 1)
+    )
     return (
-        f"{head}# 最近群聊（最多 {context_n} 条）\n{ctx_lines}\n"
-        f"\n# 候选语料（编号 1..{min(k, len(candidates))}）\n{cand_lines}"
+        f"{head}<context>\n{ctx_lines}\n</context>\n"
+        f"<candidates>\n{cand_lines}\n</candidates>"
     )
 
 

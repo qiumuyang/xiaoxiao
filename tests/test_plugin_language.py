@@ -166,3 +166,142 @@ def test_ask_preprocess():
     result2 = preprocess(complex2)
     assert ask.replacement
     assert result2 in [Message([some_text, image, some_text]), Message([at, some_text])]
+
+
+@pytest.mark.asyncio
+async def test_process_collect_who_as_pua():
+    members = ["A", "B", "C"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    collect = {}
+    ask.replacement = False
+    parts = []
+    async for result in ask.process("谁", members, collect_values=collect, pua_start=0):
+        parts.append(result)
+    encoded = "".join(parts)
+    assert len(encoded) == 1
+    assert encoded in collect
+    assert collect[encoded][0] == "nickname"
+    assert collect[encoded][1] in ["A", "B", "C"]
+
+
+@pytest.mark.asyncio
+async def test_process_collect_pua_offset():
+    members = ["A", "B", "C"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    collect = {}
+    ask.replacement = False
+    parts = []
+    async for result in ask.process("谁", members, collect_values=collect, pua_start=1):
+        parts.append(result)
+    encoded = "".join(parts)
+    assert encoded == "\ue001"
+
+
+@pytest.mark.asyncio
+async def test_process_collect_slot_survives():
+    members = ["A", "B", "C"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    collect = {}
+    ask.replacement = False
+    parts = []
+    async for result in ask.process(
+        "谁吃\x000\x00", members, collect_values=collect, pua_start=0
+    ):
+        parts.append(result)
+    encoded = "".join(parts)
+    assert encoded.startswith("\ue000")
+    assert "\x000\x00" in encoded
+    assert "\ue000" in collect
+
+
+@pytest.mark.asyncio
+async def test_process_collect_no_escape_regression():
+    """collect 模式下 谁 的值不经过 output()，含数字的昵称不被 escape。"""
+    members = ["小明2"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    collect = {}
+    ask.replacement = False
+    parts = []
+    async for result in ask.process("谁", members, collect_values=collect, pua_start=0):
+        parts.append(result)
+    encoded = "".join(parts)
+    assert encoded == "\ue000"  # PUA 定长
+    assert collect[encoded][1] == "小明2"  # 真实值未被 escape
+
+
+@pytest.mark.asyncio
+async def test_process_collect_how_much_as_pua():
+    """collect 模式下 多少 → PUA（number 类型）。"""
+    members = ["A", "B", "C"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    collect = {}
+    ask.replacement = False
+    parts = []
+    async for result in ask.process(
+        "多少", members, collect_values=collect, pua_start=0
+    ):
+        parts.append(result)
+    encoded = "".join(parts)
+    assert encoded in collect
+    assert collect[encoded][0] == "number"
+
+
+@pytest.mark.asyncio
+async def test_process_collect_multi_values():
+    """collect 模式多个非 LLM 点：PUA 序号连续。"""
+    members = ["A", "B", "C"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    collect = {}
+    ask.replacement = False
+    parts = []
+    async for result in ask.process(
+        "谁和谁", members, collect_values=collect, pua_start=0
+    ):
+        parts.append(result)
+    encoded = "".join(parts)
+    assert len(collect) == 2
+    assert "\ue000" in encoded and "\ue001" in encoded
+    assert collect["\ue000"][0] == "nickname"
+    assert collect["\ue001"][0] == "nickname"
+
+
+@pytest.mark.asyncio
+async def test_process_no_collect_still_plain():
+    """无 collect_values 时 谁 保持裸输出（不 escape）。"""
+    members = ["小明2"]
+    ask = Ask(None, 119056244, None)  # type: ignore
+    ask.replacement = False
+    parts = []
+    async for result in ask.process("谁", members):
+        parts.append(result)
+    assert "".join(parts) == "小明2"  # 不经 escape
+
+
+@pytest.mark.asyncio
+async def test_answer_finalize_at_segment(monkeypatch):
+    """_finalize 还原 at 段（现有 decode 逻辑复用）。"""
+    from unittest.mock import AsyncMock
+
+    from src.plugins.language import ask as ask_mod
+
+    monkeypatch.setattr(
+        ask_mod, "get_group_member_name", AsyncMock(return_value="张三")
+    )
+    ask = Ask(None, 119056244, None)  # type: ignore
+    symtab = {"\ue000": MessageSegment.at(123456)}
+    msg = await ask._finalize("hi\ue000", symtab, 119056244)
+    assert msg is not None
+    assert msg[1].type == "at"
+
+
+@pytest.mark.asyncio
+async def test_answer_finalize_awaited(monkeypatch):
+    """answer() 返回 Message 而非未 await 的协程。"""
+    from src.plugins.language import ask as ask_mod
+
+    ask = Ask(None, 119056244, None)  # type: ignore
+    ask.question = Message("问谁")
+    monkeypatch.setattr(ask_mod, "list_group_member_names", AsyncMock(return_value=[]))
+    result = await ask.answer()
+    assert isinstance(result, Message)
+    assert result in [Message("你"), Message("我")]

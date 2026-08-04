@@ -2,6 +2,7 @@ import itertools
 import random
 import re
 from collections.abc import AsyncIterable
+from dataclasses import dataclass
 from functools import partial
 
 import jieba
@@ -52,6 +53,74 @@ def endswith_num_and_char(s: str, chars: str, range_: tuple[int, int]):
         i += 1
     num = s[-i + 1 : -1]
     return num and range_[0] <= int(num) <= range_[1]
+
+
+@dataclass
+class ReplacementPoint:
+    """一个 LLM 类替换点（什么/为什么/干什么）。"""
+
+    kw: str  # 什么 / 为什么 / 干什么
+    start: int  # 在原字符串中的起始偏移
+    length: int | None  # 跟随数字的长度约束，如 什么3 → 3
+    prev_out: str = ""  # 替换点前的已输出文本（供 prompt 上下文）
+
+
+def _scan_template(s: str) -> list[ReplacementPoint]:
+    """识别 LLM 类替换点（什么/为什么/干什么）及跟随数字长度约束。
+
+    \\ 转义语义保留：\\什么 不触发（与 process() 一致）。
+    """
+
+    points: list[ReplacementPoint] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == "/":
+            i += 1
+            continue
+        for kw in ("为什么", "干什么", "什么"):
+            if s.startswith(kw, i):
+                j = i + len(kw)
+                length = None
+                if j < n and s[j].isdecimal() and int(s[j]) > 0:
+                    length = int(s[j])
+                    j += 1
+                points.append(ReplacementPoint(kw=kw, start=i, length=length))
+                i = j
+                break
+        else:
+            i += 1
+    return points
+
+
+def _encode_template(s: str, points: list[ReplacementPoint]) -> str:
+    """把 LLM 点替换为定长 slot 标记，为什么 点加「因为…，所以」句式。"""
+
+    result = s
+    for p, i in sorted(
+        ((p, i) for i, p in enumerate(points)),
+        key=lambda x: x[0].start,
+        reverse=True,
+    ):
+        end = p.start + len(p.kw)
+        if p.length is not None:
+            end += 1
+        slot = f"\x00{i}\x00"
+        # 为什么 加「因为」前缀（前置已是「因为」时不重复加，对齐 process prev_out 语义）；
+        # 替换点后仍有文本时补「，所以」（对齐 process next_remain 语义，用原始 s 判尾）
+        prefix_before = result[max(0, p.start - len("因为")) : p.start]
+        if p.kw == "为什么":
+            marker = f"因为{slot}" if prefix_before != "因为" else slot
+            if end < len(s):
+                marker += "，所以"
+        else:
+            marker = slot
+        result = result[: p.start] + marker + result[end:]
+    return result
 
 
 class Ask:
@@ -125,6 +194,28 @@ class Ask:
         self.question = question
         self.replacement = False
 
+    async def _finalize(
+        self, result: str, symtab: dict, group_id: int
+    ) -> Message | None:
+        """expand_capture_groups / unescape / decode 公共收尾，LLM 与普通路径共用。"""
+        try:
+            expanded = expand_capture_group_references(result)
+            result = self.unescape(expanded)
+        except ValueError:
+            return Message("[由于循环引用，展开终止]")
+        processed_message = Message()
+        for seg in MessageExtension.decode(result, symtab):
+            seg = MessageSegment.from_onebot(seg)
+            if seg.is_at():
+                # convert to plain text
+                member_name = await get_group_member_name(
+                    group_id=group_id, user_id=seg.extract_at()
+                )
+                processed_message.append(MessageSegment.at(member_name))
+            else:
+                processed_message.append(seg)
+        return processed_message
+
     async def answer(self) -> Message | None:
         group_id = self.group_id
         question, symtab = MessageExtension.encode(self.question)
@@ -138,6 +229,20 @@ class Ask:
 
         question = question.removeprefix("问")
         question = self.preprocess_choice(question)
+        if not self.replacement:
+            from .ask_llm import AskLlmPreprocessor
+            from .config import _ask_llm_enabled
+
+            if await _ask_llm_enabled(self.group_id):
+                pre = AskLlmPreprocessor()
+                llm_result = await pre.try_preprocess(
+                    question, symtab, member_names, group_id=self.group_id
+                )
+                if llm_result is not None:
+                    self.replacement = True
+                    processed = await self._finalize(llm_result, symtab, self.group_id)
+                    if processed:
+                        return processed
         try:
             results = []
             async for token in self.process(question, member_names):
@@ -146,26 +251,9 @@ class Ask:
         except ValueError:
             logger.warning("Empty corpus")
             return
-        if result:
-            try:
-                expanded = expand_capture_group_references(result)
-                result = self.unescape(expanded)
-            except ValueError:
-                return Message("[由于循环引用，展开终止]")
         if not self.replacement:
             return
-        processed_message = Message()
-        for _i, seg in enumerate(MessageExtension.decode(result, symtab)):
-            seg = MessageSegment.from_onebot(seg)
-            if seg.is_at():
-                # convert to plain text
-                member_name = await get_group_member_name(
-                    group_id=group_id, user_id=seg.extract_at()
-                )
-                processed_message.append(MessageSegment.at(member_name))
-            else:
-                processed_message.append(seg)
-        return processed_message
+        return await self._finalize(result, symtab, group_id)
 
     async def random_corpus_entry(
         self,
@@ -276,10 +364,26 @@ class Ask:
     def pseg_cut(cls, s: str) -> list[str]:
         return [word for word, _ in pseg.cut(s, use_paddle=True)]
 
+    async def _collect_or_text(
+        self,
+        collect_values: dict[str, tuple[str, str]] | None,
+        pua_start: int,
+        type_: str,
+        text: str,
+    ) -> str:
+        """collect 模式下把真实值编码为 PUA 字符；否则原样返回。"""
+        if collect_values is None:
+            return text
+        ch = chr(0xE000 + pua_start + len(collect_values))
+        collect_values[ch] = (type_, text)
+        return ch
+
     async def process(
         self,
         s: str,
         members: list[str],
+        collect_values: dict[str, tuple[str, str]] | None = None,
+        pua_start: int = 0,
     ) -> AsyncIterable[str]:
         """Process a question and yield answer tokens.
 
@@ -384,11 +488,17 @@ class Ask:
                 yield output(generated)
                 self.replacement = True
             elif word == "谁":
-                yield random.choice(members)
+                picked = random.choice(members)
+                yield await self._collect_or_text(
+                    collect_values, pua_start, "nickname", picked
+                )
                 self.replacement = True
             elif word.startswith("多少"):
                 num = str(random.randint(0, 100))
-                yield word.replace("多少", num)
+                generated = word.replace("多少", num)
+                yield await self._collect_or_text(
+                    collect_values, pua_start, "number", generated
+                )
                 self.replacement = True
             elif "几" in word and pos == "m":
                 if word == "几点钟":
@@ -428,7 +538,11 @@ class Ask:
                 else:
                     num = str(random.randint(0, 10))
                 first, rest = word.split("几", 1)
-                yield output(first + num)
+                yield output(
+                    await self._collect_or_text(
+                        collect_values, pua_start, "number", first + num
+                    )
+                )
                 self.replacement = True
                 next_remain = rest + next_remain
             else:
