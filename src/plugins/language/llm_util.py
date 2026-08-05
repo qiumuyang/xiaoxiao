@@ -1,19 +1,24 @@
-"""语言插件共享的 LLM 工具：XML 转义、prompt 加载、结构化模型工厂、每日预算。
+"""语言插件共享的 LLM 工具：XML 转义、prompt 加载、结构化模型工厂、每日预算、
+统一调用骨架（prompt → LLM → raw → parse）。
 
 ask_llm / rerank_reply 共用；本模块只依赖 src.ext.llm，不反向依赖任何业务模块
 （nonebot 仅在 notify_budget_exceeded 内 lazy import）。
 """
 
+import asyncio
 import os
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from langchain_core.callbacks import BaseCallbackHandler
+from pydantic import BaseModel
 
-from src.ext.llm import DailyCostBudget, get_chat_model
+from src.ext.llm import BudgetCallback, DailyCostBudget, get_chat_model
 from src.utils.log import logger_wrapper
+from src.utils.observability.metrics import LLM_BUDGET_REJECTED
 
 logger = logger_wrapper(__name__)
 _CST = ZoneInfo("Asia/Shanghai")
@@ -54,6 +59,70 @@ async def notify_budget_exceeded() -> None:
         )
     except Exception as e:
         logger.warning("Failed to notify budget exceeded", exception=e)
+
+
+async def try_consume_budget(budget: DailyCostBudget, estimated_fen: int) -> bool:
+    """预算 gate：consume 预留成功 → True；已耗尽 → 拒绝指标 + 通知 + False。"""
+    if await budget.consume(estimated_fen):
+        return True
+    LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
+    await notify_budget_exceeded()
+    return False
+
+
+class LlmCallResult(BaseModel):
+    """一次 LLM 调用（prompt → LLM → raw → parse）的统一结果。
+
+    value: 解析/处理后的输出；None = 调用失败或输出非法
+    raw: LLM 原始响应（结构化输出 JSON / 非预期输出 repr）；超时/异常无响应时为 None
+    error: 失败原因（人可读，落库用），成功为 None
+    """
+
+    value: Any | None = None
+    raw: str | None = None
+    error: str | None = None
+
+
+async def invoke_structured(
+    output_cls: type[BaseModel],
+    system: str,
+    user: str,
+    *,
+    budget: DailyCostBudget,
+    estimated_fen: int,
+) -> LlmCallResult:
+    """统一 LLM 调用骨架：构造（带 BudgetCallback）→ wait_for → 解析。
+
+    不变的骨架：预算回调结算、超时/异常 refund 兜底、raw 提取。
+    业务校验（长度/排列/前缀）由调用方在返回后自行完成，失败时包装成
+    LlmCallResult(value=None, raw=…, error=…) 逐层透传。
+    CancelledError 透传不吞；refund 底部钳到 0，双退最多低估一次估算。
+    """
+    structured = make_structured_model(
+        output_cls,
+        callbacks=[BudgetCallback(budget, MODEL, estimated_fen)],
+    )
+    try:
+        result = await asyncio.wait_for(
+            structured.ainvoke([("system", system), ("human", user)]),
+            timeout=TIMEOUT,
+        )
+    except asyncio.CancelledError:
+        raise
+    except TimeoutError:
+        await budget.refund(estimated_fen)
+        return LlmCallResult(error=f"timeout after {TIMEOUT}s")
+    except Exception as e:
+        # BudgetCallback.on_llm_error 可能已对 LLM 层错误退过一次款，
+        # 此处显式 refund 兜底非 LLM 异常。
+        await budget.refund(estimated_fen)
+        return LlmCallResult(error=f"{type(e).__name__}: {e}")
+    if not isinstance(result, output_cls):
+        return LlmCallResult(
+            raw=repr(result),
+            error=f"unexpected output type: {type(result).__name__}",
+        )
+    return LlmCallResult(value=result, raw=result.model_dump_json())
 
 
 _ESCAPE_TABLE = str.maketrans({"<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;"})

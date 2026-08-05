@@ -26,7 +26,7 @@ from src.plugins.language.ask_llm import (
     wrap_tag,
     xml_escape,
 )
-from src.plugins.language.llm_util import make_prompt_loader
+from src.plugins.language.llm_util import LlmCallResult, make_prompt_loader
 
 
 def test_xml_escape_special_chars():
@@ -262,7 +262,7 @@ async def test_ask_llm_replace_generation(monkeypatch):
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["光散射"])),
     )
     result = await ask_llm_replace("system", "user", length=3)
-    assert result == ["光散射"]
+    assert result.value == ["光散射"]
 
 
 @pytest.mark.asyncio
@@ -271,7 +271,7 @@ async def test_ask_llm_replace_timeout_falls_back(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(asyncio.TimeoutError),
     )
-    assert await ask_llm_replace("s", "u", length=3) is None
+    assert (await ask_llm_replace("s", "u", length=3)).value is None
 
 
 @pytest.mark.asyncio
@@ -280,7 +280,7 @@ async def test_ask_llm_replace_length_mismatch_none(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["光散"])),
     )
-    assert await ask_llm_replace("s", "u", length=3) is None
+    assert (await ask_llm_replace("s", "u", length=3)).value is None
 
 
 @pytest.mark.asyncio
@@ -290,7 +290,7 @@ async def test_ask_llm_replace_pua_rejected(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["\ue000abc"])),
     )
-    assert await ask_llm_replace("s", "u", length=None) is None
+    assert (await ask_llm_replace("s", "u", length=None)).value is None
 
 
 @pytest.mark.asyncio
@@ -300,7 +300,7 @@ async def test_ask_llm_replace_generic_error(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(RuntimeError),
     )
-    assert await ask_llm_replace("s", "u", length=None) is None
+    assert (await ask_llm_replace("s", "u", length=None)).value is None
 
 
 @pytest.mark.asyncio
@@ -311,7 +311,7 @@ async def test_ask_llm_replace_strips_why_prefix(monkeypatch):
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["因为雨"])),
     )
     # length=3: "因为雨" strip 因为 → "雨"(1字) ≠ 3 → None
-    assert await ask_llm_replace("s", "u", length=3, kw="为什么") is None
+    assert (await ask_llm_replace("s", "u", length=3, kw="为什么")).value is None
 
 
 @pytest.mark.asyncio
@@ -321,7 +321,7 @@ async def test_ask_llm_replace_why_valid_reason(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["光散射"])),
     )
-    assert await ask_llm_replace("s", "u", length=3, kw="为什么") == ["光散射"]
+    assert (await ask_llm_replace("s", "u", length=3, kw="为什么")).value == ["光散射"]
 
 
 @pytest.mark.asyncio
@@ -331,7 +331,7 @@ async def test_ask_llm_replace_multi_lengths(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["甲", "乙乙"])),
     )
-    assert await ask_llm_replace("s", "u", lengths=[1, 2]) == ["甲", "乙乙"]
+    assert (await ask_llm_replace("s", "u", lengths=[1, 2])).value == ["甲", "乙乙"]
 
 
 @pytest.mark.asyncio
@@ -341,7 +341,7 @@ async def test_ask_llm_replace_multi_length_mismatch(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskLlmOutput(replacements=["甲乙", "乙"])),
     )
-    assert await ask_llm_replace("s", "u", lengths=[1, 2]) is None
+    assert (await ask_llm_replace("s", "u", lengths=[1, 2])).value is None
 
 
 def test_weighted_pick_prefers_high_weight():
@@ -359,7 +359,7 @@ async def test_ask_llm_rank(monkeypatch):
         lambda **kw: _fake_llm(AskRankOutput(ranks=[2, 1, 3])),
     )
     result = await ask_llm_rank("system", "user", k=3)
-    assert result == [2, 1, 3]
+    assert result.value == [2, 1, 3]
 
 
 @pytest.mark.asyncio
@@ -368,7 +368,7 @@ async def test_ask_llm_rank_invalid_none(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(AskRankOutput(ranks=[1, 1, 2])),
     )
-    assert await ask_llm_rank("system", "user", k=3) is None
+    assert (await ask_llm_rank("system", "user", k=3)).value is None
 
 
 def test_fill_slots_single():
@@ -410,7 +410,7 @@ async def test_preprocessor_generation_flow(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm.ask_llm_replace",
-        AsyncMock(return_value=["光散射"]),
+        AsyncMock(return_value=LlmCallResult(value=["光散射"])),
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
@@ -471,7 +471,7 @@ async def test_ask_llm_rank_timeout_refunds(monkeypatch):
         "src.plugins.language.llm_util.get_chat_model",
         lambda **kw: _fake_llm(asyncio.TimeoutError),
     )
-    assert await ask_llm_rank("s", "u", k=3) is None
+    assert (await ask_llm_rank("s", "u", k=3)).value is None
     assert fake.consumed_fen == before  # 预留已全额退回
 
 
@@ -485,7 +485,7 @@ async def test_preprocessor_generation_logs_to_mongo(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm.ask_llm_replace",
-        AsyncMock(return_value=["光散射"]),
+        AsyncMock(return_value=LlmCallResult(value=["光散射"])),
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
@@ -516,7 +516,7 @@ async def test_preprocessor_fallback_logs_to_mongo(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm.ask_llm_replace",
-        AsyncMock(return_value=None),
+        AsyncMock(return_value=LlmCallResult(value=None, error="mock failure")),
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
@@ -528,6 +528,41 @@ async def test_preprocessor_fallback_logs_to_mongo(monkeypatch):
         logs = [log async for log in ask_llm_logs.find_all({})]
         assert len(logs) == 1
         assert logs[0].mode == "fallback"
+        assert logs[0].error == "mock failure"
+    finally:
+        await ask_llm_logs.drop()
+
+
+@pytest.mark.asyncio
+async def test_preprocessor_fallback_logs_raw_and_error(monkeypatch):
+    """fallback 落库带 LLM 原始响应 + 具体失败原因（debug 用）。"""
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt",
+        lambda: "你是鸮鸮，{__points__}",
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.ask_llm_replace",
+        AsyncMock(
+            return_value=LlmCallResult(
+                value=None,
+                raw='{"replacements":["光散"]}',
+                error="replacement[0] '光散' invalid (want length 3)",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
+    )
+    await ask_llm_logs.drop()
+    try:
+        result = await pre.try_preprocess("吃什么", {}, ["A"], group_id=100)
+        assert result is None
+        logs = [log async for log in ask_llm_logs.find_all({})]
+        assert len(logs) == 1
+        assert logs[0].mode == "fallback"
+        assert "want length 3" in logs[0].error
+        assert '"replacements":["光散"]' in logs[0].raw_response
     finally:
         await ask_llm_logs.drop()
 
@@ -548,7 +583,7 @@ async def test_preprocessor_weighted_success(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm.weighted_select",
-        AsyncMock(return_value="披萨"),
+        AsyncMock(return_value=LlmCallResult(value="披萨")),
     )
     replace = AsyncMock(return_value=["光散射"])
     monkeypatch.setattr("src.plugins.language.ask_llm.ask_llm_replace", replace)
@@ -647,13 +682,15 @@ async def test_weighted_select_uses_rank(monkeypatch):
     candidates = ["a", "b", "c"]
     monkeypatch.setattr(
         "src.plugins.language.ask_llm.ask_llm_rank",
-        AsyncMock(return_value=[2, 1, 3]),  # b rank1 权重最高
+        AsyncMock(
+            return_value=LlmCallResult(value=[2, 1, 3], raw='{"ranks":[2,1,3]}')
+        ),  # b rank1 权重最高
     )
     monkeypatch.setattr("src.plugins.language.ask_llm.random", random)
     counts = {"a": 0, "b": 0, "c": 0}
     for _ in range(500):
         r = await weighted_select("system", "user", candidates)
-        counts[r] += 1
+        counts[r.value] += 1
     assert counts["b"] > counts["a"] and counts["b"] > counts["c"]
     assert counts["c"] == 0  # rank3 权重 0，永不选中
 

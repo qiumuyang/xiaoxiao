@@ -13,15 +13,11 @@ from nonebot import get_bot
 from nonebot.adapters.onebot.v11 import Message
 from pydantic import BaseModel
 
-from src.ext.llm import (
-    BudgetCallback,
-    PricingRegistry,
-)
+from src.ext.llm import PricingRegistry
 from src.ext.utils import get_group_member_name
 from src.utils.log import logger_wrapper
 from src.utils.message.receive import ReceivedMessageTracker as RMT
 from src.utils.message.send import SentMessageTracker as SMT
-from src.utils.observability.metrics import LLM_BUDGET_REJECTED
 from src.utils.persistence.mongo import Collection, Mongo
 
 from .corpus import Corpus
@@ -29,10 +25,10 @@ from .keywords import Keyword
 from .llm_util import (
     DAILY_BUDGET_YUAN,
     MODEL,
-    TIMEOUT,
+    LlmCallResult,
+    invoke_structured,
     make_prompt_loader,
-    make_structured_model,
-    notify_budget_exceeded,
+    try_consume_budget,
     wrap_tag,
     xml_escape,
 )
@@ -67,6 +63,8 @@ class RerankLog(BaseModel):
     candidates: list[str]
     ranks: list[int]
     selected: str
+    raw_response: str | None = None  # LLM 原始结构化输出（JSON），失败时也可能有
+    error: str | None = None  # 失败原因/异常细节，成功时为 None
     prompt_version: str
     logged_at: datetime
 
@@ -243,17 +241,23 @@ async def _log_rerank(
     group_id: int,
     context: list[str],
     candidates: list[str],
-    ranks: list[int],
-    selected: str,
+    *,
+    ranks: list[int] | None = None,
+    selected: str = "",
+    raw: str | None = None,
+    error: str | None = None,
 ) -> None:
+    """落 rerank_log；失败路径也落（ranks 空、error 带原因），用于诊断。"""
     try:
         await rerank_logs.insert_one(
             RerankLog(
                 group_id=group_id,
                 context=context,
                 candidates=candidates,
-                ranks=ranks,
+                ranks=ranks or [],
                 selected=selected,
+                raw_response=raw,
+                error=error,
                 prompt_version=PROMPT_VERSION,
                 logged_at=datetime.now(UTC),
             )
@@ -278,10 +282,15 @@ class RerankReply:
             context = await build_context(group_id)
         except Exception as e:
             logger.warning("Failed to build rerank context", exception=e)
+            await _log_rerank(
+                group_id,
+                [],
+                candidates,
+                error=f"build_context: {type(e).__name__}: {e}",
+            )
             return None
-        if not await _budget.consume(ESTIMATED_FEN):
-            LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
-            await notify_budget_exceeded()
+        if not await try_consume_budget(_budget, ESTIMATED_FEN):
+            await _log_rerank(group_id, [], candidates, error="budget exhausted")
             return None
         try:
             k = min(K, len(candidates))
@@ -300,38 +309,45 @@ class RerankReply:
         except Exception as e:
             logger.warning("Failed to run rerank", exception=e)
             await _budget.refund(ESTIMATED_FEN)
+            await _log_rerank(
+                group_id,
+                context,
+                candidates,
+                error=f"run: {type(e).__name__}: {e}",
+            )
             return None
-        if result is None:
+        if result.value is None:
+            await _log_rerank(
+                group_id, context, candidates, raw=result.raw, error=result.error
+            )
             return None
-        selected_idx = parse_ranks(result.ranks, k=k)
+        selected_idx = parse_ranks(result.value.ranks, k=k)
         if selected_idx is None:
+            await _log_rerank(
+                group_id,
+                context,
+                candidates,
+                raw=result.raw,
+                error=f"invalid ranks: {result.value.ranks}",
+            )
             return None
         selected = candidates[selected_idx - 1]
-        await _log_rerank(group_id, context, candidates, result.ranks, selected)
+        await _log_rerank(
+            group_id,
+            context,
+            candidates,
+            ranks=result.value.ranks,
+            selected=selected,
+            raw=result.raw,
+        )
         return Message(selected)
 
     @classmethod
-    async def _invoke_llm(cls, system: str, user: str) -> RerankOutput | None:
-        """调用 LLM 排序；超时/异常时退款并返回 None（降级）。"""
-        structured = make_structured_model(
-            RerankOutput,
-            callbacks=[BudgetCallback(_budget, MODEL, ESTIMATED_FEN)],
+    async def _invoke_llm(cls, system: str, user: str) -> LlmCallResult:
+        """统一 LLM 调用骨架；超时/异常/非预期输出 → LlmCallResult(value=None, error=…)。"""
+        return await invoke_structured(
+            RerankOutput, system, user, budget=_budget, estimated_fen=ESTIMATED_FEN
         )
-        try:
-            result = await asyncio.wait_for(
-                structured.ainvoke([("system", system), ("human", user)]),
-                timeout=TIMEOUT,
-            )
-        except (TimeoutError, asyncio.CancelledError):
-            await _budget.refund(ESTIMATED_FEN)
-            return None
-        except Exception:
-            # BudgetCallback.on_llm_error 可能已对 LLM 层错误退过一次款，
-            # 此处显式 refund 兜底非 LLM 异常；refund 底部钳到 0，
-            # 双退最多让当天预算低估 ESTIMATED_FEN，与 review 模块一致。
-            await _budget.refund(ESTIMATED_FEN)
-            return None
-        return result if isinstance(result, RerankOutput) else None
 
     @classmethod
     async def budget_status(cls) -> str:

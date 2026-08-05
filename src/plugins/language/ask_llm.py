@@ -4,7 +4,6 @@
 prompt 模板放本地文件 data/prompts/ask_llm.txt，不进 git。
 """
 
-import asyncio
 import random
 import re
 from datetime import UTC, datetime
@@ -12,15 +11,15 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from src.ext.llm import BudgetCallback, PricingRegistry
+from src.ext.llm import PricingRegistry
 from src.plugins.language.ask import ReplacementPoint
 from src.plugins.language.corpus import Corpus
 from src.plugins.language.llm_util import (
     MODEL,
-    TIMEOUT,
+    LlmCallResult,
+    invoke_structured,
     make_prompt_loader,
-    make_structured_model,
-    notify_budget_exceeded,
+    try_consume_budget,
     wrap_tag,
     xml_escape,
 )
@@ -28,7 +27,6 @@ from src.plugins.language.llm_util import (
     budget as _budget,
 )
 from src.utils.log import logger_wrapper
-from src.utils.observability.metrics import LLM_BUDGET_REJECTED
 from src.utils.persistence.mongo import Collection, Mongo
 
 logger = logger_wrapper(__name__)
@@ -46,6 +44,8 @@ class AskLlmLog(BaseModel):
     mode: str  # generate | weighted | fallback
     replacements: list[str]
     result: str
+    raw_response: str | None = None  # LLM 原始结构化输出（JSON），失败时也可能有
+    error: str | None = None  # 失败原因/异常细节，成功时为 None
     logged_at: datetime
 
 
@@ -135,55 +135,53 @@ async def ask_llm_replace(
     length: int | None = None,
     kw: str | None = None,
     lengths: list[int | None] | None = None,
-) -> list[str] | None:
-    """调 LLM 生成 replacement(s)；超时/异常/长度不符 → None（调用方降级）。
+) -> LlmCallResult:
+    """调 LLM 生成 replacement(s)。成功 value=处理后的列表；失败 value=None，
+    error 带具体原因、raw 带 LLM 原始响应（若有）。
 
     length 与 lengths 二选一：length 对所有 replacement 统一校验；
     lengths 逐点校验（多替换点场景）。kw == "为什么" 时 LLM 可能带前导「因为」，
     但模板已由 _encode_template 提供「因为」前缀，这里先 strip 再校验长度，
     避免 因为因为 重复。
     """
-    structured = make_structured_model(
-        AskLlmOutput,
-        callbacks=[BudgetCallback(_budget, MODEL, ESTIMATED_FEN)],
+    result = await invoke_structured(
+        AskLlmOutput, system, user, budget=_budget, estimated_fen=ESTIMATED_FEN
     )
-    try:
-        result = await asyncio.wait_for(
-            structured.ainvoke([("system", system), ("human", user)]),
-            timeout=TIMEOUT,
+    if result.value is None:
+        return result
+    replacements = result.value.replacements
+    if not replacements:
+        return LlmCallResult(raw=result.raw, error="empty replacements")
+    if lengths is not None and len(replacements) != len(lengths):
+        return LlmCallResult(
+            raw=result.raw,
+            error=f"count mismatch: got {len(replacements)}, want {len(lengths)}",
         )
-    except asyncio.CancelledError:
-        raise  # 不吞取消，保持取消传播
-    except TimeoutError:
-        await _budget.refund(ESTIMATED_FEN)
-        logger.warning("Ask llm timed out, fallback")
-        return None
-    except Exception as e:
-        # BudgetCallback.on_llm_error 可能已对 LLM 层错误退过一次款，
-        # 此处显式 refund 兜底非 LLM 异常；refund 底部钳到 0，
-        # 双退最多让当天预算低估 ESTIMATED_FEN，与 rerank 模块一致。
-        await _budget.refund(ESTIMATED_FEN)
-        logger.warning("Ask llm error, fallback", exception=e)
-        return None
-    if not isinstance(result, AskLlmOutput) or not result.replacements:
-        return None
-    if lengths is not None and len(result.replacements) != len(lengths):
-        return None
     results = []
-    for i, r in enumerate(result.replacements):
+    for i, r in enumerate(replacements):
         if kw == "为什么":
             r = r.removeprefix("因为")
         if lengths is not None:
             ok = validate_length(r, length=lengths[i])
+            want = f"length {lengths[i]}"
         else:
             ok = validate_length(r, length=length)
+            want = (
+                f"length {length}"
+                if length is not None
+                else f"length {MIN_LEN}..{MAX_LEN}"
+            )
         if not ok:
-            return None
+            return LlmCallResult(
+                raw=result.raw,
+                error=f"replacement[{i}] {r!r} invalid (want {want})",
+            )
         if _has_pua(r):
-            logger.warning("Ask llm output contains PUA chars, fallback")
-            return None
+            return LlmCallResult(
+                raw=result.raw, error=f"replacement[{i}] contains PUA chars"
+            )
         results.append(r)
-    return results
+    return LlmCallResult(value=results, raw=result.raw)
 
 
 class AskRankOutput(BaseModel):
@@ -200,39 +198,23 @@ def weighted_pick(items: list[str], weights: list[float]) -> str:
     return random.choices(items, weights=weights, k=1)[0]
 
 
-async def ask_llm_rank(system: str, user: str, *, k: int) -> list[int] | None:
-    """LLM 给候选排序；返回 1..k 排列，非法 → None。
+async def ask_llm_rank(system: str, user: str, *, k: int) -> LlmCallResult:
+    """LLM 给候选排序。成功 value=1..k 排列；非法/失败 → error 带原因 + raw。
 
-    预算已由调用方 consume 预留；超时/异常时退款并返回 None（降级）。
+    预算已由调用方 consume 预留；超时/异常退款由 invoke_structured 兜底。
     """
-    structured = make_structured_model(
-        AskRankOutput,
-        callbacks=[BudgetCallback(_budget, MODEL, ESTIMATED_FEN)],
+    result = await invoke_structured(
+        AskRankOutput, system, user, budget=_budget, estimated_fen=ESTIMATED_FEN
     )
-    try:
-        result = await asyncio.wait_for(
-            structured.ainvoke([("system", system), ("human", user)]),
-            timeout=TIMEOUT,
-        )
-    except asyncio.CancelledError:
-        raise  # 不吞取消
-    except TimeoutError:
-        await _budget.refund(ESTIMATED_FEN)
-        logger.warning("Ask rank timed out, fallback")
-        return None
-    except Exception as e:
-        # BudgetCallback.on_llm_error 可能已对 LLM 层错误退过一次款，
-        # 此处显式 refund 兜底非 LLM 异常；refund 底部钳到 0，
-        # 双退最多让当天预算低估 ESTIMATED_FEN，与 rerank 模块一致。
-        await _budget.refund(ESTIMATED_FEN)
-        logger.warning("Ask rank error, fallback", exception=e)
-        return None
-    if not isinstance(result, AskRankOutput):
-        return None
-    ranks = result.ranks
+    if result.value is None:
+        return result
+    ranks = result.value.ranks
     if len(ranks) != k or sorted(ranks) != list(range(1, k + 1)):
-        return None
-    return ranks
+        return LlmCallResult(
+            raw=result.raw,
+            error=f"invalid permutation: {ranks} (want 1..{k})",
+        )
+    return LlmCallResult(value=ranks, raw=result.raw)
 
 
 async def retrieve_candidates(
@@ -245,22 +227,24 @@ async def retrieve_candidates(
     return [e["text"] for e in entries]
 
 
-async def weighted_select(system: str, user: str, candidates: list[str]) -> str | None:
-    """LLM 给候选排序，按 rank 生成权重做加权随机选。失败 → None。
+async def weighted_select(
+    system: str, user: str, candidates: list[str]
+) -> LlmCallResult:
+    """LLM 给候选排序，按 rank 生成权重做加权随机选。失败透传 LlmCallResult。
 
     权重 = k - rank（rank1 权重最高 k-1，rank k 权重最低 0），weighted_pick 按权重
     随机选——保留随机性且高分候选更可能被选中。
     """
     k = len(candidates)
     if k == 0:
-        return None
+        return LlmCallResult(error="no candidates")
     if k == 1:
-        return candidates[0]
-    ranks = await ask_llm_rank(system, user, k=k)
-    if ranks is None:
-        return None
-    weights = [k - rank for rank in ranks]
-    return weighted_pick(candidates, weights)
+        return LlmCallResult(value=candidates[0])
+    result = await ask_llm_rank(system, user, k=k)
+    if result.value is None:
+        return result  # 透传 raw/error
+    weights = [k - rank for rank in result.value]
+    return LlmCallResult(value=weighted_pick(candidates, weights), raw=result.raw)
 
 
 MAX_LLM_POINTS = 3
@@ -276,6 +260,9 @@ async def _log_ask_llm(
     mode: str,
     replacements: list[str],
     result: str,
+    *,
+    raw: str | None = None,
+    error: str | None = None,
 ) -> None:
     try:
         await ask_llm_logs.insert_one(
@@ -285,6 +272,8 @@ async def _log_ask_llm(
                 mode=mode,
                 replacements=replacements,
                 result=result,
+                raw_response=raw,
+                error=error,
                 logged_at=datetime.now(UTC),
             )
         )
@@ -316,21 +305,33 @@ class AskLlmPreprocessor:
             result = await self._run(
                 question, symtab0, members, points, system_template, group_id
             )
-            if result is None:
+            if result.value is None:
                 await _log_ask_llm(
-                    group_id, question, "fallback", [], "LLM 介入失败，降级随机路径"
+                    group_id,
+                    question,
+                    "fallback",
+                    [],
+                    "LLM 介入失败，降级随机路径",
+                    raw=result.raw,
+                    error=result.error,
                 )
-            return result
+                return None
+            return result.value
         except Exception as e:
             logger.warning("Ask llm preprocess failed, fallback", exception=e)
             await _log_ask_llm(
-                group_id, question, "fallback", [], f"异常降级: {type(e).__name__}"
+                group_id,
+                question,
+                "fallback",
+                [],
+                "LLM 介入失败，降级随机路径",
+                error=f"{type(e).__name__}: {e}",
             )
             return None
 
     async def _run(
         self, question, symtab0, members, points, system_template, group_id
-    ) -> str:
+    ) -> LlmCallResult:
         from src.plugins.language.ask import Ask, _encode_template
 
         encoded = _encode_template(question, points)
@@ -360,7 +361,7 @@ class AskLlmPreprocessor:
         # 加权模式 v1 仅单替换点；多替换点或 generate 模式 → 纯生成。
         # 加权失败直接降级随机（返回 None 触发原随机路径），不再二次 LLM 调用。
         mode = _pick_mode(cfg.ask_llm_generate_prob)
-        replacements: list[str] | None = None
+        llm_raw: str | None = None
         if mode == "weighted" and len(points) == 1:
             p_len = points[0].length
             cand_length = (p_len, p_len) if p_len is not None else (MIN_LEN, MAX_LEN)
@@ -368,12 +369,10 @@ class AskLlmPreprocessor:
                 group_id, length=cand_length, sample=16
             )
             if not candidates:
-                return None
+                return LlmCallResult(error="no candidates")
             # 候选已就绪再 consume：gate 失败不浪费预算，降级随机
-            if not await _budget.consume(ESTIMATED_FEN):
-                LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
-                await notify_budget_exceeded()
-                return None
+            if not await try_consume_budget(_budget, ESTIMATED_FEN):
+                return LlmCallResult(error="budget exhausted")
             cand_user = (
                 user
                 + "\n候选语料：\n"
@@ -383,31 +382,44 @@ class AskLlmPreprocessor:
                 )
             )
             selected = await weighted_select(system, cand_user, candidates)
-            if selected is not None and points[0].kw == "为什么":
-                selected = selected.removeprefix("因为")
-            if selected is not None and (p_len is None or len(selected) == p_len):
-                replacements = [selected]
-            else:
-                return None  # 加权失败直接降级随机，不再二次 LLM 调用
+            llm_raw = selected.raw
+            if selected.value is None:
+                return selected  # 透传失败原因（排序/预算等）
+            selected_value = selected.value
+            if points[0].kw == "为什么":
+                selected_value = selected_value.removeprefix("因为")
+            if p_len is not None and len(selected_value) != p_len:
+                return LlmCallResult(
+                    raw=selected.raw,
+                    error=(
+                        f"selected {selected_value!r} length "
+                        f"{len(selected_value)} != {p_len}"
+                    ),
+                )
+            replacements = [selected_value]
         else:
-            if not await _budget.consume(ESTIMATED_FEN):
-                LLM_BUDGET_REJECTED.labels(model=MODEL).inc()
-                await notify_budget_exceeded()
-                return None
-            replacements = await ask_llm_replace(
+            if not await try_consume_budget(_budget, ESTIMATED_FEN):
+                return LlmCallResult(error="budget exhausted")
+            gen = await ask_llm_replace(
                 system,
                 user,
                 lengths=[p.length for p in points],
                 kw=points[0].kw if len(points) == 1 else None,
             )
-        if replacements is None or len(replacements) != len(points):
-            return None
+            llm_raw = gen.raw
+            if gen.value is None:
+                return gen  # 透传失败原因（超时/长度/PUA 等）
+            replacements = gen.value
+        if len(replacements) != len(points):
+            return LlmCallResult(
+                error=f"count mismatch: {len(replacements)} != {len(points)}"
+            )
 
         result = _fill_slots(encoded_filled, replacements)
         result = _restore_collected(result, collect)
         result = _replace_symtab0_images(result, symtab0)
-        await _log_ask_llm(group_id, question, mode, replacements, result)
-        return result
+        await _log_ask_llm(group_id, question, mode, replacements, result, raw=llm_raw)
+        return LlmCallResult(value=result, raw=llm_raw)
 
 
 def _typed_symtab(collect: dict[str, tuple[str, str]]) -> dict[str, dict]:

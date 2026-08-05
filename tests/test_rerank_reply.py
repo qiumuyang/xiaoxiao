@@ -13,7 +13,7 @@ from src.ext.llm import DailyCostBudget
 from src.plugins.language import rerank_reply as rr
 from src.plugins.language.config import RerankReplyConfig, get_route_prob
 from src.plugins.language.interact import RandomResponse, _InteractMessage
-from src.plugins.language.llm_util import make_prompt_loader
+from src.plugins.language.llm_util import LlmCallResult, make_prompt_loader
 from src.plugins.language.rerank_reply import (
     CONTEXT_N,
     RERANK_CORPUS_SAMPLES,
@@ -360,7 +360,11 @@ async def test_rank_and_select_returns_top(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.rerank_reply.RerankReply._invoke_llm",
-        AsyncMock(return_value=RerankOutput(ranks=[2, 1, 3])),
+        AsyncMock(
+            return_value=LlmCallResult(
+                value=RerankOutput(ranks=[2, 1, 3]), raw='{"ranks":[2,1,3]}'
+            )
+        ),
     )
     await rerank_logs.drop()
     result = await RerankReply.rank_and_select(100, ["a", "b", "c"])
@@ -387,9 +391,22 @@ async def test_rank_and_select_bad_ranks_falls_back(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.rerank_reply.RerankReply._invoke_llm",
-        AsyncMock(return_value=RerankOutput(ranks=[1, 1, 2])),
+        AsyncMock(
+            return_value=LlmCallResult(
+                value=RerankOutput(ranks=[1, 1, 2]), raw='{"ranks":[1,1,2]}'
+            )
+        ),
     )
-    assert await RerankReply.rank_and_select(100, ["a", "b", "c"]) is None
+    await rerank_logs.drop()
+    try:
+        assert await RerankReply.rank_and_select(100, ["a", "b", "c"]) is None
+        # 失败也落库，带 raw 与原因（debug 用）
+        logs = [log async for log in rerank_logs.find_all({})]
+        assert len(logs) == 1
+        assert "invalid ranks" in logs[0].error
+        assert '{"ranks":[1,1,2]}' in logs[0].raw_response
+    finally:
+        await rerank_logs.drop()
 
 
 @pytest.mark.asyncio
@@ -407,7 +424,7 @@ async def test_rank_and_select_llm_error_falls_back(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.rerank_reply.RerankReply._invoke_llm",
-        AsyncMock(return_value=None),
+        AsyncMock(return_value=LlmCallResult(value=None, error="mock error")),
     )
     assert await RerankReply.rank_and_select(100, ["a", "b", "c"]) is None
 
@@ -537,7 +554,7 @@ async def test_invoke_llm_error_refunds(monkeypatch):
         lambda **kw: _fake_llm_ainvoke(RuntimeError("api down")),
     )
     await rr._budget.consume(rr.ESTIMATED_FEN)
-    assert await RerankReply._invoke_llm("s", "u") is None
+    assert (await RerankReply._invoke_llm("s", "u")).value is None
     assert rr._budget.consumed_fen == 0
 
 
@@ -549,7 +566,7 @@ async def test_invoke_llm_timeout_refunds(monkeypatch):
         lambda **kw: _fake_llm_ainvoke(asyncio.TimeoutError),
     )
     await rr._budget.consume(rr.ESTIMATED_FEN)
-    assert await RerankReply._invoke_llm("s", "u") is None
+    assert (await RerankReply._invoke_llm("s", "u")).value is None
     assert rr._budget.consumed_fen == 0
 
 
@@ -744,7 +761,11 @@ async def test_rank_and_select_passes_group_name(monkeypatch):
     )
     monkeypatch.setattr(
         "src.plugins.language.rerank_reply.RerankReply._invoke_llm",
-        AsyncMock(return_value=RerankOutput(ranks=[1])),
+        AsyncMock(
+            return_value=LlmCallResult(
+                value=RerankOutput(ranks=[1]), raw='{"ranks":[1]}'
+            )
+        ),
     )
     await RerankReply.rank_and_select(100, ["a"])
     assert captured.get("group_name") == "上班摸鱼群"
