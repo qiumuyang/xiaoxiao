@@ -17,9 +17,11 @@ from src.plugins.language.corpus import Corpus
 from src.plugins.language.llm_util import (
     MODEL,
     LlmCallResult,
+    build_context,
     invoke_structured,
     make_prompt_loader,
     try_consume_budget,
+    wrap_context,
     wrap_tag,
     xml_escape,
 )
@@ -357,6 +359,14 @@ class AskLlmPreprocessor:
         cfg = await RerankReplyConfig.get(group_id=group_id)
         system = _fill_system(system_template, len(points))
         user = build_replacement_prompt(rendered, points)
+        # 群上下文：让「问」像 rerank 一样贴群聊发言，而非凭空生成
+        try:
+            context = await build_context(group_id)
+        except Exception as e:
+            logger.warning("Failed to build ask context", exception=e)
+            context = []
+        if context:
+            user += "\n" + wrap_context(context)
 
         # 加权模式 v1 仅单替换点；多替换点或 generate 模式 → 纯生成。
         # 加权失败直接降级随机（返回 None 触发原随机路径），不再二次 LLM 调用。

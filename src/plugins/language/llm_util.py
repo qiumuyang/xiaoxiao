@@ -1,14 +1,14 @@
 """语言插件共享的 LLM 工具：XML 转义、prompt 加载、结构化模型工厂、每日预算、
-统一调用骨架（prompt → LLM → raw → parse）。
+统一调用骨架（prompt → LLM → raw → parse）、群消息上下文。
 
-ask_llm / rerank_reply 共用；本模块只依赖 src.ext.llm，不反向依赖任何业务模块
-（nonebot 仅在 notify_budget_exceeded 内 lazy import）。
+ask_llm / rerank_reply 共用；本模块不反向依赖任何语言插件业务模块
+（nonebot 仅在 notify_budget_exceeded / build_context 内 lazy import）。
 """
 
 import asyncio
 import os
 from collections.abc import Callable, Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -17,7 +17,10 @@ from langchain_core.callbacks import BaseCallbackHandler
 from pydantic import BaseModel
 
 from src.ext.llm import BudgetCallback, DailyCostBudget, get_chat_model
+from src.ext.utils import get_group_member_name
 from src.utils.log import logger_wrapper
+from src.utils.message.receive import ReceivedMessageTracker as RMT
+from src.utils.message.send import SentMessageTracker as SMT
 from src.utils.observability.metrics import LLM_BUDGET_REJECTED
 
 logger = logger_wrapper(__name__)
@@ -30,6 +33,10 @@ TIMEOUT = 5.0
 TEMPERATURE = 0.3
 # deepseek-v4-flash 默认思考模式不支持 tool_choice，必须关闭
 EXTRA_BODY = {"thinking": {"type": "disabled"}}
+
+# 群上下文：最近消息条数 / 时间窗口（rerank 与 ask 共用）
+CONTEXT_N = 20
+CONTEXT_WINDOW = timedelta(hours=24)
 
 # 每日 LLM 预算：rerank 与 ask_llm 必须共用同一实例。若各自 new 一个
 # DailyCostBudget，两个实例都向同一 Mongo 文档 {_id: 日期} 做 $set，
@@ -123,6 +130,81 @@ async def invoke_structured(
             error=f"unexpected output type: {type(result).__name__}",
         )
     return LlmCallResult(value=result, raw=result.model_dump_json())
+
+
+def wrap_context(context: list[str], *, context_n: int = CONTEXT_N) -> str:
+    """把群消息列表包成 <context><msg index=…>…</msg></context> 块（不可信数据）。"""
+    ctx_lines = "\n".join(
+        wrap_tag("msg", line, index=i)
+        for i, line in enumerate(context[-max(context_n, 1) :])
+    )
+    return f"<context>\n{ctx_lines}\n</context>"
+
+
+async def _safe_member_name(bot, group_id: int, user_id: int) -> str:
+    try:
+        return await get_group_member_name(group_id=group_id, user_id=user_id, bot=bot)
+    except Exception:
+        logger.debug(
+            f"Failed to resolve member name for group {group_id} user {user_id}"
+        )
+        return str(user_id)
+
+
+async def build_context(group_id: int) -> list[str]:
+    """最近 CONTEXT_N 条收/发消息，行格式 [YYYY-MM-DD HH:MM] 昵称(user_id)[: [self]]: 内容。
+
+    bot 自己的发言带 [self] 标记，供 LLM 识别（复读/随机语料/指令应答）。
+    rerank 与 ask 共用同一实现。
+    """
+    from nonebot import get_bot
+
+    since = datetime.now() - CONTEXT_WINDOW
+    filter = {"group_id": group_id, "time": {"$gte": since}}
+    recv = [
+        m
+        async for m in RMT.received.find_all(
+            filter, sort=[("time", -1)], limit=CONTEXT_N * 2
+        )
+    ]
+    sent = [
+        m
+        async for m in SMT.sent.find_all(
+            {
+                "session_id": {"$regex": f"^group_{group_id}_"},
+                "time": {"$gte": since},
+                "recalled": False,
+            },
+            sort=[("time", -1)],
+            limit=CONTEXT_N * 2,
+        )
+    ]
+    bot = get_bot()
+    self_id = int(bot.self_id)
+    entries: list[tuple[datetime, int, str, bool]] = []
+    for m in recv:
+        if text := m.content.extract_plain_text().strip():
+            entries.append((m.time, m.user_id, text, False))
+    for m in sent:
+        if text := m.content.extract_plain_text().strip():
+            entries.append((m.time, self_id, text, True))
+    entries.sort(key=lambda x: x[0])
+    entries = entries[-CONTEXT_N:]
+    if not entries:
+        return []
+    user_ids = {uid for _, uid, _, _ in entries}
+    names = await asyncio.gather(
+        *(_safe_member_name(bot, group_id, uid) for uid in user_ids)
+    )
+    name_map = dict(zip(user_ids, names, strict=False))
+    return [
+        (
+            f"[{t.strftime('%Y-%m-%d %H:%M')}] {name_map[uid]}({uid}) [self]: {text}"
+            if is_self
+            else f"[{t.strftime('%Y-%m-%d %H:%M')}] {name_map[uid]}({uid}): {text}"
+        )
+        for t, uid, text, is_self in entries
+    ]
 
 
 _ESCAPE_TABLE = str.maketrans({"<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;"})

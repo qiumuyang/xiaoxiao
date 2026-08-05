@@ -236,7 +236,7 @@ def _fake_find_all(items, calls=None):
 @pytest.mark.asyncio
 async def test_build_context_format(monkeypatch):
     bot = _fake_bot()
-    monkeypatch.setattr("src.plugins.language.rerank_reply.get_bot", lambda: bot)
+    monkeypatch.setattr("nonebot.get_bot", lambda: bot)
     monkeypatch.setattr(
         RMT.received,
         "find_all",
@@ -255,7 +255,7 @@ async def test_build_context_format(monkeypatch):
 @pytest.mark.asyncio
 async def test_build_context_skips_empty_text(monkeypatch):
     bot = _fake_bot()
-    monkeypatch.setattr("src.plugins.language.rerank_reply.get_bot", lambda: bot)
+    monkeypatch.setattr("nonebot.get_bot", lambda: bot)
     empty = RMD(
         time=datetime.now(),
         user_id=1,
@@ -277,7 +277,7 @@ async def test_build_context_member_name_fallback(monkeypatch):
         raise RuntimeError("member not found")
 
     bot.get_group_member_info = _fail_info
-    monkeypatch.setattr("src.plugins.language.rerank_reply.get_bot", lambda: bot)
+    monkeypatch.setattr("nonebot.get_bot", lambda: bot)
     monkeypatch.setattr(
         RMT.received, "find_all", _fake_find_all([_recv_msg("hi", user_id=42)])
     )
@@ -289,7 +289,7 @@ async def test_build_context_member_name_fallback(monkeypatch):
 @pytest.mark.asyncio
 async def test_build_context_truncates_to_context_n(monkeypatch):
     bot = _fake_bot()
-    monkeypatch.setattr("src.plugins.language.rerank_reply.get_bot", lambda: bot)
+    monkeypatch.setattr("nonebot.get_bot", lambda: bot)
     recv_msgs = [_recv_msg(f"msg-{i}", user_id=i) for i in range(CONTEXT_N + 5)]
     recv_calls = []
     monkeypatch.setattr(RMT.received, "find_all", _fake_find_all(recv_msgs, recv_calls))
@@ -304,7 +304,7 @@ async def test_build_context_truncates_to_context_n(monkeypatch):
 @pytest.mark.asyncio
 async def test_build_context_interleaves_recv_sent_by_time(monkeypatch):
     bot = _fake_bot()
-    monkeypatch.setattr("src.plugins.language.rerank_reply.get_bot", lambda: bot)
+    monkeypatch.setattr("nonebot.get_bot", lambda: bot)
     base = datetime(2026, 8, 2, 10, 0, 0)
     recv1 = RMD(
         time=base,

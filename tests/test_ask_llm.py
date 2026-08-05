@@ -420,6 +420,54 @@ async def test_preprocessor_generation_flow(monkeypatch):
     assert "因为光散射，所以天会黑" in result
 
 
+@pytest.mark.asyncio
+async def test_preprocessor_context_appended_to_user(monkeypatch):
+    """群上下文追加进 user prompt：generate 模式收到 <context> 块。"""
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt",
+        lambda: "你是鸮鸮，{__points__}",
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.build_context",
+        AsyncMock(return_value=["[2026-08-05 20:00] 张三(1): 今天股市大涨"]),
+    )
+    replace = AsyncMock(return_value=LlmCallResult(value=["光散射"]))
+    monkeypatch.setattr("src.plugins.language.ask_llm.ask_llm_replace", replace)
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
+    )
+    result = await pre.try_preprocess("为什么天会黑", {}, ["A", "B"], group_id=100)
+    assert result is not None
+    replace.assert_awaited_once()
+    _, user = replace.await_args.args
+    assert "<context>" in user
+    assert "股市大涨" in user
+    assert "张三(1)" in user
+
+
+@pytest.mark.asyncio
+async def test_preprocessor_context_empty_skips_block(monkeypatch):
+    """无上下文时不追加 <context> 块，prompt 与原来一致。"""
+    pre = AskLlmPreprocessor()
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_prompt",
+        lambda: "你是鸮鸮，{__points__}",
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm.build_context", AsyncMock(return_value=[])
+    )
+    replace = AsyncMock(return_value=LlmCallResult(value=["光散射"]))
+    monkeypatch.setattr("src.plugins.language.ask_llm.ask_llm_replace", replace)
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._pick_mode", lambda prob: "generate"
+    )
+    result = await pre.try_preprocess("为什么天会黑", {}, ["A", "B"], group_id=100)
+    assert result is not None
+    _, user = replace.await_args.args
+    assert "<context>" not in user
+
+
 def test_shared_budget_single_instance():
     """rerank 与 ask_llm 必须共用同一预算实例（防额度翻倍、Mongo 互相覆盖）。"""
     from src.plugins.language.ask_llm import _budget as ask_budget

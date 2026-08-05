@@ -5,8 +5,7 @@
 prompt 模板放本地文件（data/prompts/rerank_reply.txt），不进 git。
 """
 
-import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 from nonebot import get_bot
@@ -14,21 +13,21 @@ from nonebot.adapters.onebot.v11 import Message
 from pydantic import BaseModel
 
 from src.ext.llm import PricingRegistry
-from src.ext.utils import get_group_member_name
 from src.utils.log import logger_wrapper
-from src.utils.message.receive import ReceivedMessageTracker as RMT
-from src.utils.message.send import SentMessageTracker as SMT
 from src.utils.persistence.mongo import Collection, Mongo
 
 from .corpus import Corpus
 from .keywords import Keyword
 from .llm_util import (
+    CONTEXT_N,
     DAILY_BUDGET_YUAN,
     MODEL,
     LlmCallResult,
+    build_context,
     invoke_structured,
     make_prompt_loader,
     try_consume_budget,
+    wrap_context,
     wrap_tag,
     xml_escape,
 )
@@ -44,11 +43,9 @@ PROMPT_VERSION = "v2"
 ESTIMATED_FEN = PricingRegistry.get(MODEL).cost(1500, 100)
 
 K = 10
-CONTEXT_N = 20
 # rerank 专用宽松召回：低相似度阈值 + 更大样本，由 LLM 精排（随机选仍用 KW_SIM_THRESHOLD）
 RERANK_CORPUS_SAMPLES = 256
 RERANK_SIM_THRESHOLD = 0.2
-CONTEXT_WINDOW = timedelta(hours=24)
 
 _load_prompt = make_prompt_loader(PROMPT_PATH)
 
@@ -93,17 +90,10 @@ def build_user_prompt(
 ) -> str:
     """构造 user 提示：群名（可选）+ 最近群聊（tag 包裹）+ 候选语料（tag 包裹）。"""
     head = f"<group>{xml_escape(group_name)}</group>\n" if group_name else ""
-    ctx_lines = "\n".join(
-        wrap_tag("msg", line, index=i)
-        for i, line in enumerate(context[-max(context_n, 1) :])
-    )
     cand_lines = "\n".join(
         wrap_tag("candidate", c, index=i) for i, c in enumerate(candidates[:k], 1)
     )
-    return (
-        f"{head}<context>\n{ctx_lines}\n</context>\n"
-        f"<candidates>\n{cand_lines}\n</candidates>"
-    )
+    return f"{head}{wrap_context(context, context_n=context_n)}\n<candidates>\n{cand_lines}\n</candidates>"
 
 
 def build_prompt(
@@ -131,69 +121,6 @@ def parse_ranks(ranks: list[int], *, k: int) -> int | None:
     if sorted(ranks) != list(range(1, k + 1)):
         return None
     return ranks[0]
-
-
-async def _safe_member_name(bot, group_id: int, user_id: int) -> str:
-    try:
-        return await get_group_member_name(group_id=group_id, user_id=user_id, bot=bot)
-    except Exception:
-        logger.debug(
-            f"Failed to resolve member name for group {group_id} user {user_id}"
-        )
-        return str(user_id)
-
-
-async def build_context(group_id: int) -> list[str]:
-    """最近 CONTEXT_N 条收/发消息，行格式 [YYYY-MM-DD HH:MM] 昵称(user_id)[: [self]]: 内容。
-
-    bot 自己的发言带 [self] 标记，供 LLM 识别（复读/随机语料/指令应答）。
-    """
-    since = datetime.now() - CONTEXT_WINDOW
-    filter = {"group_id": group_id, "time": {"$gte": since}}
-    recv = [
-        m
-        async for m in RMT.received.find_all(
-            filter, sort=[("time", -1)], limit=CONTEXT_N * 2
-        )
-    ]
-    sent = [
-        m
-        async for m in SMT.sent.find_all(
-            {
-                "session_id": {"$regex": f"^group_{group_id}_"},
-                "time": {"$gte": since},
-                "recalled": False,
-            },
-            sort=[("time", -1)],
-            limit=CONTEXT_N * 2,
-        )
-    ]
-    bot = get_bot()
-    self_id = int(bot.self_id)
-    entries: list[tuple[datetime, int, str, bool]] = []
-    for m in recv:
-        if text := m.content.extract_plain_text().strip():
-            entries.append((m.time, m.user_id, text, False))
-    for m in sent:
-        if text := m.content.extract_plain_text().strip():
-            entries.append((m.time, self_id, text, True))
-    entries.sort(key=lambda x: x[0])
-    entries = entries[-CONTEXT_N:]
-    if not entries:
-        return []
-    user_ids = {uid for _, uid, _, _ in entries}
-    names = await asyncio.gather(
-        *(_safe_member_name(bot, group_id, uid) for uid in user_ids)
-    )
-    name_map = dict(zip(user_ids, names, strict=False))
-    return [
-        (
-            f"[{t.strftime('%Y-%m-%d %H:%M')}] {name_map[uid]}({uid}) [self]: {text}"
-            if is_self
-            else f"[{t.strftime('%Y-%m-%d %H:%M')}] {name_map[uid]}({uid}): {text}"
-        )
-        for t, uid, text, is_self in entries
-    ]
 
 
 async def retrieve_rerank_candidates(
