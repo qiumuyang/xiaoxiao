@@ -34,6 +34,7 @@ from src.utils.persistence.mongo import Collection, Mongo
 logger = logger_wrapper(__name__)
 
 PROMPT_PATH = Path("data/prompts/ask_llm.txt")
+RANK_PROMPT_PATH = Path("data/prompts/ask_llm_rank.txt")
 PROMPT_VERSION = "v1"
 K = 10  # 候选数上限（加权采样模式用）
 
@@ -56,6 +57,7 @@ ask_llm_logs: Collection[dict, AskLlmLog] = Mongo.collection(
 ).auto_serialize(AskLlmLog)
 
 _load_prompt = make_prompt_loader(PROMPT_PATH)
+_load_rank_prompt = make_prompt_loader(RANK_PROMPT_PATH)
 
 # slot 标记：\x00{index}\x00，_encode_template 生成，_fill_slots/build_replacement_prompt 消费
 _SLOT_RE = re.compile(r"\x00(\d+)\x00")
@@ -383,15 +385,16 @@ class AskLlmPreprocessor:
             # 候选已就绪再 consume：gate 失败不浪费预算，降级随机
             if not await try_consume_budget(_budget, ESTIMATED_FEN):
                 return LlmCallResult(error="budget exhausted")
-            cand_user = (
-                user
-                + "\n候选语料：\n"
-                + "\n".join(
-                    wrap_tag("candidate", c, index=i)
-                    for i, c in enumerate(candidates, 1)
-                )
+            # 排序任务用专用 prompt（生成模板不含排序说明，LLM 会乱输出排列）
+            rank_system = _load_rank_prompt()
+            if rank_system is None:
+                logger.warning("Ask llm rank prompt 模板缺失")
+                return LlmCallResult(error="rank prompt 模板缺失")
+            rank_system = rank_system.replace("{K}", str(len(candidates)))
+            rank_user = (wrap_context(context) + "\n" if context else "") + "\n".join(
+                wrap_tag("candidate", c, index=i) for i, c in enumerate(candidates, 1)
             )
-            selected = await weighted_select(system, cand_user, candidates)
+            selected = await weighted_select(rank_system, rank_user, candidates)
             llm_raw = selected.raw
             if selected.value is None:
                 return selected  # 透传失败原因（排序/预算等）

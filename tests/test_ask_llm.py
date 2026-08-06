@@ -623,21 +623,29 @@ async def test_preprocessor_weighted_success(monkeypatch):
         "src.plugins.language.ask_llm._load_prompt", lambda: "模板{__points__}"
     )
     monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_rank_prompt",
+        lambda: "你是鸮鸮，输出 {ranks: [{K}个序号]}",
+    )
+    monkeypatch.setattr(
         "src.plugins.language.ask_llm._pick_mode", lambda prob: "weighted"
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm.retrieve_candidates",
         AsyncMock(return_value=["候选甲"]),
     )
-    monkeypatch.setattr(
-        "src.plugins.language.ask_llm.weighted_select",
-        AsyncMock(return_value=LlmCallResult(value="披萨")),
-    )
+    wsel = AsyncMock(return_value=LlmCallResult(value="披萨"))
+    monkeypatch.setattr("src.plugins.language.ask_llm.weighted_select", wsel)
     replace = AsyncMock(return_value=["光散射"])
     monkeypatch.setattr("src.plugins.language.ask_llm.ask_llm_replace", replace)
     result = await pre.try_preprocess("吃什么", {}, ["A"], group_id=100)
     assert result == "吃披萨"
     replace.assert_not_awaited()
+    # weighted 走 rank prompt：{K} 已按候选数替换，user 是候选语料而非生成模板
+    wsel.assert_awaited_once()
+    rank_system, rank_user, _ = wsel.await_args.args
+    assert "输出 {ranks: [1个序号]}" in rank_system
+    assert "<candidate" in rank_user
+    assert "<replacement" not in rank_user
 
 
 @pytest.mark.asyncio
@@ -646,6 +654,10 @@ async def test_preprocessor_weighted_fail_degrades_to_random(monkeypatch):
     pre = AskLlmPreprocessor()
     monkeypatch.setattr(
         "src.plugins.language.ask_llm._load_prompt", lambda: "模板{__points__}"
+    )
+    monkeypatch.setattr(
+        "src.plugins.language.ask_llm._load_rank_prompt",
+        lambda: "你是鸮鸮，输出 {ranks: [{K}个序号]}",
     )
     monkeypatch.setattr(
         "src.plugins.language.ask_llm._pick_mode", lambda prob: "weighted"
